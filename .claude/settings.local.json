@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"shouldStop\\\\|buildQuestionBankIndex\\\\|getQuestionFromBank\\\\|evaluateClosedQuestion\\\\|computeReadinessScore\\\\|verdictToBoolean\\\\|colorForStatus\\\\|buildLessonPlan\" /f/devbyaaryan/buildfastwithai/codeyoung/diagnostic-app --include=\"*.ts\" --include=\"*.tsx\" ! -path \"*/.next/*\" ! -path \"*/node_modules/*\")",
+      "Bash(awk '{print $3}')",
+      "Bash(python3 -c ' *)",
+      "Bash(npx tsc *)",
+      "Bash(awk 'NR>=596 && NR<=605' \"F:/devbyaaryan/buildfastwithai/codeyoung/diagnostic-app/components/diagnostic-demo.tsx\")"
+    ]
+  }
+}

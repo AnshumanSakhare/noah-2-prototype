@@ -12,6 +12,7 @@ import { DIAGNOSTIC_CONTENT_DEFAULTS } from "@/lib/diagnostic-content-defaults"
 import type {
   BloomLevel,
   ClassLevel,
+  DifficultyBand,
   DragDropQuestionPayload,
   FitbQuestionPayload,
   MatchingQuestionPayload,
@@ -66,8 +67,6 @@ type QuizContentStore = {
   questions: QuestionBankQuestion[]
 }
 
-type DifficultyBand = "easy" | "medium" | "hard"
-
 const CONTENT_CSV_DIRECTORY = path.join(process.cwd(), "csv")
 const DEFAULT_SUBJECT = DIAGNOSTIC_CONTENT_DEFAULTS.subject
 const DEFAULT_CLASS_LEVEL = DIAGNOSTIC_CONTENT_DEFAULTS.classLevel
@@ -76,6 +75,18 @@ const QUESTION_TARGETS: Record<DifficultyBand, number> = {
   easy: 5,
   medium: 5,
   hard: 5,
+}
+
+const GRADE_TEST_TARGETS: Record<ClassLevel, Record<DifficultyBand, number>> = {
+  classKG: { easy: 3, medium: 5, hard: 7  },
+  class1:  { easy: 3, medium: 5, hard: 7  },
+  class2:  { easy: 4, medium: 6, hard: 8  },
+  class3:  { easy: 4, medium: 7, hard: 9  },
+  class4:  { easy: 5, medium: 7, hard: 10 },
+  class5:  { easy: 6, medium: 8, hard: 11 },
+  class6:  { easy: 6, medium: 8, hard: 11 },
+  class7:  { easy: 7, medium: 10, hard: 13 },
+  class8:  { easy: 7, medium: 10, hard: 13 },
 }
 
 declare global {
@@ -144,6 +155,8 @@ function buildTopicKey(subject: string, classLevel: ClassLevel, topic: string) {
 }
 
 function toClassLevel(grade: number): ClassLevel {
+  if (grade === 4) return "class4"
+  if (grade === 5) return "class5"
   if (grade <= 6) return "class6"
   if (grade === 7) return "class7"
   return "class8"
@@ -272,11 +285,22 @@ function normalizeCsvRow(row: RawCsvRow): CsvRow {
 
 async function resolveContentCsvPaths() {
   await access(CONTENT_CSV_DIRECTORY)
-  const entries = await readdir(CONTENT_CSV_DIRECTORY, { withFileTypes: true })
-  return entries
-    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".csv"))
-    .map((entry) => path.join(CONTENT_CSV_DIRECTORY, entry.name))
-    .sort((left, right) => left.localeCompare(right))
+  const csvPaths: string[] = []
+
+  async function scanDir(dir: string) {
+    const entries = await readdir(dir, { withFileTypes: true })
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        await scanDir(fullPath)
+      } else if (entry.isFile() && entry.name.toLowerCase().endsWith(".csv")) {
+        csvPaths.push(fullPath)
+      }
+    }
+  }
+
+  await scanDir(CONTENT_CSV_DIRECTORY)
+  return csvPaths.sort((a, b) => a.localeCompare(b))
 }
 
 function buildQuestion(row: CsvRow): QuestionBankQuestion {
@@ -614,6 +638,66 @@ function selectQuestionsAcrossLearningObjectives(
   }
 }
 
+function buildBandQueuesByTopic(questions: QuestionBankQuestion[]) {
+  const grouped = new Map<DifficultyBand, Map<string, QuestionBankQuestion[]>>([
+    ["easy", new Map()],
+    ["medium", new Map()],
+    ["hard", new Map()],
+  ])
+
+  const sorted = [...questions].sort(
+    (a, b) =>
+      a.topic.localeCompare(b.topic) ||
+      (a.learningObjective ?? "").localeCompare(b.learningObjective ?? ""),
+  )
+
+  for (const q of sorted) {
+    const band = normalizeDifficultyBand(q.difficultyLevel)
+    const topic = q.topic || "Untitled"
+    const topicMap = grouped.get(band)!
+    topicMap.set(topic, [...(topicMap.get(topic) ?? []), q])
+  }
+
+  return grouped
+}
+
+function selectQuestionsForGradeTest(
+  questions: QuestionBankQuestion[],
+  classLevel: ClassLevel,
+) {
+  const targets = GRADE_TEST_TARGETS[classLevel]
+  const grouped = buildBandQueuesByTopic(questions)
+  const selected: QuestionBankQuestion[] = []
+  const warnings: string[] = []
+
+  for (const band of ["easy", "medium", "hard"] as const) {
+    const picked = takeRoundRobin(grouped.get(band) ?? new Map(), targets[band])
+    selected.push(...picked)
+    if (picked.length < targets[band]) {
+      warnings.push(
+        `Requested ${targets[band]} ${band} questions but only found ${picked.length}.`,
+      )
+    }
+  }
+
+  const total = targets.easy + targets.medium + targets.hard
+  while (selected.length < total) {
+    const donor = (["easy", "medium", "hard"] as const)
+      .map((b) => ({ b, n: countRemainingQuestions(grouped, b) }))
+      .sort((a, z) => z.n - a.n)[0]
+    if (!donor || donor.n === 0) break
+    const extra = takeRoundRobin(grouped.get(donor.b) ?? new Map(), 1)
+    if (!extra.length) break
+    selected.push(...extra)
+  }
+
+  if (selected.length < total) {
+    warnings.push(`Only ${selected.length} of ${total} grade test questions available.`)
+  }
+
+  return { questions: selected, coverageWarnings: warnings.length ? warnings : undefined }
+}
+
 function sanitizePayload(
   question: QuestionBankQuestion,
 ): DemoQuizQuestion["payload"] {
@@ -737,11 +821,45 @@ export async function getTopicQuizForClient(input: {
 
   return {
     studentId: input.studentId,
+    testMode: "topic" as const,
     subject: quiz.subject,
     classLevel: quiz.classLevel,
     topic: quiz.topic,
     expectedLearningObjectives: quiz.expectedLearningObjectives,
     maxQuestions: quiz.questions.length,
     questions: quiz.questions.map(toClientQuizQuestion),
+  }
+}
+
+export async function getGradeQuizForClient(input: {
+  studentId: string
+  subject: Subject
+  classLevel: ClassLevel
+}) {
+  const store = await getStore()
+  const gradeQuestions = store.questions.filter((q) => q.classLevel === input.classLevel)
+  const { questions, coverageWarnings } = selectQuestionsForGradeTest(gradeQuestions, input.classLevel)
+
+  if (coverageWarnings?.length) {
+    console.warn(
+      `[diagnostic] Grade test coverage for ${input.classLevel}: ${coverageWarnings.join(" ")}`,
+    )
+  }
+
+  const targets = GRADE_TEST_TARGETS[input.classLevel]
+  const topicsInGrade = Array.from(new Set(gradeQuestions.map((q) => q.topic).filter(Boolean))).sort()
+
+  return {
+    studentId: input.studentId,
+    testMode: "grade" as const,
+    subject: input.subject,
+    classLevel: input.classLevel,
+    topic: null,
+    expectedLearningObjectives: [] as string[],
+    topicsInGrade,
+    maxQuestions: questions.length,
+    gradeTargets: targets,
+    questions: questions.map(toClientQuizQuestion),
+    coverageWarnings,
   }
 }

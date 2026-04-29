@@ -1,5 +1,15 @@
 export type Subject = "Maths" | "Science" | "English" | "Social Studies"
-export type ClassLevel = "class6" | "class7" | "class8"
+export type ClassLevel =
+  | "classKG"
+  | "class1"
+  | "class2"
+  | "class3"
+  | "class4"
+  | "class5"
+  | "class6"
+  | "class7"
+  | "class8"
+export type TestMode = "topic" | "grade"
 
 export type BloomLevel = "remember" | "understand" | "apply"
 export type ReachedBloomLevel = BloomLevel | "not_attempted"
@@ -312,7 +322,7 @@ export interface DiagnosticConfig {
 
 export interface DiagnosticReport {
   studentId: string
-  mode: "topic"
+  mode: "topic" | "grade"
   subject: Subject
   classLevel: ClassLevel
   topic: string

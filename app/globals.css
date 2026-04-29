@@ -578,3 +578,8 @@
 }
 
 /* App layout handled by shadcn/ui Sidebar */
+
+@keyframes interstitialPop {
+  0% { transform: translateY(24px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}

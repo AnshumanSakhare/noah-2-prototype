@@ -922,9 +922,6 @@ function formatStudentName(studentId: string) {
   return normalized.length > 0 ? normalized : "The student"
 }
 
-function formatPossessiveName(studentName: string) {
-  return studentName.endsWith("s") ? `${studentName}'` : `${studentName}'s`
-}
 
 function stripStudentsCanPrefix(learningObjective: string) {
   return learningObjective.replace(/^Students can\s+/i, "").trim()

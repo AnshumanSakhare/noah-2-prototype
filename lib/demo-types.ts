@@ -3,6 +3,7 @@ import type {
   DiagnosticReport,
   QuestionBankQuestion,
   Subject,
+  TestMode,
 } from "../agents/diagnostic/types/index"
 
 export interface DemoQuizCatalogEntry {
@@ -19,6 +20,7 @@ export interface DemoQuizCatalog {
 
 export interface CreateSessionInput {
   studentId: string
+  testMode: TestMode
   subject: Subject
   classLevel: ClassLevel
   topic: string
@@ -39,11 +41,14 @@ export type DemoQuizQuestion = Omit<
 
 export interface DemoLoadedQuiz {
   studentId: string
+  testMode: TestMode
   subject: Subject
   classLevel: ClassLevel
-  topic: string
+  topic: string | null
   expectedLearningObjectives: string[]
+  topicsInGrade?: string[]
   maxQuestions: number
+  gradeTargets?: Record<string, number>
   questions: DemoQuizQuestion[]
 }
 

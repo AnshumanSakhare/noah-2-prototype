@@ -2,9 +2,9 @@
 
 import {
   AlertCircle,
+  Calculator,
   ChevronLeft,
   ChevronRight,
-  Clock,
   FlaskConical,
   Rocket,
   RotateCcw,
@@ -61,7 +61,7 @@ const AMBIENT_BG = `
 const DIFFICULTY_BASE_POINTS: Record<string, number> = {
   easy: 2,
   medium: 3,
-  hard: 5,
+  hard: 4,
 };
 
 const DIFFICULTY_TIME_LIMITS_MS: Record<string, number> = {
@@ -72,11 +72,48 @@ const DIFFICULTY_TIME_LIMITS_MS: Record<string, number> = {
 
 const RAPID_RESPONSE_THRESHOLD_MS = 2_000;
 
+const INTERSTITIALS = [
+  {
+    icon: "✨",
+    title: "Great work! Keep going!",
+    subtitle: "You are doing brilliantly. Stay focused on the next one.",
+  },
+  {
+    icon: "🔥",
+    title: "You are on fire!",
+    subtitle: "Halfway there. Take a deep breath and let us keep going.",
+  },
+  {
+    icon: "🏆",
+    title: "Almost done!",
+    subtitle: "Just a few more to go. You have got this!",
+  },
+] as const;
+
+const GRADE_TEST_COUNTS: Record<string, { easy: number; medium: number; hard: number }> = {
+  classKG: { easy: 3, medium: 5, hard: 7 },
+  class1:  { easy: 3, medium: 5, hard: 7 },
+  class2:  { easy: 4, medium: 6, hard: 8 },
+  class3:  { easy: 4, medium: 7, hard: 9 },
+  class4:  { easy: 5, medium: 7, hard: 10 },
+  class5:  { easy: 6, medium: 8, hard: 11 },
+  class6:  { easy: 6, medium: 8, hard: 11 },
+  class7:  { easy: 7, medium: 10, hard: 13 },
+  class8:  { easy: 7, medium: 10, hard: 13 },
+};
+
 // Utility functions
 function classLabel(value: string) {
-  if (value === "class8") return "Grade 7";
-  if (value === "class7") return "Grade 6";
-  return "Grade 5";
+  if (value === "classKG") return "KG";
+  if (value === "class1") return "Grade 1";
+  if (value === "class2") return "Grade 2";
+  if (value === "class3") return "Grade 3";
+  if (value === "class4") return "Grade 4";
+  if (value === "class5") return "Grade 5";
+  if (value === "class6") return "Grade 6";
+  if (value === "class7") return "Grade 7";
+  if (value === "class8") return "Grade 8";
+  return value;
 }
 
 function toErrorMessage(error: unknown) {
@@ -100,6 +137,7 @@ function buildDefaultForm(
   return entry
     ? {
         studentId: "Riya Sharma",
+        testMode: "topic",
         subject: entry.subject,
         classLevel: entry.classLevel,
         topic: entry.topic,
@@ -107,6 +145,7 @@ function buildDefaultForm(
       }
     : {
         studentId: "Riya Sharma",
+        testMode: "topic",
         subject: DIAGNOSTIC_CONTENT_DEFAULTS.subject,
         classLevel: DIAGNOSTIC_CONTENT_DEFAULTS.classLevel,
         topic: "",
@@ -561,11 +600,8 @@ function ReportView({
   report: DiagnosticReport;
   onReset: () => void;
 }) {
-  const [showMethodology, setShowMethodology] = useState(false);
   const [countScore, setCountScore] = useState(0);
   const [countPct, setCountPct] = useState(0);
-  const [rocketBottom, setRocketBottom] = useState(0);
-  const [showParticles, setShowParticles] = useState(false);
 
   const score = report.overallReadinessScore ?? report.readinessScore ?? 0;
   const roundedScore = Math.round(score);
@@ -614,66 +650,65 @@ function ReportView({
   const totalPenaltyPoints = totalBasePoints - totalFinalPoints;
 
   useEffect(() => {
-    setShowParticles(true);
     const timer = setTimeout(() => {
       const targetScore = Math.round(totalFinalPoints);
       const targetPct = roundedScore;
-
-      const duration = 1400;
+      const duration = 1200;
       const startTime = performance.now();
-
       const animate = (now: number) => {
         const progress = Math.min((now - startTime) / duration, 1);
         const eased = 1 - Math.pow(1 - progress, 3);
         setCountScore(Math.round(eased * targetScore));
         setCountPct(Math.round(eased * targetPct));
-        setRocketBottom(eased * targetPct);
         if (progress < 1) requestAnimationFrame(animate);
       };
       requestAnimationFrame(animate);
-    }, 500);
+    }, 250);
     return () => clearTimeout(timer);
   }, [totalFinalPoints, roundedScore]);
 
   const getHeroContent = (pct: number) => {
     if (pct >= 90)
       return {
-        emoji: "🏆",
-        greeting: `Outstanding work, ${firstName}!`,
-        subtitle:
-          "You've absolutely crushed this diagnostic — your understanding is rock-solid. Keep up this incredible momentum!",
-        altitude: "🌌 Stratosphere reached!",
+        face: "🐰",
+        badge: "🏆",
+        title: `Top of the mountain, ${firstName}!`,
+        line: "You aced almost every peak today. Keep this streak going on the next test.",
+        tier: "Outstanding",
+        tierColor: "#1e7e34",
       };
     if (pct >= 70)
       return {
-        emoji: "🌟",
-        greeting: `Great job, ${firstName}!`,
-        subtitle:
-          "You've got a strong grip on most concepts. A little more focus on the tricky ones and you'll be unstoppable!",
-        altitude: "☁️ Cruising through the clouds",
+        face: "🐰",
+        badge: "⛰️",
+        title: `Nice climb, ${firstName}!`,
+        line: "Strong grip on most concepts. One more push on the tricky ones and you're at the summit.",
+        tier: "Great effort",
+        tierColor: "#1e7e34",
       };
     if (pct >= 50)
       return {
-        emoji: "💪",
-        greeting: `Nice effort, ${firstName}!`,
-        subtitle:
-          "You're building a solid foundation. Let's work on the areas where you stumbled — you're closer than you think!",
-        altitude: "🛫 Gaining altitude",
+        face: "🐰",
+        badge: "🥾",
+        title: `Solid climb, ${firstName}!`,
+        line: "You're halfway up. Let's revisit the trickier topics and try them again.",
+        tier: "Solid climb",
+        tierColor: "#b8860b",
       };
     return {
-      emoji: "🧪",
-      greeting: `Keep going, ${firstName}!`,
-      subtitle:
-        "Every scientist starts somewhere. Review the concepts below and give it another shot — you've got this!",
-      altitude: "🔧 Pre-flight check — preparing for takeoff",
+      face: "🐰",
+      badge: "🧗",
+      title: `Keep climbing, ${firstName}!`,
+      line: "Every climber starts at base camp. Review the concepts below and give it another shot.",
+      tier: "Building up",
+      tierColor: "#b85a4a",
     };
   };
 
   const hero = getHeroContent(roundedScore);
   const accentColor =
     roundedScore >= 70 ? "#2ecc87" : roundedScore >= 50 ? "#3a5ccc" : "#f46853";
-  const pctColor =
-    roundedScore >= 70 ? "#2ecc87" : roundedScore >= 50 ? "#3a5ccc" : "#f46853";
+  const pctColor = accentColor;
   const pctBg =
     roundedScore >= 70
       ? "rgba(46,204,135,0.1)"
@@ -681,39 +716,27 @@ function ReportView({
         ? "rgba(58,92,204,0.08)"
         : "rgba(244,104,83,0.08)";
 
+  const masteredCount = learningObjectives.filter((lo) => lo.score >= 80).length;
+  const developingCount = learningObjectives.filter(
+    (lo) => lo.score >= 50 && lo.score < 80,
+  ).length;
+  const needsWorkLOs = learningObjectives.filter((lo) => lo.score < 50);
+  const testModeLabel = report.mode === "grade" ? "Grade Test" : "Topic Test";
+  const today = new Date().toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+
   return (
-    <div className="dash font-sans text-[#1a1a2e] pb-20 max-w-[1480px] mx-auto px-6 flex flex-col gap-[18px]">
+    <div className="dash font-sans text-[#1a1a2e] pb-20 max-w-[720px] mx-auto px-6 flex flex-col gap-[14px]">
       <style
         dangerouslySetInnerHTML={{
           __html: `
         @keyframes cardUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes bounceIn { 0% { transform: scale(0) rotate(-10deg); } 50% { transform: scale(1.25) rotate(5deg); } 100% { transform: scale(1) rotate(0deg); } }
-        @keyframes exhaustFade { 0% { transform: translateY(0) scale(1); opacity: 0.8; } 100% { transform: translateY(40px) scale(0.1); opacity: 0; } }
-        @keyframes starTwinkle { 0% { opacity: 0; transform: scale(0); } 50% { opacity: 1; transform: scale(1.3); } 100% { opacity: 0.6; transform: scale(1); } }
-        @keyframes floatUp { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 10% { opacity: 0.35; } 90% { opacity: 0.35; } 100% { transform: translateY(-10vh) scale(1); opacity: 0; } }
-        
+        @keyframes bounceIn { 0% { transform: scale(0) rotate(-10deg); } 50% { transform: scale(1.15) rotate(5deg); } 100% { transform: scale(1) rotate(0deg); } }
+
         .dash-card { background: white; border: 1px solid rgba(26,26,46,0.06); border-radius: 18px; box-shadow: 0 2px 20px rgba(26,26,46,0.05); overflow: hidden; animation: cardUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
-        .result-hero { padding: 44px 36px 40px; text-align: center; position: relative; overflow: hidden; background: white; border: 1px solid rgba(26,26,46,0.06); border-radius: 18px; box-shadow: 0 2px 20px rgba(26,26,46,0.05); animation: cardUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
-        .result-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 0%, rgba(58,92,204,0.05), transparent 70%); }
-        .result-emoji { font-size: 3.6rem; margin-bottom: 8px; display: block; animation: bounceIn 0.6s 0.2s both; }
-        .result-greeting { font-family: var(--font-bricolage); font-size: 1.5rem; font-weight: 800; margin-bottom: 4px; position: relative; }
-        .result-title { font-family: var(--font-bricolage); font-size: 1.05rem; font-weight: 600; color: #5a5a72; margin-bottom: 24px; position: relative; line-height: 1.5; max-width: 600px; margin-left: auto; margin-right: auto; }
-        
-        .rocket-score { display: flex; align-items: center; justify-content: center; gap: 44px; position: relative; margin-bottom: 20px; }
-        .rocket-launchpad { position: relative; width: 120px; height: 240px; flex-shrink: 0; }
-        .rocket-track { position: absolute; left: 50%; top: 20px; bottom: 20px; width: 3px; margin-left: -1.5px; background: #f0eee9; border-radius: 3px; }
-        .rocket-track-fill { position: absolute; bottom: 0; left: 0; width: 100%; border-radius: 3px; transition: height 1.8s cubic-bezier(0.22,1,0.36,1); }
-        .rocket-marker { position: absolute; left: -16px; width: 35px; height: 1px; background: rgba(26,26,46,0.06); }
-        .rocket-marker-label { position: absolute; left: -38px; top: -7px; font-family: var(--font-mono); font-size: 0.55rem; color: #9a9ab0; font-weight: 700; }
-        .rocket-ship { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%) translateY(10px); transition: bottom 1.8s cubic-bezier(0.22,1,0.36,1); z-index: 3; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.12)); }
-        
-        .kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-        .kpi { background: white; border: 1px solid rgba(26,26,46,0.06); border-radius: 18px; padding: 18px 20px; box-shadow: 0 2px 20px rgba(26,26,46,0.05); position: relative; overflow: hidden; animation: cardUp 0.5s cubic-bezier(0.22,1,0.36,1) both; transition: transform 0.2s, box-shadow 0.2s; }
-        .kpi:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(26,26,46,0.09); }
-        .kpi-val { font-family: var(--font-bricolage); font-weight: 800; font-size: 1.7rem; letter-spacing: -0.02em; line-height: 1; }
-        .kpi-label { font-size: 0.75rem; color: #5a5a72; margin-top: 4px; font-weight: 500; }
-        .kpi-detail { font-size: 0.7rem; color: #9a9ab0; margin-top: 6px; font-weight: 500; line-height: 1.5; }
-        
+
         .lo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
         .lo-card { background: white; border: 1px solid rgba(26,26,46,0.06); border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 20px rgba(26,26,46,0.05); animation: cardUp 0.5s both; transition: transform 0.2s, box-shadow 0.2s; }
         .lo-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(26,26,46,0.08); }
@@ -721,235 +744,92 @@ function ReportView({
         .lo-status-badge.mastered { background: rgba(46,204,135,0.1); color: #2ecc87; }
         .lo-status-badge.developing { background: rgba(255,197,61,0.12); color: #b8860b; }
         .lo-status-badge.needs-work { background: rgba(244,104,83,0.08); color: #f46853; }
-        
-        .student-table { width: 100%; border-collapse: separate; border-spacing: 0 5px; font-size: 0.88rem; }
-        .student-table th { text-align: left; font-size: 0.72rem; font-weight: 700; color: #9a9ab0; text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 12px; cursor: default; user-select: none; }
-        .student-table td { padding: 11px 12px; background: #f5f3f0; border: none; vertical-align: middle; }
-        .student-table tr td:first-child { border-radius: 10px 0 0 10px; }
-        .student-table tr td:last-child { border-radius: 0 10px 10px 0; }
-        .student-table tbody tr { transition: transform 0.15s; }
-        .student-table tbody tr:hover { transform: scale(1.005); }
-        .student-table tbody tr:hover td { background: rgba(58,92,204,0.04); }
-        
-        .q-num-cell { font-family: var(--font-mono); font-weight: 700; font-size: 0.82rem; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; background: white; }
-        .diff-badge { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 12px; border-radius: 14px; white-space: nowrap; }
-        .diff-badge.easy { background: rgba(46,204,135,0.1); color: #2ecc87; }
-        .diff-badge.medium { background: rgba(255,197,61,0.12); color: #b8860b; }
-        .diff-badge.hard { background: rgba(244,104,83,0.08); color: #f46853; }
-        
-        .particle { position: absolute; border-radius: 50%; animation: floatUp linear infinite; opacity: 0; pointer-events: none; }
-        
-        @media(max-width: 900px) { .kpi-strip { grid-template-columns: repeat(2, 1fr); } }
-        @media(max-width: 700px) { .rocket-score { flex-direction: column; gap: 16px; } .kpi-strip { grid-template-columns: 1fr 1fr; } }
+
+        .mascot-circle { width:88px; height:88px; flex-shrink:0; border-radius:50%; background: linear-gradient(145deg,#ffd166 0%,#ffb347 100%); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(255,160,60,0.35); position:relative; animation: bounceIn 0.6s 0.2s both; }
+        .mascot-face { font-size: 46px; line-height: 1; }
+        .mascot-badge { position:absolute; top:-4px; right:-4px; background:#2aae4a; color:#fff; font-size:14px; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.15); }
+        .speech-bubble { flex:1; background:#fff; border-radius:14px; padding:14px 16px; position:relative; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+        .speech-bubble::before { content:''; position:absolute; left:-8px; top:24px; width:0; height:0; border-top:8px solid transparent; border-bottom:8px solid transparent; border-right:10px solid #fff; }
       `,
         }}
       />
 
-      {showParticles && (
-        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-          {Array.from({ length: 14 }).map((_, i) => (
-            <div
-              key={i}
-              className="particle"
-              style={{
-                width: `${Math.random() * 4 + 2}px`,
-                height: `${Math.random() * 4 + 2}px`,
-                left: `${Math.random() * 100}%`,
-                background: [
-                  "#3a5ccc",
-                  "#f46853",
-                  "#7c5cfc",
-                  "#ffc53d",
-                  "#2ecc87",
-                ][Math.floor(Math.random() * 5)],
-                animationDuration: `${Math.random() * 14 + 12}s`,
-                animationDelay: `${Math.random() * 10}s`,
-              }}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Hero Section */}
-      <div className="result-hero">
-        <span className="result-emoji">{hero.emoji}</span>
-        <div className="result-greeting">{hero.greeting}</div>
-        <div className="result-title">{hero.subtitle}</div>
-
-        <div className="rocket-score">
-          <div className="rocket-launchpad">
-            <div className="rocket-track">
-              {[25, 50, 75, 100].map((m) => (
-                <div
-                  key={m}
-                  className="rocket-marker"
-                  style={{ bottom: `${m}%` }}
-                >
-                  <span className="rocket-marker-label">
-                    {m}
-                    {m === 100 ? "" : "%"}
-                  </span>
-                </div>
-              ))}
-              <div
-                className="rocket-track-fill"
-                style={{
-                  height: `${rocketBottom}%`,
-                  background: `linear-gradient(to top, ${accentColor}, ${accentColor}44)`,
-                }}
-              />
-            </div>
-
-            <svg
-              className="rocket-ship"
-              style={{ bottom: `${(rocketBottom / 100) * 200}px` }}
-              width="40"
-              height="56"
-              viewBox="0 0 40 56"
-            >
-              <defs>
-                <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#e8e4dc" />
-                  <stop offset="100%" stopColor="#d4d0c8" />
-                </linearGradient>
-              </defs>
-              <path d="M8,40 L4,52 L14,44 Z" fill={accentColor} opacity=".8" />
-              <path
-                d="M32,40 L36,52 L26,44 Z"
-                fill={accentColor}
-                opacity=".8"
-              />
-              <rect
-                x="12"
-                y="14"
-                width="16"
-                height="32"
-                rx="3"
-                fill="url(#bodyGrad)"
-                stroke="#c4bfb4"
-                strokeWidth="1"
-              />
-              <path d="M12,14 Q12,2 20,0 Q28,2 28,14 Z" fill={accentColor} />
-              <circle
-                cx="20"
-                cy="24"
-                r="4.5"
-                fill="#3a5ccc"
-                stroke="#2d4db3"
-                strokeWidth="1"
-              />
-              <circle
-                cx="18.5"
-                cy="22.5"
-                r="1.2"
-                fill="rgba(255,255,255,0.5)"
-              />
-              <rect
-                x="12"
-                y="36"
-                width="16"
-                height="3"
-                fill={accentColor}
-                opacity=".3"
-              />
-            </svg>
-
-            {/* Stars */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden">
-              {Array.from({
-                length: Math.max(3, Math.floor(roundedScore / 10)),
-              }).map((_, i) => (
-                <div
-                  key={i}
-                  className="absolute rounded-full bg-[#ffc53d] opacity-0"
-                  style={{
-                    width: `${Math.random() * 3 + 2}px`,
-                    height: `${Math.random() * 3 + 2}px`,
-                    left: `${Math.random() * 100}%`,
-                    top: `${Math.random() * 70}%`,
-                    animation: `starTwinkle 1.5s ease both ${Math.random() * 1.2 + 0.6}s`,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="text-left">
-            <div
-              className="font-bricolage font-extrabold text-[4rem] leading-none tracking-tighter"
-              style={{ color: accentColor }}
-            >
-              {countScore}
-            </div>
-            <div className="font-mono text-[1.1rem] text-[#9a9ab0] font-bold mt-1">
-              out of {totalBasePoints}
-            </div>
-            <div
-              className="font-mono text-[0.85rem] font-bold mt-[10px] px-3.5 py-[5px] rounded-[20px] inline-block"
-              style={{ background: pctBg, color: pctColor }}
-            >
-              {countPct}%
-            </div>
-            <div className="text-[0.72rem] text-[#9a9ab0] font-semibold mt-2">
-              {hero.altitude}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-center gap-4 flex-wrap">
-          <span className="text-[0.78rem] text-[#5a5a72] font-semibold flex items-center gap-1.5 bg-[#f0eee9] px-3.5 py-1.5 rounded-full transition-transform hover:scale-105">
-            👤 {studentName}
+      {/* Context Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1.5 text-[12px] text-[#888]">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-[#555]">
+            {report.topic ? `${report.topic} · ` : ""}
+            {classLabel(report.classLevel)}
           </span>
-          <span className="text-[0.78rem] text-[#5a5a72] font-semibold flex items-center gap-1.5 bg-[#f0eee9] px-3.5 py-1.5 rounded-full transition-transform hover:scale-105">
-            ✅ {correctCount}/{totalQuestions} Correct
-          </span>
-          <span className="text-[0.78rem] text-[#5a5a72] font-semibold flex items-center gap-1.5 bg-[#f0eee9] px-3.5 py-1.5 rounded-full transition-transform hover:scale-105">
-            ⏱ {formatCompactDuration(totalTimeTakenMs)} Total
-          </span>
-          <span className="text-[0.78rem] text-[#5a5a72] font-semibold flex items-center gap-1.5 bg-[#f0eee9] px-3.5 py-1.5 rounded-full transition-transform hover:scale-105">
-            📝 {report.topic}
+          <span className="rounded-[10px] bg-[#4338CA] px-2 py-[3px] font-mono text-[10px] font-bold uppercase tracking-wider text-white">
+            {testModeLabel}
           </span>
         </div>
+        <span>
+          {studentName} · {today}
+        </span>
       </div>
 
-      {/* KPI Section */}
-      <div className="kpi-strip">
-        <div className="kpi">
-          <div className="w-10 h-10 rounded-[12px] grid place-items-center text-[1.1rem] mb-[10px] bg-[rgba(58,92,204,0.08)] text-[#3a5ccc]">
-            📊
+      {/* Mascot Hero */}
+      <div className="dash-card">
+        <div
+          className="flex items-center gap-4 p-6"
+          style={{
+            background: "linear-gradient(135deg,#fff4e0 0%,#ffe8d2 100%)",
+          }}
+        >
+          <div className="mascot-circle">
+            <span className="mascot-face">{hero.face}</span>
+            <span className="mascot-badge">{hero.badge}</span>
           </div>
-          <div className="kpi-val">{roundedScore}%</div>
-          <div className="kpi-label">Adjusted Score</div>
-          <div className="kpi-detail">
-            {Math.round(totalFinalPoints)} out of {totalBasePoints} points
+          <div className="speech-bubble">
+            <div className="font-bricolage text-[16px] font-extrabold text-[#1a1a2e]">
+              {hero.title}
+            </div>
+            <div className="mt-1 font-sans text-[13px] leading-relaxed text-[#444]">
+              {hero.line}
+            </div>
           </div>
         </div>
-        <div className="kpi">
-          <div className="w-10 h-10 rounded-[12px] grid place-items-center text-[1.1rem] mb-[10px] bg-[rgba(244,104,83,0.08)] text-[#f46853]">
-            ⏱️
+
+        {/* Score Strip */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-y border-[#efece5] bg-[#fafaf7] px-6 py-4">
+          <div className="flex items-center gap-3">
+            <span
+              className="font-sans text-[15px] font-bold"
+              style={{ color: hero.tierColor }}
+            >
+              {hero.tier}
+            </span>
+            <span
+              className="rounded-[10px] px-2.5 py-[3px] font-mono text-[12px] font-bold tabular-nums"
+              style={{ background: pctBg, color: pctColor }}
+            >
+              {countScore}/{totalBasePoints} pts
+            </span>
+            <span className="rounded-[10px] bg-white px-2.5 py-[3px] font-mono text-[12px] font-bold tabular-nums text-[#1a1a2e]">
+              {countPct}%
+            </span>
           </div>
-          <div className="kpi-val">{penaltyCount}</div>
-          <div className="kpi-label">Time Penalties</div>
-          <div className="kpi-detail">
-            −{totalPenaltyPoints.toFixed(1)} pts deducted for slow answers
-          </div>
-        </div>
-        <div className="kpi">
-          <div className="w-10 h-10 rounded-[12px] grid place-items-center text-[1.1rem] mb-[10px] bg-[rgba(124,92,252,0.08)] text-[#7c5cfc]">
-            ⚡
-          </div>
-          <div className="kpi-val">{rapidCount}</div>
-          <div className="kpi-label">Rapid Answers</div>
-          <div className="kpi-detail">Answered in under 2s (flagged)</div>
-        </div>
-        <div className="kpi">
-          <div className="w-10 h-10 rounded-[12px] grid place-items-center text-[1.1rem] mb-[10px] bg-[rgba(46,204,135,0.08)] text-[#2ecc87]">
-            ⏳
-          </div>
-          <div className="kpi-val">{formatDuration(avgTimeTakenMs)}</div>
-          <div className="kpi-label">Avg Time / Question</div>
-          <div className="kpi-detail">
-            {formatCompactDuration(totalTimeTakenMs)} total test time
+          <div className="flex items-center gap-4 font-mono text-[11px] font-semibold uppercase tracking-wider text-[#5a5a72]">
+            <span>
+              <span className="font-bricolage text-[15px] font-extrabold tracking-tight text-[#1a1a2e]">
+                {correctCount}
+              </span>
+              /{totalQuestions} correct
+            </span>
+            <span>
+              <span className="font-bricolage text-[15px] font-extrabold tracking-tight text-[#1a1a2e]">
+                {formatCompactDuration(totalTimeTakenMs)}
+              </span>{" "}
+              total
+            </span>
+            <span>
+              <span className="font-bricolage text-[15px] font-extrabold tracking-tight text-[#1a1a2e]">
+                {formatDuration(avgTimeTakenMs)}
+              </span>{" "}
+              avg
+            </span>
           </div>
         </div>
       </div>
@@ -1036,337 +916,44 @@ function ReportView({
         </div>
       </div>
 
-      {/* Detailed Table */}
-      <div className="dash-card">
-        <div className="px-5 pt-4 pb-3 flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <div className="font-bricolage font-bold text-[0.95rem] flex items-center gap-2">
-              📋 Question-by-Question Breakdown
-            </div>
-            <div className="text-[0.72rem] text-[#9a9ab0] font-medium">
-              Detailed analysis with time-adjusted scoring
-            </div>
+      {/* Parent Strip */}
+      <div className="dash-card border-t border-[#e8ecf2] bg-[#f6f8fb]">
+        <div className="px-6 py-5">
+          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[#5a6b85]">
+            👨‍👩‍👧 For Parents
           </div>
-          <button
-            onClick={() => setShowMethodology(true)}
-            className="px-[18px] py-[7px] rounded-full font-bold text-[0.78rem] border border-[rgba(124,92,252,0.2)] bg-[rgba(124,92,252,0.06)] text-[#7c5cfc] transition-all hover:bg-[rgba(124,92,252,0.12)] hover:-translate-y-px flex items-center gap-1.5"
-          >
-            🔬 Methodology
-          </button>
-        </div>
-        <div className="px-5 pb-5">
-          <div className="overflow-x-auto">
-            <table className="student-table min-w-[1100px] whitespace-nowrap">
-              <thead>
-                <tr>
-                  <th>Question</th>
-                  <th>Difficulty</th>
-                  <th>Your Ans</th>
-                  <th>Correct Ans</th>
-                  <th>Result</th>
-                  <th>Time Taken</th>
-                  <th>Time Limit</th>
-                  <th>Base</th>
-                  <th>Final</th>
-                  <th>Flags</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.map((record, index) => {
-                  const difficulty = normalizeDifficultyLevel(
-                    record.question.difficultyLevel,
-                  );
-                  const timeLimitMs = getQuestionTimeLimitMs(difficulty);
-                  const isCorrect = record.verdict === "correct";
-                  const isOverTime = (record.timeTakenMs ?? 0) > timeLimitMs;
-                  const isRapid =
-                    (record.timeTakenMs ?? 0) > 0 &&
-                    (record.timeTakenMs ?? 0) < RAPID_RESPONSE_THRESHOLD_MS;
-                  const finalPoints = getQuestionFinalPoints(record);
-                  const basePoints = getQuestionBasePoints(difficulty);
-                  const penaltyApplied = isCorrect && isOverTime;
-
-                  const scoreColor =
-                    finalPoints === 0
-                      ? "#f46853"
-                      : penaltyApplied
-                        ? "#ff9a3c"
-                        : "#2ecc87";
-
-                  return (
-                    <tr key={record.question.id}>
-                      <td>
-                        <div className="q-num-cell">{index + 1}</div>
-                      </td>
-                      <td>
-                        <span className={`diff-badge ${difficulty}`}>
-                          {difficulty}
-                        </span>
-                      </td>
-                      <td className="max-w-[200px]">
-                        <span
-                          className={`font-mono font-bold text-[0.85rem] block truncate ${isCorrect ? "text-[#2ecc87]" : "text-[#f46853]"}`}
-                          title={formatAnswerSummary(
-                            record.question as QuestionDisplayData,
-                            record.studentAnswer,
-                          )}
-                        >
-                          {formatAnswerSummary(
-                            record.question as QuestionDisplayData,
-                            record.studentAnswer,
-                          )}
-                        </span>
-                      </td>
-                      <td className="max-w-[200px]">
-                        <span
-                          className="font-mono font-bold text-[0.85rem] text-[#2ecc87] block truncate"
-                          title={getCorrectAnswerSummary(
-                            record.question as QuestionDisplayData,
-                          )}
-                        >
-                          {getCorrectAnswerSummary(
-                            record.question as QuestionDisplayData,
-                          )}
-                        </span>
-                      </td>
-                      <td className="font-bold text-[1.05rem]">
-                        {isCorrect ? "✓" : "✗"}
-                      </td>
-                      <td>
-                        <span
-                          className={`font-mono text-[0.82rem] font-bold ${isOverTime ? "text-[#f46853]" : "text-[#5a5a72]"}`}
-                        >
-                          {formatDuration(record.timeTakenMs)}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="font-mono text-[0.82rem] font-bold text-[#5a5a72]">
-                          {formatDuration(timeLimitMs)}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="font-mono text-[0.88rem] font-bold text-[#5a5a72]">
-                          {basePoints}
-                        </span>
-                      </td>
-                      <td>
-                        <span
-                          className="font-mono text-[0.88rem] font-bold"
-                          style={{ color: scoreColor }}
-                        >
-                          {formatPoints(finalPoints)}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="flex gap-1.5 flex-nowrap">
-                          {isRapid && (
-                            <span className="text-[0.68rem] font-bold px-2.5 py-1 rounded-full bg-[rgba(124,92,252,0.1)] text-[#7c5cfc]">
-                              ⚡ Rapid
-                            </span>
-                          )}
-                          {penaltyApplied && (
-                            <span className="text-[0.68rem] font-bold px-2.5 py-1 rounded-full bg-[rgba(244,104,83,0.08)] text-[#f46853]">
-                              −10%
-                            </span>
-                          )}
-                          {isCorrect && !isOverTime && !isRapid && (
-                            <span className="text-[0.68rem] font-bold px-2.5 py-1 rounded-full bg-[rgba(46,204,135,0.08)] text-[#2ecc87]">
-                              ✓ Clean
-                            </span>
-                          )}
-                          {!isCorrect && !isRapid && "—"}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                <tr
-                  className="font-bold"
-                  style={{ background: "rgba(58,92,204,0.05)" }}
-                >
-                  <td
-                    colSpan={6}
-                    className="text-right py-4 font-bricolage text-[0.92rem]"
-                  >
-                    Total
-                  </td>
-                  <td className="font-mono text-[0.82rem]">
-                    {formatCompactDuration(totalTimeTakenMs)}
-                  </td>
-                  <td></td>
-                  <td className="font-mono text-[0.88rem]">
-                    {totalBasePoints}
-                  </td>
-                  <td className="font-mono text-[0.95rem] text-[#3a5ccc]">
-                    {Math.round(totalFinalPoints)}
-                  </td>
-                  <td></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex flex-wrap gap-2.5 mt-3.5 pt-3.5 border-t border-[rgba(26,26,46,0.06)]">
-            <span className="flex items-center gap-1.5 text-[0.72rem] font-semibold text-[#5a5a72]">
-              <span className="w-2.5 h-2.5 rounded-[4px] bg-[#2ecc87]"></span>{" "}
-              Correct — full score
-            </span>
-            <span className="flex items-center gap-1.5 text-[0.72rem] font-semibold text-[#5a5a72]">
-              <span className="w-2.5 h-2.5 rounded-[4px] bg-[#ff9a3c]"></span>{" "}
-              Time Penalty — 10% deducted
-            </span>
-            <span className="flex items-center gap-1.5 text-[0.72rem] font-semibold text-[#5a5a72]">
-              <span className="w-2.5 h-2.5 rounded-[4px] bg-[#f46853]"></span>{" "}
-              Incorrect — 0 score
-            </span>
-            <span className="flex items-center gap-1.5 text-[0.72rem] font-semibold text-[#5a5a72]">
-              <span className="w-2.5 h-2.5 rounded-[4px] bg-[#7c5cfc]"></span>{" "}
-              ⚡ Rapid — under 2s (flagged, no penalty)
-            </span>
+          <div className="space-y-1.5">
+            {[
+              `${firstName} completed the ${testModeLabel.toLowerCase()} for ${report.topic || classLabel(report.classLevel)} today.`,
+              `${correctCount} out of ${totalQuestions} questions correct (${roundedScore}% adjusted score).`,
+              masteredCount > 0
+                ? `Mastered ${masteredCount} learning objective${masteredCount === 1 ? "" : "s"}${developingCount > 0 ? `, ${developingCount} still developing` : ""}.`
+                : `${developingCount} learning objective${developingCount === 1 ? "" : "s"} still developing.`,
+              needsWorkLOs.length > 0
+                ? `Suggested next step: practice ${formatLearningObjectiveLabel(needsWorkLOs[0].learningObjective).toLowerCase()}.`
+                : `Suggested next step: try a harder topic to keep stretching.`,
+            ].map((line, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-2 font-sans text-[12.5px] leading-relaxed text-[#3a4a64]"
+              >
+                <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[#5a6b85]" />
+                <span>{line}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      <div className="mt-8 flex justify-center">
+      <div className="mt-4 flex justify-center">
         <button
           onClick={onReset}
           className="flex items-center gap-2 px-10 py-4 font-sans text-[16px] font-bold text-white transition-all duration-300 bg-[linear-gradient(135deg,#3a5ccc,#7c5cfc)] rounded-full shadow-[0_8px_24px_rgba(58,92,204,0.25)] hover:-translate-y-1.5 hover:shadow-[0_12px_36px_rgba(58,92,204,0.35)]"
         >
           <RotateCcw className="h-4 w-4" />
-          Run New Diagnostic
+          Take another test
         </button>
       </div>
-
-      {/* Methodology Modal */}
-      {showMethodology && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[rgba(26,26,46,0.35)] backdrop-blur-[4px] animate-in fade-in duration-300"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowMethodology(false);
-          }}
-        >
-          <div className="bg-white rounded-[18px] max-w-[620px] w-full max-h-[85vh] overflow-y-auto shadow-[0_20px_60px_rgba(26,26,46,0.18)] animate-in zoom-in-95 duration-300">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[rgba(26,26,46,0.06)] bg-white p-6">
-              <h3 className="font-bricolage text-[1.05rem] font-bold flex items-center gap-2">
-                🔬 Scoring Methodology
-              </h3>
-              <button
-                onClick={() => setShowMethodology(false)}
-                className="w-8 h-8 rounded-full border border-[rgba(26,26,46,0.06)] bg-white flex items-center justify-center text-[0.9rem] text-[#5a5a72] transition-colors hover:bg-[#f5f3f0]"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-6 pt-0 space-y-6">
-              <p className="text-[0.84rem] text-[#5a5a72] leading-relaxed mt-4">
-                Your diagnostic score isn&apos;t just about right or wrong — it
-                factors in <strong>how quickly</strong> you answer, because
-                speed reflects confidence and fluency with the material.
-              </p>
-
-              <div>
-                <h4 className="font-bricolage font-bold text-[0.9rem] mb-2 flex items-center gap-1.5">
-                  📐 Base Scoring
-                </h4>
-                <p className="text-[0.84rem] text-[#5a5a72] leading-relaxed mb-3">
-                  Each question carries a base score weighted by difficulty.
-                  Harder questions reward more points because they test deeper
-                  understanding.
-                </p>
-                <div className="border border-[rgba(26,26,46,0.06)] rounded-xl overflow-hidden">
-                  <table className="w-full text-[0.82rem] border-collapse">
-                    <thead className="bg-[#f5f3f0] border-b border-[rgba(26,26,46,0.06)]">
-                      <tr>
-                        <th className="text-left px-3 py-2 font-bold text-[#9a9ab0] uppercase tracking-wider text-[0.7rem]">
-                          Difficulty
-                        </th>
-                        <th className="text-left px-3 py-2 font-bold text-[#9a9ab0] uppercase tracking-wider text-[0.7rem]">
-                          Base Score
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[rgba(26,26,46,0.06)]">
-                      <tr>
-                        <td className="px-3 py-2">
-                          <span className="diff-badge easy">Easy</span>
-                        </td>
-                        <td className="px-3 py-2 font-bold">2 pts</td>
-                      </tr>
-                      <tr>
-                        <td className="px-3 py-2">
-                          <span className="diff-badge medium">Medium</span>
-                        </td>
-                        <td className="px-3 py-2 font-bold">3 pts</td>
-                      </tr>
-                      <tr>
-                        <td className="px-3 py-2">
-                          <span className="diff-badge hard">Hard</span>
-                        </td>
-                        <td className="px-3 py-2 font-bold">5 pts</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-bricolage font-bold text-[0.9rem] mb-2 flex items-center gap-1.5">
-                  ⏱️ Time Thresholds & Penalty
-                </h4>
-                <p className="text-[0.84rem] text-[#5a5a72] leading-relaxed mb-3">
-                  Each difficulty level has a maximum expected response time. If
-                  you take longer than the threshold, a{" "}
-                  <strong>10% penalty</strong> is applied to your base score.
-                </p>
-                <div className="border border-[rgba(26,26,46,0.06)] rounded-xl overflow-hidden">
-                  <table className="w-full text-[0.82rem] border-collapse">
-                    <thead className="bg-[#f5f3f0] border-b border-[rgba(26,26,46,0.06)]">
-                      <tr>
-                        <th className="text-left px-3 py-2 font-bold text-[#9a9ab0] uppercase tracking-wider text-[0.7rem]">
-                          Difficulty
-                        </th>
-                        <th className="text-left px-3 py-2 font-bold text-[#9a9ab0] uppercase tracking-wider text-[0.7rem]">
-                          Time Limit
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[rgba(26,26,46,0.06)]">
-                      <tr>
-                        <td className="px-3 py-2">Easy</td>
-                        <td className="px-3 py-2 font-bold">45 seconds</td>
-                      </tr>
-                      <tr>
-                        <td className="px-3 py-2">Medium</td>
-                        <td className="px-3 py-2 font-bold">55 seconds</td>
-                      </tr>
-                      <tr>
-                        <td className="px-3 py-2">Hard</td>
-                        <td className="px-3 py-2 font-bold">70 seconds</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[rgba(58,92,204,0.04)] border border-[rgba(58,92,204,0.1)] text-[0.82rem] text-[#5a5a72] leading-relaxed">
-                <strong className="text-[#3a5ccc]">💡 Why time matters:</strong>{" "}
-                Two students answering identically can get different scores. A
-                student who answers correctly but slowly may be less fluent —
-                the time penalty captures this nuance.
-              </div>
-
-              <div className="pb-4">
-                <h4 className="font-bricolage font-bold text-[0.9rem] mb-2">
-                  🧮 Final Score Calculation
-                </h4>
-                <div className="p-4 rounded-xl bg-[#f5f3f0] font-mono text-[0.78rem] font-bold">
-                  Final = Base Score × (1 − Penalty)
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1377,6 +964,7 @@ function SetupForm({
   quizCatalog,
   defaultTopicEntry,
   onStart,
+  onBack,
   isBusy,
 }: {
   form: CreateSessionInput;
@@ -1384,13 +972,18 @@ function SetupForm({
   quizCatalog: DemoQuizCatalog;
   defaultTopicEntry: DemoQuizCatalogEntry | null;
   onStart: () => void;
+  onBack?: () => void;
   isBusy: boolean;
 }) {
   const defaultEntry = defaultTopicEntry ?? getDefaultCatalogEntry(quizCatalog);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(() => {
     return form.topic || defaultEntry?.topic || null;
   });
-  const [activeTab, setActiveTab] = useState<string>("class6");
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (defaultEntry?.classLevel) return defaultEntry.classLevel;
+    const firstClass = quizCatalog.entries[0]?.classLevel;
+    return firstClass ?? "class5";
+  });
 
   const classLevels = useMemo(
     () =>
@@ -1446,10 +1039,24 @@ function SetupForm({
       >
         <div className="absolute top-0 left-0 right-0 h-1 bg-[linear-gradient(90deg,#3a5ccc,#7c5cfc)]" />
 
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="mb-4 flex items-center gap-1 font-sans text-[12px] font-medium text-[#8a8aa0] transition-colors hover:text-[#1a1a2e]"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+            <span>Choose test type</span>
+          </button>
+        )}
+
+        <div className="mb-1 inline-block bg-[#EEF2FF] text-[#4338CA] font-mono text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md mb-3">
+          Topic Test
+        </div>
+
         {/* Icon + title */}
         <div className="mb-1 flex justify-center">
           <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-[rgba(58,92,204,0.06)]">
-            <FlaskConical className="h-7 w-7 text-[#3a5ccc]" />
+            <Calculator className="h-7 w-7 text-[#3a5ccc]" />
           </div>
         </div>
 
@@ -1462,36 +1069,14 @@ function SetupForm({
 
         <div className="mb-5 flex justify-center gap-2">
           <span className="rounded-full bg-[rgba(58,92,204,0.08)] px-5 py-2 font-mono text-[12px] font-bold text-[#3a5ccc]">
-            15 questions
+            {selectedEntry
+              ? `${selectedEntry.learningObjectives.length * 3} questions`
+              : "— questions"}
           </span>
           <span className="rounded-full bg-[rgba(58,92,204,0.08)] px-5 py-2 font-mono text-[12px] font-bold uppercase text-[#3a5ccc]">
             {classLabel(form.classLevel)}
           </span>
         </div>
-
-        {/* Learning objectives */}
-        {selectedEntry?.learningObjectives.length ? (
-          <div className="mb-5 text-left">
-            <div className="mb-2 font-sans text-[10px] font-bold uppercase tracking-wider text-[#8a8aa0]">
-              Learning objectives
-            </div>
-            <div className="rounded-[14px] border border-[rgba(26,26,46,0.06)] bg-[#faf8f5] overflow-hidden">
-              {selectedEntry.learningObjectives.map((lo, idx) => (
-                <div
-                  key={idx}
-                  className={`flex items-center gap-3 px-4 py-2.5 ${idx !== selectedEntry.learningObjectives.length - 1 ? "border-b border-[rgba(26,26,46,0.04)]" : ""}`}
-                >
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[rgba(58,92,204,0.1)] font-mono text-[10px] font-bold text-[#3a5ccc]">
-                    {idx + 1}
-                  </div>
-                  <span className="font-sans text-[12px] font-medium text-[#1a1a2e]">
-                    {lo}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
 
         <button
           className={`group relative flex w-full items-center justify-center gap-2 py-3 font-sans text-[15px] font-bold text-white transition-all duration-300 ${THEME.primaryGradient} rounded-full shadow-[0_6px_20px_rgba(58,92,204,0.2)] hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(58,92,204,0.3)] disabled:opacity-50 disabled:hover:translate-y-0`}
@@ -1517,6 +1102,218 @@ function SetupForm({
   );
 }
 
+function TestSelectorScreen({
+  quizCatalog,
+  onSelect,
+}: {
+  quizCatalog: DemoQuizCatalog;
+  onSelect: (mode: "topic" | "grade") => void;
+}) {
+  const gradeClassLevels = useMemo(
+    () => Array.from(new Set(quizCatalog.entries.map((e) => e.classLevel))).sort(),
+    [quizCatalog.entries],
+  );
+  const firstClass = gradeClassLevels[0] ?? "class4";
+  const gradeTargets = GRADE_TEST_COUNTS[firstClass] ?? GRADE_TEST_COUNTS.class4;
+  const gradeTotal = gradeTargets.easy + gradeTargets.medium + gradeTargets.hard;
+
+  return (
+    <div className="flex flex-col items-center justify-center animate-in fade-in slide-in-from-bottom-4 duration-500 py-8">
+      <div className="text-center mb-8">
+        <h2 className="font-bricolage text-[28px] font-extrabold tracking-tight text-[#1a1a2e] mb-2">
+          Choose your test
+        </h2>
+        <p className="font-sans text-[14px] text-[#8a8aa0] max-w-[480px] leading-relaxed">
+          Ready to see how you are doing in Maths? Pick the test that fits what you want to check.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full max-w-[820px]">
+        {/* Topic Test card */}
+        <button
+          type="button"
+          onClick={() => onSelect("topic")}
+          className="group text-left bg-white border border-[rgba(26,26,46,0.06)] rounded-[20px] p-7 shadow-[0_2px_20px_rgba(26,26,46,0.05)] hover:border-[#7c5cfc]/40 hover:-translate-y-1 hover:shadow-[0_8px_28px_rgba(124,92,252,0.12)] transition-all duration-200"
+        >
+          <div className="w-14 h-14 rounded-[14px] bg-[linear-gradient(135deg,#EEF2FF,#DDD6FE)] flex items-center justify-center text-[28px] mb-4">
+            📝
+          </div>
+          <h3 className="font-bricolage text-[20px] font-bold text-[#1a1a2e] mb-2">Topic Test</h3>
+          <p className="font-sans text-[13px] text-[#8a8aa0] leading-relaxed mb-4">
+            Test your knowledge on one specific topic. Good for checking if you have mastered what you just learnt.
+          </p>
+          <div className="flex gap-2 flex-wrap mb-4">
+            <span className="bg-[#F5F2EB] px-3 py-1 rounded-full font-mono text-[11px] text-[#4B5563]">3 per LO</span>
+            <span className="bg-[#F5F2EB] px-3 py-1 rounded-full font-mono text-[11px] text-[#4B5563]">One topic</span>
+            <span className="bg-[#F5F2EB] px-3 py-1 rounded-full font-mono text-[11px] text-[#4B5563]">15–24 min</span>
+          </div>
+          <span className="font-sans text-[13px] font-semibold text-[#6366F1] group-hover:underline">
+            Start a topic test →
+          </span>
+        </button>
+
+        {/* Grade Test card */}
+        <button
+          type="button"
+          onClick={() => onSelect("grade")}
+          className="group text-left bg-white border border-[rgba(26,26,46,0.06)] rounded-[20px] p-7 shadow-[0_2px_20px_rgba(26,26,46,0.05)] hover:border-[#f59e0b]/40 hover:-translate-y-1 hover:shadow-[0_8px_28px_rgba(245,158,11,0.12)] transition-all duration-200"
+        >
+          <div className="w-14 h-14 rounded-[14px] bg-[linear-gradient(135deg,#FEF3C7,#FED7AA)] flex items-center justify-center text-[28px] mb-4">
+            🏆
+          </div>
+          <h3 className="font-bricolage text-[20px] font-bold text-[#1a1a2e] mb-2">Grade Test</h3>
+          <p className="font-sans text-[13px] text-[#8a8aa0] leading-relaxed mb-4">
+            Test your knowledge across your whole grade. Good for finding which topics to focus on next.
+          </p>
+          <div className="flex gap-2 flex-wrap mb-4">
+            <span className="bg-[#F5F2EB] px-3 py-1 rounded-full font-mono text-[11px] text-[#4B5563]">{gradeTotal} questions</span>
+            <span className="bg-[#F5F2EB] px-3 py-1 rounded-full font-mono text-[11px] text-[#4B5563]">All topics</span>
+            <span className="bg-[#F5F2EB] px-3 py-1 rounded-full font-mono text-[11px] text-[#4B5563]">20–30 min</span>
+          </div>
+          <span className="font-sans text-[13px] font-semibold text-[#d97706] group-hover:underline">
+            Start a grade test →
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function GradeStartScreen({
+  quizCatalog,
+  form,
+  setForm,
+  onStart,
+  onBack,
+  isBusy,
+}: {
+  quizCatalog: DemoQuizCatalog;
+  form: CreateSessionInput;
+  setForm: React.Dispatch<React.SetStateAction<CreateSessionInput>>;
+  onStart: () => void;
+  onBack: () => void;
+  isBusy: boolean;
+}) {
+  const classLevels = useMemo(
+    () => Array.from(new Set(quizCatalog.entries.map((e) => e.classLevel))).sort(),
+    [quizCatalog.entries],
+  );
+
+  const selectedClassLevel = form.classLevel;
+  const targets = GRADE_TEST_COUNTS[selectedClassLevel] ?? GRADE_TEST_COUNTS.class4;
+  const total = targets.easy + targets.medium + targets.hard;
+
+  const topicsForGrade = useMemo(
+    () =>
+      quizCatalog.entries
+        .filter((e) => e.classLevel === selectedClassLevel)
+        .map((e) => e.topic),
+    [quizCatalog.entries, selectedClassLevel],
+  );
+
+  return (
+    <div className="flex items-center justify-center animate-in fade-in slide-in-from-bottom-4 duration-500 py-4">
+      <div className={`relative w-full max-w-[560px] overflow-hidden bg-white p-7 border border-[rgba(26,26,46,0.06)] ${THEME.rounded} ${THEME.shadowFloat}`}>
+        <div className="absolute top-0 left-0 right-0 h-1 bg-[linear-gradient(90deg,#f59e0b,#ef4444)]" />
+
+        <button
+          onClick={onBack}
+          className="mb-4 flex items-center gap-1 font-sans text-[12px] font-medium text-[#8a8aa0] transition-colors hover:text-[#1a1a2e]"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          <span>Choose test type</span>
+        </button>
+
+        <div className="mb-4 inline-block bg-[#FEF3C7] text-[#B45309] font-mono text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md">
+          Grade Test
+        </div>
+
+        {/* Grade selector */}
+        <div className="mb-4">
+          <div className="mb-1.5 font-sans text-[10px] font-bold uppercase tracking-wider text-[#8a8aa0]">Select grade</div>
+          <div className="flex flex-wrap gap-2">
+            {classLevels.map((cl) => (
+              <button
+                key={cl}
+                type="button"
+                onClick={() => setForm((prev) => ({ ...prev, classLevel: cl as never }))}
+                className={`rounded-full px-4 py-1.5 font-mono text-[12px] font-bold transition-all ${
+                  selectedClassLevel === cl
+                    ? "bg-[#3a5ccc] text-white"
+                    : "bg-[rgba(58,92,204,0.08)] text-[#3a5ccc] hover:bg-[rgba(58,92,204,0.14)]"
+                }`}
+              >
+                {classLabel(cl)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <h2 className="mb-1 font-bricolage text-[24px] font-extrabold tracking-tight text-[#1a1a2e]">
+          {classLabel(selectedClassLevel)} · All Topics
+        </h2>
+        <p className="mx-auto mb-5 font-sans text-[13px] leading-relaxed text-[#8a8aa0]">
+          A full-grade diagnostic covering all topics. Identifies your strengths and areas to focus on.
+        </p>
+
+        <div className="mb-5 flex justify-center gap-2 flex-wrap">
+          <span className="rounded-full bg-[rgba(58,92,204,0.08)] px-4 py-1.5 font-mono text-[12px] font-bold text-[#3a5ccc]">
+            {total} questions
+          </span>
+          <span className="rounded-full bg-[rgba(46,204,135,0.1)] px-4 py-1.5 font-mono text-[12px] font-bold text-[#2ecc87]">
+            {targets.easy} easy
+          </span>
+          <span className="rounded-full bg-[rgba(255,197,61,0.12)] px-4 py-1.5 font-mono text-[12px] font-bold text-[#b8860b]">
+            {targets.medium} medium
+          </span>
+          <span className="rounded-full bg-[rgba(244,104,83,0.08)] px-4 py-1.5 font-mono text-[12px] font-bold text-[#f46853]">
+            {targets.hard} hard
+          </span>
+        </div>
+
+        {topicsForGrade.length > 0 && (
+          <div className="mb-5 text-left">
+            <div className="mb-2 font-sans text-[10px] font-bold uppercase tracking-wider text-[#8a8aa0]">
+              Topics covered
+            </div>
+            <div className="rounded-[14px] border border-[rgba(26,26,46,0.06)] bg-[#faf8f5] overflow-hidden">
+              {topicsForGrade.map((topic, idx) => (
+                <div
+                  key={idx}
+                  className={`flex items-center gap-3 px-4 py-2.5 ${idx !== topicsForGrade.length - 1 ? "border-b border-[rgba(26,26,46,0.04)]" : ""}`}
+                >
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[rgba(245,158,11,0.1)] font-mono text-[10px] font-bold text-[#d97706]">
+                    {idx + 1}
+                  </div>
+                  <span className="font-sans text-[12px] font-medium text-[#1a1a2e]">{topic}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button
+          className={`group relative flex w-full items-center justify-center gap-2 py-3 font-sans text-[15px] font-bold text-white transition-all duration-300 bg-[linear-gradient(135deg,#f59e0b,#ef4444)] rounded-full shadow-[0_6px_20px_rgba(245,158,11,0.25)] hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(245,158,11,0.35)] disabled:opacity-50 disabled:hover:translate-y-0`}
+          onClick={onStart}
+          disabled={isBusy}
+        >
+          {isBusy ? (
+            <>
+              <div className="h-4 w-4 animate-spin border-2 border-white/30 border-t-white rounded-full" />
+              <span>Preparing...</span>
+            </>
+          ) : (
+            <>
+              <span className="font-bricolage tracking-tight">Begin Grade Test</span>
+              <Rocket className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function DiagnosticDemo({
   quizCatalog,
   defaultTopicEntry,
@@ -1524,6 +1321,7 @@ export function DiagnosticDemo({
   quizCatalog: DemoQuizCatalog;
   defaultTopicEntry: DemoQuizCatalogEntry | null;
 }) {
+  const [selectedTestMode, setSelectedTestMode] = useState<"topic" | "grade" | null>(null);
   const [form, setForm] = useState<CreateSessionInput>(() =>
     buildDefaultForm(defaultTopicEntry),
   );
@@ -1538,8 +1336,9 @@ export function DiagnosticDemo({
       { timeTakenMs: number; allocatedTimeMs: number; wasAutoSkipped: boolean }
     >
   >({});
-  const [remaining, setRemaining] = useState<number | null>(null);
-  const [quizRemaining, setQuizRemaining] = useState<number | null>(null);
+  const [interstitial, setInterstitial] = useState<
+    (typeof INTERSTITIALS)[number] | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<"load" | "submit" | null>(
     null,
@@ -1640,63 +1439,54 @@ export function DiagnosticDemo({
     }
 
     const nextIndex = questionIndex + 1;
-    questionStartedAtRef.current = Date.now();
+    const completedCount = questionIndex + 1;
+    const totalQ = activeQuiz.questions.length;
+    const t1 = Math.round(totalQ * 0.33);
+    const t2 = Math.round(totalQ * 0.66);
+    const t3 = Math.round(totalQ * 0.88);
+    const interstitialToShow =
+      completedCount === t1
+        ? INTERSTITIALS[0]
+        : completedCount === t2
+          ? INTERSTITIALS[1]
+          : completedCount === t3
+            ? INTERSTITIALS[2]
+            : null;
+
     setCurrentIndex(nextIndex);
     setCurrentAnswer(nextAnswers[activeQuiz.questions[nextIndex].id] ?? "");
+    if (interstitialToShow) {
+      setInterstitial(interstitialToShow);
+      setTimeout(() => {
+        setInterstitial((prev) =>
+          prev === interstitialToShow ? null : prev,
+        );
+      }, 3200);
+    }
   };
 
+  const [elapsedMs, setElapsedMs] = useState(0);
+
   useEffect(() => {
-    if (!currentQuestion) {
-      setRemaining(null);
-      return;
-    }
+    if (!currentQuestion) return;
     advanceLockRef.current = false;
     questionStartedAtRef.current = Date.now();
-    const deadline = Date.now() + currentQuestionTimeLimitMs;
+    setElapsedMs(0);
+    const interval = setInterval(() => {
+      setElapsedMs(Math.max(0, Date.now() - questionStartedAtRef.current));
+    }, 250);
+    return () => clearInterval(interval);
+  }, [currentQuestion]);
 
-    const tick = () => {
-      const nextRemaining = Math.max(
-        0,
-        Math.ceil((deadline - Date.now()) / 1000),
-      );
-      setRemaining(nextRemaining);
-      if (nextRemaining <= 0) {
-        clearInterval(id);
-      }
-    };
-    tick();
-    const id = window.setInterval(tick, 250);
-    return () => clearInterval(id);
-  }, [currentQuestion, currentQuestionTimeLimitMs]);
-
-  const QUIZ_TOTAL_SECONDS = 10 * 60;
-  useEffect(() => {
-    if (!quiz) {
-      setQuizRemaining(null);
-      return;
-    }
-    const deadline = Date.now() + QUIZ_TOTAL_SECONDS * 1000;
-    setQuizRemaining(QUIZ_TOTAL_SECONDS);
-    const tick = () => {
-      const next = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      setQuizRemaining(next);
-      if (next <= 0) {
-        clearInterval(id);
-        finalizeQuiz(answersRef.current, responseMetaRef.current);
-      }
-    };
-    const id = window.setInterval(tick, 500);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quiz]);
-
-  const startQuizRun = () => {
+  const startQuizRun = (overrideTestMode?: "topic" | "grade") => {
+    const activeTestMode = overrideTestMode ?? selectedTestMode ?? "topic";
+    const sessionForm = { ...form, testMode: activeTestMode };
     setPendingAction("load");
     startTransition(() => {
       void (async () => {
         try {
           setError(null);
-          const loadedQuiz = await loadQuiz(form);
+          const loadedQuiz = await loadQuiz(sessionForm);
           setQuiz(loadedQuiz);
           setReport(null);
           setCurrentIndex(0);
@@ -1713,14 +1503,14 @@ export function DiagnosticDemo({
   };
 
   const resetQuiz = () => {
+    setSelectedTestMode(null);
     setQuiz(null);
     setReport(null);
     setCurrentIndex(0);
     setCurrentAnswer("");
     setAnswers({});
     setResponseMeta({});
-    setRemaining(null);
-    setQuizRemaining(null);
+    setInterstitial(null);
     setError(null);
     setPendingAction(null);
   };
@@ -1737,26 +1527,10 @@ export function DiagnosticDemo({
   const pctComplete = quiz
     ? Math.round((answeredCount / quiz.questions.length) * 100)
     : 0;
-  const maxHeight = 120;
-  const liquidHeight = quiz
-    ? (answeredCount / quiz.questions.length) * maxHeight
-    : 0;
-  const yPos = 140 - liquidHeight;
-  const currentQuestionLimitSeconds = Math.max(
-    1,
-    Math.round(currentQuestionTimeLimitMs / 1000),
-  );
-
-  const formatTime = (secs: number | null) => {
-    if (secs == null) return "00:00";
-    const m = String(Math.floor(secs / 60)).padStart(2, "0");
-    const s = String(secs % 60).padStart(2, "0");
-    return `${m}:${s}`;
-  };
 
   return (
     <div className={THEME.page} style={{ backgroundImage: AMBIENT_BG }}>
-      <div className="mx-auto max-w-[1480px] px-6 py-4 sm:px-10">
+      <div className="mx-auto max-w-[1200px] px-6 py-4 sm:px-10">
         {/* Compact Logo & Back Button Header */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -1795,15 +1569,61 @@ export function DiagnosticDemo({
           </div>
         )}
 
-        {!quiz && !report && (
+        {!quiz && !report && selectedTestMode === null && (
+          <TestSelectorScreen
+            quizCatalog={quizCatalog}
+            onSelect={(mode) => {
+              setSelectedTestMode(mode);
+              setForm((prev) => ({ ...prev, testMode: mode }));
+            }}
+          />
+        )}
+
+        {!quiz && !report && selectedTestMode === "topic" && (
           <SetupForm
             form={form}
             setForm={setForm}
             quizCatalog={quizCatalog}
             defaultTopicEntry={defaultTopicEntry}
-            onStart={startQuizRun}
+            onStart={() => startQuizRun("topic")}
+            onBack={() => setSelectedTestMode(null)}
             isBusy={isBusy}
           />
+        )}
+
+        {!quiz && !report && selectedTestMode === "grade" && (
+          <GradeStartScreen
+            quizCatalog={quizCatalog}
+            form={form}
+            setForm={setForm}
+            onStart={() => startQuizRun("grade")}
+            onBack={() => setSelectedTestMode(null)}
+            isBusy={isBusy}
+          />
+        )}
+
+        {quiz && interstitial && (
+          <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+            <div
+              className="pointer-events-auto flex max-w-[440px] items-center gap-3 rounded-full border border-[rgba(26,26,46,0.08)] bg-white/95 px-4 py-3 shadow-[0_12px_40px_rgba(26,26,46,0.18)] backdrop-blur"
+              style={{
+                animation:
+                  "interstitialPop 0.4s cubic-bezier(0.17,0.89,0.32,1.49) both",
+              }}
+            >
+              <div className="text-[24px] leading-none">
+                {interstitial.icon}
+              </div>
+              <div className="text-left">
+                <div className="font-bricolage text-[14px] font-extrabold leading-tight text-[#1a1a2e]">
+                  {interstitial.title}
+                </div>
+                <div className="font-sans text-[12px] leading-snug text-[#5a5a72]">
+                  {interstitial.subtitle}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {quiz && currentQuestion && (
@@ -1835,23 +1655,6 @@ export function DiagnosticDemo({
                 </div>
               </div>
 
-              <div className="flex shrink-0 flex-col items-end gap-1">
-                <div
-                  className={`flex items-center gap-2 rounded-full px-4 py-2 shadow-inner ${quizRemaining !== null && quizRemaining < 60 ? "bg-[#f46853]/10" : "bg-[#f5f3f0]"}`}
-                >
-                  <Clock
-                    className={`h-4 w-4 ${quizRemaining !== null && quizRemaining < 60 ? "text-[#f46853] animate-pulse" : "text-[#3a5ccc]"}`}
-                  />
-                  <span
-                    className={`font-mono text-[16px] font-bold ${quizRemaining !== null && quizRemaining < 60 ? "text-[#f46853]" : "text-[#1a1a2e]"}`}
-                  >
-                    {formatTime(quizRemaining)}
-                  </span>
-                </div>
-                <div className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#8a8aa0]">
-                  10 min limit
-                </div>
-              </div>
             </div>
 
             <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
@@ -1877,30 +1680,42 @@ export function DiagnosticDemo({
                 <div
                   className={`relative overflow-hidden bg-white p-6 shadow-sm border border-[rgba(26,26,46,0.06)] ${THEME.rounded}`}
                 >
-                  <div className="absolute top-0 right-0 p-5">
-                    <div className="font-mono text-[32px] font-extrabold text-[#f5f3f0] leading-none select-none">
-                      {String(currentIndex + 1).padStart(2, "0")}
-                    </div>
-                  </div>
-
                   <div className="relative z-10">
-                    <div className="mb-6 flex flex-wrap gap-2">
+                    <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
                       <div className="rounded-full bg-[rgba(58,92,204,0.08)] px-3 py-1 font-sans text-[10px] font-bold uppercase tracking-wider text-[#3a5ccc]">
                         {formatLearningObjectiveLabel(
                           currentQuestion.learningObjective,
                         )}
                       </div>
-                      <div className="rounded-full bg-[rgba(255,154,60,0.08)] px-3 py-1 font-sans text-[10px] font-bold uppercase tracking-wider text-[#ff9a3c]">
-                        {formatQuestionTypeLabel(currentQuestion.questionType)}
-                      </div>
-                      <div className="rounded-full bg-[rgba(26,26,46,0.05)] px-3 py-1 font-sans text-[10px] font-bold uppercase tracking-wider text-[#8a8aa0]">
-                        {normalizeDifficultyLevel(
-                          currentQuestion.difficultyLevel,
-                        )}
-                      </div>
-                      <div className="rounded-full bg-[rgba(46,204,135,0.08)] px-3 py-1 font-sans text-[10px] font-bold uppercase tracking-wider text-[#2ecc87]">
-                        {formatTime(currentQuestionLimitSeconds)}
-                      </div>
+                      {(() => {
+                        const limit = currentQuestionTimeLimitMs || 0;
+                        const ratio = limit > 0 ? elapsedMs / limit : 0;
+                        const isWarn = ratio >= 0.66 && ratio < 0.9;
+                        const isUrgent = ratio >= 0.9;
+                        const tone = isUrgent
+                          ? "bg-[rgba(220,38,38,0.1)] text-[#dc2626] border-[rgba(220,38,38,0.25)]"
+                          : isWarn
+                            ? "bg-[rgba(255,154,60,0.12)] text-[#ff9a3c] border-[rgba(255,154,60,0.3)]"
+                            : "bg-[rgba(58,92,204,0.08)] text-[#3a5ccc] border-[rgba(58,92,204,0.2)]";
+                        const seconds = Math.floor(elapsedMs / 1000);
+                        const mm = String(Math.floor(seconds / 60)).padStart(
+                          2,
+                          "0",
+                        );
+                        const ss = String(seconds % 60).padStart(2, "0");
+                        return (
+                          <div
+                            className={`flex items-center gap-2 rounded-full border px-3 py-1 font-mono text-[12px] font-bold tabular-nums ${tone} ${isUrgent ? "animate-pulse" : ""}`}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${isUrgent ? "bg-[#dc2626]" : isWarn ? "bg-[#ff9a3c]" : "bg-[#3a5ccc]"}`}
+                            />
+                            <span>
+                              {mm}:{ss}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {"scenario" in (currentQuestion.payload ?? {}) && (
@@ -1917,8 +1732,13 @@ export function DiagnosticDemo({
                       </div>
                     )}
 
-                    <h3 className="mb-5 max-w-2xl font-bricolage text-[19px] font-bold leading-tight text-[#1a1a2e] sm:text-[21px]">
-                      {currentQuestion.question}
+                    <h3 className="mb-5 flex gap-3 font-bricolage text-[19px] font-bold leading-tight text-[#1a1a2e] sm:text-[21px]">
+                      <span className="shrink-0 font-mono text-[#3a5ccc]">
+                        Q{currentIndex + 1}.
+                      </span>
+                      <span className="flex-1 break-words">
+                        {currentQuestion.question}
+                      </span>
                     </h3>
 
                     <QuestionInput
@@ -1927,14 +1747,7 @@ export function DiagnosticDemo({
                       setAnswer={setCurrentAnswer}
                     />
 
-                    <div className="mt-6 flex items-center justify-between border-t border-[rgba(26,26,46,0.06)] pt-5">
-                      <button
-                        className="flex h-10 items-center gap-2 rounded-full border border-[rgba(26,26,46,0.1)] bg-white px-6 font-sans text-[13px] font-bold text-[#5a5a72] transition-all hover:bg-[#f5f3f0]"
-                        onClick={() => advanceRef.current("")}
-                        disabled={isBusy}
-                      >
-                        Skip Question
-                      </button>
+                    <div className="mt-6 flex items-center justify-end border-t border-[rgba(26,26,46,0.06)] pt-5">
                       <button
                         className={`flex h-10 items-center gap-2 rounded-full ${THEME.primaryGradient} px-8 font-sans text-[13px] font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 disabled:opacity-50`}
                         onClick={() => advanceRef.current(currentAnswer)}
@@ -1954,66 +1767,6 @@ export function DiagnosticDemo({
 
               {/* Sidebar */}
               <aside className="space-y-6">
-                {/* Progress Visualization */}
-                <div
-                  className={`bg-white p-6 text-center border border-[rgba(26,26,46,0.06)] shadow-sm ${THEME.rounded}`}
-                >
-                  <h4 className="mb-3 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#8a8aa0]">
-                    Test Quality
-                  </h4>
-                  <p className="mb-6 font-sans text-[12px] font-semibold leading-relaxed text-[#5a5a72]">
-                    Timing and answer density are tracked to spot rushed,
-                    stalled, or patterned responses.
-                  </p>
-                  <div className="relative mx-auto w-[80px]">
-                    <svg className="h-[120px] w-[80px]" viewBox="0 0 100 150">
-                      <defs>
-                        <clipPath id="beakerClip">
-                          <path d="M20,10 L20,130 Q20,145 35,145 L65,145 Q80,145 80,130 L80,10 Z" />
-                        </clipPath>
-                      </defs>
-                      <path
-                        d="M20,10 L20,130 Q20,145 35,145 L65,145 Q80,145 80,130 L80,10"
-                        fill="none"
-                        stroke="rgba(26,26,46,0.1)"
-                        strokeWidth="4"
-                        strokeLinecap="round"
-                      />
-                      <line
-                        x1="15"
-                        y1="10"
-                        x2="85"
-                        y2="10"
-                        stroke="rgba(26,26,46,0.1)"
-                        strokeWidth="4"
-                        strokeLinecap="round"
-                      />
-                      <g clipPath="url(#beakerClip)">
-                        <rect
-                          className="transition-all duration-700 ease-out"
-                          x="20"
-                          y={yPos}
-                          width="60"
-                          height={liquidHeight}
-                          fill="#3a5ccc"
-                        />
-                        <path
-                          d={`M20,${yPos} Q35,${yPos - 4} 50,${yPos} Q65,${yPos + 4} 80,${yPos} L80,${yPos + liquidHeight + 10} L20,${yPos + liquidHeight + 10} Z`}
-                          fill="#7c5cfc"
-                          opacity=".4"
-                          className="transition-all duration-700 ease-out"
-                        />
-                      </g>
-                    </svg>
-                  </div>
-                  <div className="mt-4 font-bricolage text-[28px] font-extrabold text-[#3a5ccc]">
-                    {pctComplete}%
-                  </div>
-                  <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#8a8aa0]">
-                    In-Progress Coverage
-                  </span>
-                </div>
-
                 {/* Map Grid */}
                 <div
                   className={`bg-white p-6 border border-[rgba(26,26,46,0.06)] shadow-sm ${THEME.rounded}`}
@@ -2056,10 +1809,10 @@ export function DiagnosticDemo({
                           }`}
                           title={
                             isAnswered
-                              ? `Done · ${formatQuestionTypeLabel(q.questionType)} · ${normalizeDifficultyLevel(q.difficultyLevel)}`
+                              ? "Done"
                               : isSkipped
-                                ? `Skipped${wasSkipped ? " (timed out)" : ""} · ${formatQuestionTypeLabel(q.questionType)} · ${normalizeDifficultyLevel(q.difficultyLevel)}`
-                                : `Not reached · ${formatQuestionTypeLabel(q.questionType)} · ${normalizeDifficultyLevel(q.difficultyLevel)}`
+                                ? `Skipped${wasSkipped ? " (timed out)" : ""}`
+                                : "Not reached"
                           }
                         >
                           {i + 1}
