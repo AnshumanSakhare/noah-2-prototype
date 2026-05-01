@@ -1,19 +1,13 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, DM_Sans, Space_Mono } from "next/font/google";
+import { Figtree, Space_Mono } from "next/font/google";
 
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
-const dmSans = DM_Sans({
+const figtree = Figtree({
   subsets: ["latin"],
-  variable: "--font-dm-sans",
-  weight: ["400", "500", "700"],
-});
-
-const bricolage = Bricolage_Grotesque({
-  subsets: ["latin"],
-  variable: "--font-bricolage",
-  weight: ["400", "600", "700", "800"],
+  variable: "--font-figtree",
+  weight: ["400", "500", "600", "700", "800", "900"],
 });
 
 const spaceMono = Space_Mono({
@@ -37,8 +31,7 @@ export default function RootLayout({
       lang="en"
       className={cn(
         "min-h-full antialiased",
-        dmSans.variable,
-        bricolage.variable,
+        figtree.variable,
         spaceMono.variable,
       )}
     >

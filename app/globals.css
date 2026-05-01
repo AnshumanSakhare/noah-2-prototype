@@ -5,29 +5,30 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --bg: #faf8f5;
-  --bg-warm: #fff7ed;
+  --bg: #ffffff;
+  --bg-warm: #f8f9fa;
   --surface: #ffffff;
-  --surface-2: #f5f3f0;
-  --text: #1a1a2e;
-  --text-dim: #5a5a72;
-  --accent-blue: #3a5ccc;
-  --accent-purple: #7c5cfc;
+  --surface-2: #f5f7f6;
+  --text: #1a1a1a;
+  --text-dim: #6b7280;
+  --accent-blue: #2ec4b6;
+  --accent-purple: #a78bfa;
   --accent-pink: #f76f8e;
-  --accent-yellow: #ffc53d;
+  --accent-yellow: #f5a623;
   --accent-coral: #f46853;
-  --accent-green: #2ecc87;
-  --accent-teal: #20c9b0;
-  --accent-orange: #ff9a3c;
-  --background: #faf8f5;
-  --foreground: #1a1a2e;
+  --accent-green: #22c55e;
+  --accent-teal: #2ec4b6;
+  --accent-orange: #f5a623;
+  --heading: #1b4a4a;
+  --background: #ffffff;
+  --foreground: #1a1a1a;
   --card: #ffffff;
-  --card-foreground: #1a1a2e;
+  --card-foreground: #1a1a1a;
   --popover: #ffffff;
-  --popover-foreground: #1a1a2e;
-  --primary: #3a5ccc;
-  --primary-foreground: oklch(1 0 0);
-  --secondary: #7c5cfc;
+  --popover-foreground: #1a1a1a;
+  --primary: #f5a623;
+  --primary-foreground: #ffffff;
+  --secondary: #2ec4b6;
   --secondary-foreground: oklch(1 0 0);
   --muted: #f5f3f0;
   --muted-foreground: #5a5a72;
@@ -51,8 +52,8 @@
   --sidebar-accent-foreground: #1a1a2e;
   --sidebar-border: rgba(26, 26, 46, 0.08);
   --sidebar-ring: #3a5ccc;
-  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-bricolage: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-bricolage: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
   --font-serif: Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono: var(--font-space-mono), ui-monospace, SFMono-Regular, monospace;
   --radius: 0.75rem;
@@ -112,8 +113,8 @@
   --sidebar-accent-foreground: oklch(0.8109 0 0);
   --sidebar-border: oklch(0.252 0 0);
   --sidebar-ring: oklch(0.7214 0.1337 49.9802);
-  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-bricolage: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-bricolage: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
   --font-serif: Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono: var(--font-space-mono), ui-monospace, SFMono-Regular, monospace;
   --radius: 0.75rem;
@@ -172,8 +173,8 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-bricolage: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-bricolage: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-space-mono), ui-monospace, SFMono-Regular, monospace;
   --font-serif: Georgia, Cambria, "Times New Roman", Times, serif;
 
@@ -216,8 +217,7 @@
         ellipse 500px 500px at 80% 80%,
         rgba(58, 92, 204, 0.03),
         transparent
-      ),
-      var(--bg);
+      ), var(--bg);
   }
 }
 
@@ -579,7 +579,11 @@
 
 /* App layout handled by shadcn/ui Sidebar */
 
-@keyframes interstitialPop {
-  0% { transform: translateY(24px); opacity: 0; }
-  100% { transform: translateY(0); opacity: 1; }
+@keyframes shrink-bar {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
 }

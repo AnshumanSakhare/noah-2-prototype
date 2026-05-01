@@ -2,15 +2,15 @@
 
 import {
   AlertCircle,
-  Calculator,
   ChevronLeft,
   ChevronRight,
-  FlaskConical,
-  Rocket,
   RotateCcw,
+  Star,
 } from "lucide-react";
 import Link from "next/link";
-import React, {
+import type React from "react";
+import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -18,7 +18,6 @@ import React, {
   useTransition,
 } from "react";
 
-import { getCorrectQuestionPoints } from "../agents/diagnostic/timeScoring";
 import type {
   DiagnosticReport,
   DragDropQuestionPayload,
@@ -37,26 +36,59 @@ import { DIAGNOSTIC_CONTENT_DEFAULTS } from "../lib/diagnostic-content-defaults"
 
 const OPTION_LABELS = ["A", "B", "C", "D"] as const;
 
+// ─── App navigation ───────────────────────────────────────────────────────────
+type AppScreen =
+  | "selector"
+  | "topic-browse"
+  | "topic-start"
+  | "grade-browse"
+  | "grade-start";
+
+// ─── Star Rating ──────────────────────────────────────────────────────────────
+function StarRating({
+  filled,
+  total = 5,
+  size = 16,
+}: {
+  filled: number;
+  total?: number;
+  size?: number;
+}) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: total }, (_, i) => ({
+        id: `star-${i + 1}`,
+        isFilled: i < filled,
+      })).map((star) => (
+        <Star
+          key={star.id}
+          width={size}
+          height={size}
+          fill={star.isFilled ? "#F5A623" : "#E2DED4"}
+          stroke={star.isFilled ? "#E0941A" : "#D1CCC4"}
+          strokeWidth={1}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Theme ────────────────────────────────────────────────────────────────────
 const THEME = {
-  page: "bg-[#faf8f5] text-[#1a1a2e] font-sans min-h-screen selection:bg-[#3a5ccc]/10",
-  surface: "border border-[rgba(26,26,46,0.06)] bg-white",
-  surfaceWarm: "bg-[#fff7ed]",
-  surfaceSoft: "bg-[#f5f3f0]",
-  textDim: "text-[#5a5a72]",
-  textMuted: "text-[#8a8aa0]",
-  primaryGradient: "bg-[linear-gradient(135deg,#3a5ccc,#7c5cfc)]",
-  primaryText: "text-[#3a5ccc]",
-  shadow: "shadow-[0_2px_24px_rgba(26,26,46,0.05)]",
-  shadowFloat: "shadow-[0_20px_60px_rgba(26,26,46,0.18)]",
+  page: "bg-white text-[#1a1a1a] font-sans min-h-screen",
+  surface: "border border-gray-100 bg-white shadow-sm",
+  textDim: "text-[#6B7280]",
+  textMuted: "text-[#9CA3AF]",
+  primaryGradient: "bg-[#F5A623]",
+  primaryText: "text-[#1B4A4A]",
   rounded: "rounded-[20px]",
   roundedSm: "rounded-[12px]",
   roundedPill: "rounded-full",
+  btnPrimary:
+    "bg-[#F5A623] hover:bg-[#E0941A] text-white font-semibold rounded-full transition-all",
+  btnSecondary:
+    "border-2 border-[#2EC4B6] text-[#1B4A4A] font-semibold rounded-full hover:bg-[#2EC4B6]/10 transition-all",
 };
-
-const AMBIENT_BG = `
-  radial-gradient(ellipse 600px 400px at 20% 10%, rgba(124, 92, 252, 0.04), transparent),
-  radial-gradient(ellipse 500px 500px at 80% 80%, rgba(58, 92, 204, 0.03), transparent)
-`;
 
 const DIFFICULTY_BASE_POINTS: Record<string, number> = {
   easy: 2,
@@ -72,37 +104,27 @@ const DIFFICULTY_TIME_LIMITS_MS: Record<string, number> = {
 
 const RAPID_RESPONSE_THRESHOLD_MS = 2_000;
 
-const INTERSTITIALS = [
+// ─── Toast triggers ───────────────────────────────────────────────────────────
+const TOAST_TRIGGERS = [3, 8, 13]; // 0-based question indices after which to show toast
+const TOAST_CONFIGS = [
   {
-    icon: "✨",
+    emoji: "🌟",
     title: "Great work! Keep going!",
-    subtitle: "You are doing brilliantly. Stay focused on the next one.",
+    message: "You're doing brilliantly. Stay focused on the next one.",
   },
   {
-    icon: "🔥",
-    title: "You are on fire!",
-    subtitle: "Halfway there. Take a deep breath and let us keep going.",
+    emoji: "🔥",
+    title: "You're on fire!",
+    message: "Halfway there. Take a breath and keep going strong!",
   },
   {
-    icon: "🏆",
+    emoji: "🏆",
     title: "Almost done!",
-    subtitle: "Just a few more to go. You have got this!",
+    message: "Just a few more questions. You've absolutely got this!",
   },
-] as const;
+];
 
-const GRADE_TEST_COUNTS: Record<string, { easy: number; medium: number; hard: number }> = {
-  classKG: { easy: 3, medium: 5, hard: 7 },
-  class1:  { easy: 3, medium: 5, hard: 7 },
-  class2:  { easy: 4, medium: 6, hard: 8 },
-  class3:  { easy: 4, medium: 7, hard: 9 },
-  class4:  { easy: 5, medium: 7, hard: 10 },
-  class5:  { easy: 6, medium: 8, hard: 11 },
-  class6:  { easy: 6, medium: 8, hard: 11 },
-  class7:  { easy: 7, medium: 10, hard: 13 },
-  class8:  { easy: 7, medium: 10, hard: 13 },
-};
-
-// Utility functions
+// ─── Utility functions ────────────────────────────────────────────────────────
 function classLabel(value: string) {
   if (value === "classKG") return "KG";
   if (value === "class1") return "Grade 1";
@@ -111,9 +133,13 @@ function classLabel(value: string) {
   if (value === "class4") return "Grade 4";
   if (value === "class5") return "Grade 5";
   if (value === "class6") return "Grade 6";
-  if (value === "class7") return "Grade 7";
   if (value === "class8") return "Grade 8";
+  if (value === "class7") return "Grade 7";
   return value;
+}
+
+function classNum(value: string) {
+  return value.replace("class", "");
 }
 
 function toErrorMessage(error: unknown) {
@@ -141,15 +167,15 @@ function buildDefaultForm(
         subject: entry.subject,
         classLevel: entry.classLevel,
         topic: entry.topic,
-        maxQuestions: 15,
+        maxQuestions: entry.questionCount,
       }
     : {
         studentId: "Riya Sharma",
         testMode: "topic",
         subject: DIAGNOSTIC_CONTENT_DEFAULTS.subject,
         classLevel: DIAGNOSTIC_CONTENT_DEFAULTS.classLevel,
-        topic: "",
-        maxQuestions: 15,
+        topic: DIAGNOSTIC_CONTENT_DEFAULTS.topic,
+        maxQuestions: 18,
       };
 }
 
@@ -161,20 +187,6 @@ function getAnswerMap(answer: string) {
   }
 }
 
-function formatAnswer(question: DemoQuizQuestion, answer: string) {
-  if (
-    question.questionType !== "matching" &&
-    question.questionType !== "drag_drop"
-  ) {
-    return answer || "(blank)";
-  }
-
-  const parts = Object.entries(getAnswerMap(answer)).map(
-    ([left, right]) => `${left} -> ${right}`,
-  );
-  return parts.length > 0 ? parts.join("; ") : "(blank)";
-}
-
 function formatDuration(timeTakenMs?: number) {
   if (!timeTakenMs || timeTakenMs <= 0) return "-";
   return `${(timeTakenMs / 1000).toFixed(1)}s`;
@@ -182,27 +194,23 @@ function formatDuration(timeTakenMs?: number) {
 
 function formatCompactDuration(timeTakenMs?: number) {
   if (!timeTakenMs || timeTakenMs <= 0) return "0s";
-
   const totalSeconds = timeTakenMs / 1000;
-  if (totalSeconds < 60) {
+  if (totalSeconds < 60)
     return `${totalSeconds.toFixed(totalSeconds >= 10 ? 0 : 1)}s`;
-  }
-
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = Math.round(totalSeconds % 60);
   return `${minutes}m ${seconds}s`;
 }
 
-function clamp(value: number, min: number, max: number) {
+function getEstimatedTestTimeLabel() {
+  return "15 min";
+}
+
+function _clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function truncateText(value: string, maxLength: number) {
-  if (value.length <= maxLength) return value;
-  return `${value.slice(0, maxLength - 1).trimEnd()}...`;
-}
-
-function formatQuestionTypeLabel(value: string) {
+function _formatQuestionTypeLabel(value: string) {
   return value.replace(/_/g, " ");
 }
 
@@ -214,11 +222,19 @@ type QuestionDisplayData = {
   modelAnswer?: string;
 };
 
+function getQuestionSvg(question?: {
+  payload?: Record<string, unknown> | null;
+}) {
+  const questionSvg = question?.payload?.questionSvg;
+  return typeof questionSvg === "string" &&
+    questionSvg.trim().startsWith("<svg")
+    ? questionSvg
+    : null;
+}
+
 function normalizeDifficultyLevel(value?: string) {
   const normalized = value?.trim().toLowerCase();
-  if (normalized === "medium" || normalized === "hard") {
-    return normalized;
-  }
+  if (normalized === "medium" || normalized === "hard") return normalized;
   return "easy";
 }
 
@@ -232,16 +248,10 @@ function getQuestionBasePoints(difficultyLevel?: string) {
 
 function getQuestionFinalPoints(record: {
   verdict: string;
-  timeTakenMs?: number;
   question: { difficultyLevel?: string };
 }) {
   const base = getQuestionBasePoints(record.question.difficultyLevel);
-  if (record.verdict === "correct") {
-    const slow =
-      (record.timeTakenMs ?? 0) >
-      getQuestionTimeLimitMs(record.question.difficultyLevel);
-    return base * (slow ? 0.9 : 1);
-  }
+  if (record.verdict === "correct") return base;
   if (record.verdict === "partial") return base * 0.5;
   return 0;
 }
@@ -255,16 +265,11 @@ function formatAnswerSummary(question: QuestionDisplayData, answer: string) {
     const normalized = answer.trim().toUpperCase();
     const labels = ["A", "B", "C", "D"] as const;
     const labelIndex = labels.indexOf(normalized as (typeof labels)[number]);
-    if (labelIndex >= 0) {
+    if (labelIndex >= 0)
       return `${labels[labelIndex]} · ${question.options[labelIndex] ?? ""}`.trim();
-    }
     return answer || "(blank)";
   }
-
-  if (question.questionType === "true_false") {
-    return answer || "(blank)";
-  }
-
+  if (question.questionType === "true_false") return answer || "(blank)";
   if (
     question.questionType === "matching" ||
     question.questionType === "drag_drop"
@@ -279,14 +284,6 @@ function formatAnswerSummary(question: QuestionDisplayData, answer: string) {
       return answer || "(blank)";
     }
   }
-
-  if (
-    question.questionType === "fitb" ||
-    question.questionType === "short_answer"
-  ) {
-    return answer || "(blank)";
-  }
-
   return answer || "(blank)";
 }
 
@@ -300,17 +297,14 @@ function getCorrectAnswerSummary(question: QuestionDisplayData) {
     const selected = labels.indexOf(
       correctAnswer.toUpperCase() as (typeof labels)[number],
     );
-    if (selected >= 0) {
+    if (selected >= 0)
       return `${labels[selected]} · ${question.options[selected] ?? ""}`.trim();
-    }
     return correctAnswer || "—";
   }
-
   if (question.questionType === "true_false") {
     const payload = question.payload as { correctAnswer?: boolean } | undefined;
     return payload?.correctAnswer === true ? "True" : "False";
   }
-
   if (question.questionType === "matching") {
     const payload = question.payload as
       | { answerKey?: Array<{ prompt?: string; match?: string }> }
@@ -321,7 +315,6 @@ function getCorrectAnswerSummary(question: QuestionDisplayData) {
         .join("; ") || "See answer key"
     );
   }
-
   if (question.questionType === "drag_drop") {
     const payload = question.payload as
       | { answerKey?: Array<{ item?: string; target?: string }> }
@@ -332,63 +325,114 @@ function getCorrectAnswerSummary(question: QuestionDisplayData) {
         .join("; ") || "See answer key"
     );
   }
-
   return question.modelAnswer ?? question.correctAnswer ?? "—";
 }
 
-function buildTimeBucketLabels(allocatedTimeMs: number) {
-  const totalSeconds = Math.max(5, Math.round(allocatedTimeMs / 1000));
-  const step = Math.max(1, Math.ceil(totalSeconds / 5));
-
-  return Array.from({ length: 5 }, (_, index) => {
-    const start = index * step;
-    const end =
-      index === 4 ? totalSeconds : Math.min(totalSeconds, (index + 1) * step);
-
-    if (index === 0) return `0-${end}s`;
-    if (index === 4) return `${start}s+`;
-    return `${start}-${end}s`;
-  });
+function normalizeAnswerText(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function getTimeBucketIndex(
-  timeTakenMs: number | undefined,
-  allocatedTimeMs: number,
+function _getMapAnswerState(
+  question: QuestionDisplayData,
+  answer: string,
+  isAnswered: boolean,
 ) {
-  if (!timeTakenMs || timeTakenMs <= 0) return 0;
-  if (allocatedTimeMs <= 0) return 0;
+  if (!isAnswered) return "upcoming";
 
-  const ratio = timeTakenMs / allocatedTimeMs;
-  return clamp(Math.floor(ratio * 5), 0, 4);
-}
-
-function getQuestionPoints(
-  verdict: string,
-  timeTakenMs?: number,
-  difficultyLevel?: string,
-) {
-  if (verdict === "correct") {
-    return getCorrectQuestionPoints(timeTakenMs, difficultyLevel);
+  if (question.questionType === "mcq") {
+    const expected = question.correctAnswer?.trim().toUpperCase();
+    return answer.trim().toUpperCase() === expected ? "correct" : "incorrect";
   }
-  if (verdict === "partial") return 0.5;
-  return 0;
+
+  if (question.questionType === "true_false") {
+    const payload = question.payload as { correctAnswer?: boolean } | undefined;
+    const expected = payload?.correctAnswer === true ? "true" : "false";
+    return normalizeAnswerText(answer) === expected ? "correct" : "incorrect";
+  }
+
+  if (question.questionType === "fitb") {
+    const payload = question.payload as { answer?: string } | undefined;
+    const expected = normalizeAnswerText(
+      question.modelAnswer ?? payload?.answer ?? "",
+    );
+    const actual = normalizeAnswerText(answer);
+    if (!expected) return "answered";
+    return actual === expected ||
+      actual.includes(expected) ||
+      expected.includes(actual)
+      ? "correct"
+      : "incorrect";
+  }
+
+  if (
+    question.questionType === "matching" ||
+    question.questionType === "drag_drop"
+  ) {
+    const payload = question.payload as
+      | {
+          answerKey?: Array<{
+            prompt?: string;
+            match?: string;
+            item?: string;
+            target?: string;
+          }>;
+        }
+      | undefined;
+    const answerMap = getAnswerMap(answer);
+    const answerKey = payload?.answerKey ?? [];
+    if (answerKey.length === 0) return "answered";
+    const correctCount = answerKey.filter((pair) => {
+      const key = pair.prompt ?? pair.item ?? "";
+      const expected = pair.match ?? pair.target ?? "";
+      return (
+        normalizeAnswerText(answerMap[key] ?? "") ===
+        normalizeAnswerText(expected)
+      );
+    }).length;
+    if (correctCount === answerKey.length) return "correct";
+    if (correctCount > 0) return "partial";
+    return "incorrect";
+  }
+
+  if (question.modelAnswer) {
+    const expected = normalizeAnswerText(question.modelAnswer);
+    const actual = normalizeAnswerText(answer);
+    if (!expected) return "answered";
+    return actual === expected ||
+      actual.includes(expected) ||
+      expected.includes(actual)
+      ? "correct"
+      : "incorrect";
+  }
+
+  return "answered";
 }
 
-function getVerdictLabel(verdict: string, wasAutoSkipped?: boolean) {
-  if (wasAutoSkipped) return "Timed out";
-  if (verdict === "correct") return "Correct";
-  if (verdict === "partial") return "Partial";
-  if (verdict === "incorrect") return "Incorrect";
-  return "No attempt";
+function getQuestionExplanation(record: DiagnosticReport["results"][number]) {
+  const question = record.question as QuestionDisplayData & {
+    explanation?: string;
+    feedback?: string;
+    solutionSteps?: string[];
+    scoringGuidance?: string;
+  };
+  const payload = question.payload as
+    | { explanation?: string; whyWrong?: string; solutionSteps?: string[] }
+    | undefined;
+  const explanation =
+    question.feedback ??
+    question.explanation ??
+    payload?.explanation ??
+    payload?.whyWrong;
+  if (explanation) return explanation;
+  const steps = question.solutionSteps ?? payload?.solutionSteps;
+  if (steps && steps.length > 0) return steps.join(" ");
+  if (question.scoringGuidance) return question.scoringGuidance;
+  return `Correct answer: ${getCorrectAnswerSummary(question)}. Review this question with the teacher explanation for the full working.`;
 }
 
 function getStudentDisplayName(studentId?: string) {
   const normalized = studentId?.trim();
   return normalized && normalized.length > 0 ? normalized : "Student";
-}
-
-function getPossessiveName(name: string) {
-  return name.endsWith("s") ? `${name}'` : `${name}'s`;
 }
 
 function formatLearningObjectiveLabel(learningObjective?: string) {
@@ -398,7 +442,7 @@ function formatLearningObjectiveLabel(learningObjective?: string) {
   return stripped.charAt(0).toUpperCase() + stripped.slice(1);
 }
 
-// API functions
+// ─── API functions ─────────────────────────────────────────────────────────────
 async function loadQuiz(input: CreateSessionInput) {
   const response = await fetch("/api/quiz/section", {
     method: "POST",
@@ -408,9 +452,8 @@ async function loadQuiz(input: CreateSessionInput) {
   const data = (await response.json()) as DemoQuizLoadResponse & {
     error?: string;
   };
-  if (!response.ok || !("quiz" in data)) {
+  if (!response.ok || !("quiz" in data))
     throw new Error(data.error ?? "Unable to load quiz.");
-  }
   return data.quiz;
 }
 
@@ -443,13 +486,574 @@ async function submitQuiz(
   const data = (await response.json()) as DemoQuizSubmitResponse & {
     error?: string;
   };
-  if (!response.ok || !("report" in data)) {
+  if (!response.ok || !("report" in data))
     throw new Error(data.error ?? "Unable to submit quiz.");
-  }
   return data.report;
 }
 
-// Components
+// ─── AI Tutor Chat Bubble ─────────────────────────────────────────────────────
+function AIChatBubble({
+  config,
+  onDismiss,
+}: {
+  config: { emoji: string; title: string; message: string } | null;
+  onDismiss: () => void;
+}) {
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
+
+  useEffect(() => {
+    if (!config) return;
+    const t = setTimeout(() => onDismissRef.current(), 5000);
+    return () => clearTimeout(t);
+  }, [config]); // only restarts when a new message appears, not on every re-render
+
+  if (!config) return null;
+
+  return (
+    <div className="fixed bottom-5 right-4 z-50 flex flex-col items-end gap-2 sm:right-6">
+      {/* Speech bubble */}
+      <div className="animate-in slide-in-from-bottom-4 fade-in duration-500 w-[268px] sm:w-[340px]">
+        <div className="relative rounded-[20px] rounded-br-[5px] bg-white px-4 py-4 shadow-[0_8px_32px_rgba(0,0,0,0.13)] ring-1 ring-[#F5A623]/25 sm:px-5 sm:py-5">
+          {/* Dismiss */}
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label="Dismiss"
+            className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full text-[10px] text-[#C0C4CC] transition-colors hover:bg-[#FFF8E7] hover:text-[#F5A623]"
+          >
+            ✕
+          </button>
+
+          {/* Content */}
+          <div className="flex items-start gap-3 pr-4">
+            <span className="shrink-0 text-[1.6rem] leading-none sm:text-[2rem]">
+              {config.emoji}
+            </span>
+            <div className="min-w-0">
+              <div className="font-bold text-[14px] leading-snug text-[#1B4A4A] sm:text-[16px]">
+                {config.title}
+              </div>
+              <div className="mt-1 text-[12px] leading-relaxed text-[#6B7280] sm:text-[13px]">
+                {config.message}
+              </div>
+            </div>
+          </div>
+
+          {/* Progress bar showing time remaining */}
+          <div className="mt-3 h-[3px] w-full overflow-hidden rounded-full bg-[#F0EDE6]">
+            <div
+              className="h-full rounded-full bg-[#F5A623]"
+              style={{ animation: "shrink-bar 5s linear forwards" }}
+            />
+          </div>
+        </div>
+
+        {/* Tail pointing down toward avatar */}
+        <div className="flex justify-end pr-[20px]">
+          <div
+            className="h-0 w-0 border-l-[8px] border-r-[8px] border-t-[8px] border-l-transparent border-r-transparent border-t-white"
+            style={{ filter: "drop-shadow(0 2px 1px rgba(0,0,0,0.06))" }}
+          />
+        </div>
+      </div>
+
+      {/* Avatar */}
+      <div className="animate-in zoom-in-75 duration-400 flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#ffd166,#F5A623)] text-[1.5rem] shadow-[0_4px_18px_rgba(245,166,35,0.45)] ring-2 ring-white sm:h-[52px] sm:w-[52px] sm:text-[1.7rem]">
+        🦉
+      </div>
+
+    </div>
+  );
+}
+
+// ─── Selector Screen ───────────────────────────────────────────────────────────
+function SelectorScreen({
+  onSelectTopic,
+  onSelectGrade,
+}: {
+  onSelectTopic: () => void;
+  onSelectGrade: () => void;
+}) {
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="mb-10 text-center">
+        <h2 className="text-[24px] font-extrabold tracking-tight text-[#1B4A4A] sm:text-[32px]">
+          Choose your test
+        </h2>
+        <p className="mx-auto mt-2 max-w-[520px] text-[15px] leading-relaxed text-[#6B7280] sm:text-[16px]">
+          Ready to see how you are doing? Pick the test that fits what you want
+          to check.
+        </p>
+      </div>
+
+      <div className="mx-auto grid max-w-[860px] grid-cols-1 gap-6 sm:grid-cols-2">
+        {/* Topic Test Card */}
+        <button
+          type="button"
+          onClick={onSelectTopic}
+          className="group cursor-pointer rounded-[20px] border border-gray-100 bg-white p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-[#2EC4B6] hover:shadow-[0_8px_32px_rgba(46,196,182,0.12)] sm:p-8"
+        >
+          <div className="mb-4 flex h-[60px] w-[60px] items-center justify-center rounded-[14px] bg-[#E6F8F7] text-[30px]">
+            📋
+          </div>
+          <h3 className="mb-2 text-[22px] font-bold text-[#1B4A4A]">
+            Topic Test
+          </h3>
+          <p className="mb-5 text-[14px] leading-relaxed text-[#6B7280]">
+            Test your knowledge on one specific topic. Good for checking if you
+            have mastered what you just learnt.
+          </p>
+          <div className="mb-5 flex flex-wrap gap-2">
+            {["18 questions", "One topic", "15–20 min"].map((pill) => (
+              <span
+                key={pill}
+                className="rounded-full bg-[#F8F9FA] px-3 py-1.5 font-mono text-[12px] text-[#6B7280] border border-gray-100"
+              >
+                {pill}
+              </span>
+            ))}
+          </div>
+          <div className="flex items-center gap-1 font-semibold text-[14px] text-[#F5A623]">
+            Start a topic test{" "}
+            <span className="text-[18px] leading-none">›</span>
+          </div>
+        </button>
+
+        {/* Grade Test Card */}
+        <button
+          type="button"
+          onClick={onSelectGrade}
+          className="group cursor-pointer rounded-[20px] border border-gray-100 bg-white p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-[#F5A623] hover:shadow-[0_8px_32px_rgba(245,166,35,0.12)] sm:p-8"
+        >
+          <div className="mb-4 flex h-[60px] w-[60px] items-center justify-center rounded-[14px] bg-[#FFF8E7] text-[30px]">
+            🏆
+          </div>
+          <h3 className="mb-2 text-[22px] font-bold text-[#1B4A4A]">
+            Grade Test
+          </h3>
+          <p className="mb-5 text-[14px] leading-relaxed text-[#6B7280]">
+            Test your knowledge across your whole grade. Good for finding which
+            topics to focus on next.
+          </p>
+          <div className="mb-5 flex flex-wrap gap-2">
+            {["22 questions", "All topics", "20–30 min"].map((pill) => (
+              <span
+                key={pill}
+                className="rounded-full bg-[#F8F9FA] px-3 py-1.5 font-mono text-[12px] text-[#6B7280] border border-gray-100"
+              >
+                {pill}
+              </span>
+            ))}
+          </div>
+          <div className="flex items-center gap-1 font-semibold text-[14px] text-[#F5A623]">
+            Start a grade test{" "}
+            <span className="text-[18px] leading-none">›</span>
+          </div>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Topic Browse Screen ───────────────────────────────────────────────────────
+function TopicBrowseScreen({
+  form,
+  setForm,
+  quizCatalog,
+  defaultTopicEntry,
+  onContinue,
+  onBack,
+  onSelectEntry,
+}: {
+  form: CreateSessionInput;
+  setForm: React.Dispatch<React.SetStateAction<CreateSessionInput>>;
+  quizCatalog: DemoQuizCatalog;
+  defaultTopicEntry: DemoQuizCatalogEntry | null;
+  onContinue: () => void;
+  onBack: () => void;
+  onSelectEntry: (entry: DemoQuizCatalogEntry) => void;
+}) {
+  const defaultEntry = defaultTopicEntry ?? getDefaultCatalogEntry(quizCatalog);
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(
+    () => form.topic || defaultEntry?.topic || null,
+  );
+  const [activeTab, setActiveTab] = useState<string>(
+    () => form.classLevel || defaultEntry?.classLevel || "class6",
+  );
+
+  const classLevels = useMemo(
+    () =>
+      Array.from(new Set(quizCatalog.entries.map((e) => e.classLevel))).sort(),
+    [quizCatalog.entries],
+  );
+
+  const filteredEntries = useMemo(
+    () => quizCatalog.entries.filter((e) => e.classLevel === activeTab),
+    [activeTab, quizCatalog.entries],
+  );
+
+  const handleSelectTopic = (entry: DemoQuizCatalogEntry) => {
+    setSelectedTopic(entry.topic);
+    setForm((prev) => ({
+      ...prev,
+      topic: entry.topic,
+      classLevel: entry.classLevel as never,
+      subject: entry.subject,
+      maxQuestions: entry.questionCount,
+    }));
+    onSelectEntry(entry);
+  };
+
+  const selectedEntry =
+    filteredEntries.find((e) => e.topic === selectedTopic) ??
+    filteredEntries[0];
+
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="mb-6 flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1 text-[13px] font-medium text-[#6B7280] transition-colors hover:text-[#1a1a1a]"
+        >
+          <ChevronLeft className="h-4 w-4" /> Back
+        </button>
+        <div className="h-1 w-px bg-[rgba(0,0,0,0.1)]" />
+        <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#2EC4B6]">
+          • TOPIC TEST
+        </span>
+      </div>
+
+      <div className="mb-6 text-center">
+        <h2 className="text-[22px] font-extrabold tracking-tight text-[#1B4A4A] sm:text-[28px]">
+          Pick a topic to test
+        </h2>
+        <p className="mt-1 text-[14px] text-[#6B7280]">
+          Select a class and topic to begin your diagnostic
+        </p>
+      </div>
+
+      {/* Class tabs */}
+      <div className="mb-6 flex flex-wrap justify-center gap-2">
+        {classLevels.map((cl) => (
+          <button
+            key={cl}
+            onClick={() => {
+              setActiveTab(cl);
+              setSelectedTopic(null);
+            }}
+            className={`rounded-full px-5 py-2 font-mono text-[12px] font-bold transition-all ${
+              activeTab === cl
+                ? "bg-[#F5A623] text-white shadow-sm"
+                : "bg-white border border-gray-200 text-[#6B7280] hover:border-[#F5A623]"
+            }`}
+          >
+            Class {classNum(cl)}
+          </button>
+        ))}
+      </div>
+
+      {/* Topic cards */}
+      <div className="mx-auto mb-6 grid max-w-[900px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {filteredEntries.map((entry) => {
+          const isSelected =
+            selectedTopic === entry.topic ||
+            (!selectedTopic && entry.topic === defaultEntry?.topic);
+          return (
+            <button
+              type="button"
+              key={entry.topic}
+              onClick={() => handleSelectTopic(entry)}
+              className={`cursor-pointer rounded-[14px] border-2 p-4 text-left transition-all duration-150 ${
+                isSelected
+                  ? "border-[#F5A623] bg-[rgba(245,166,35,0.04)] shadow-sm"
+                  : "border-gray-100 bg-white hover:border-[#2EC4B6] hover:shadow-sm"
+              }`}
+            >
+              <div
+                className={`mb-1 font-mono text-[10px] font-bold uppercase tracking-wider ${isSelected ? "text-[#F5A623]" : "text-[#9CA3AF]"}`}
+              >
+                {entry.subject}
+              </div>
+              <div className="font-bold text-[14px] text-[#1B4A4A] leading-snug">
+                {entry.topic}
+              </div>
+              {isSelected && (
+                <div className="mt-1.5 font-mono text-[10px] text-[#F5A623]">
+                  ✓ Selected
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Continue button */}
+      <div className="flex justify-center">
+        <button
+          onClick={() => {
+            if (selectedEntry) handleSelectTopic(selectedEntry);
+            onContinue();
+          }}
+          className="flex items-center gap-2 rounded-full bg-[#F5A623] px-7 py-3.5 font-bold text-[15px] text-white shadow-[0_6px_20px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(245,166,35,0.40)] sm:px-10"
+        >
+          <span className="hidden sm:inline">Continue to Start Screen</span>
+          <span className="sm:hidden">Continue</span>
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Topic Start Screen ────────────────────────────────────────────────────────
+function TopicStartScreen({
+  form,
+  onBegin,
+  onBack,
+  isBusy,
+}: {
+  form: CreateSessionInput;
+  learningObjectives: string[];
+  onBegin: () => void;
+  onBack: () => void;
+  isBusy: boolean;
+}) {
+  const estimatedTime = getEstimatedTestTimeLabel();
+
+  return (
+    <div className="mx-auto max-w-[680px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="mb-4 flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1 text-[13px] font-medium text-[#6B7280] transition-colors hover:text-[#1a1a1a]"
+        >
+          <ChevronLeft className="h-4 w-4" /> Back
+        </button>
+      </div>
+
+      <div className="rounded-[20px] border border-gray-100 bg-white p-5 shadow-sm sm:p-8">
+        <div className="mb-3 inline-block rounded-full bg-[#E6F8F7] px-3 py-1 font-mono text-[11px] font-bold tracking-wider text-[#1B4A4A]">
+          TOPIC TEST
+        </div>
+
+        <h2 className="mb-2 text-[24px] font-extrabold tracking-tight text-[#1B4A4A] sm:text-[30px]">
+          {form.topic}
+        </h2>
+        <p className="mb-6 text-[14px] leading-relaxed text-[#6B7280]">
+          Answer each question carefully. The test is designed to quickly check
+          your current understanding.
+        </p>
+
+        <div className="mb-7 grid gap-3 sm:grid-cols-3">
+          {[
+            { label: "Questions", value: String(form.maxQuestions) },
+            { label: "Estimated time", value: estimatedTime },
+            { label: "Grade", value: classLabel(form.classLevel) },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="rounded-[14px] border border-gray-100 bg-[#F8F9FA] p-4"
+            >
+              <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">
+                {item.label}
+              </div>
+              <div className="mt-1 text-[18px] font-extrabold text-[#1B4A4A]">
+                {item.value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mb-8 rounded-[14px] bg-[#FFF8E7] p-4 text-[13px] font-medium leading-relaxed text-[#6B7280]">
+          You can move through the test one question at a time. Try to answer
+          without guessing too quickly.
+        </div>
+
+        {/* Begin button */}
+        <button
+          onClick={onBegin}
+          disabled={isBusy}
+          className="flex w-full items-center justify-center gap-3 rounded-full bg-[#F5A623] py-4 font-bold text-[17px] text-white shadow-[0_6px_20px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(245,166,35,0.40)] disabled:opacity-60"
+        >
+          {isBusy ? (
+            <>
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              Preparing...
+            </>
+          ) : (
+            "Begin Test"
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Grade Browse Screen ───────────────────────────────────────────────────────
+function GradeBrowseScreen({
+  quizCatalog,
+  onSelect,
+  onBack,
+}: {
+  quizCatalog: DemoQuizCatalog;
+  onSelect: (classLevel: string) => void;
+  onBack: () => void;
+}) {
+  const classLevels = useMemo(
+    () =>
+      Array.from(new Set(quizCatalog.entries.map((e) => e.classLevel))).sort(),
+    [quizCatalog.entries],
+  );
+
+  const gradeEmojis: Record<string, string> = {
+    class4: "🏆",
+    class6: "🔬",
+    class7: "⚗️",
+    class8: "🧪",
+  };
+
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="mb-6 flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1 text-[13px] font-medium text-[#6B7280] transition-colors hover:text-[#1a1a1a]"
+        >
+          <ChevronLeft className="h-4 w-4" /> Back
+        </button>
+        <div className="h-4 w-px bg-[rgba(0,0,0,0.1)]" />
+        <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#F5A623]">
+          • GRADE TEST
+        </span>
+      </div>
+
+      <div className="mb-8 text-center">
+        <h2 className="text-[22px] font-extrabold tracking-tight text-[#1B4A4A] sm:text-[28px]">
+          Choose your grade
+        </h2>
+        <p className="mt-1 text-[14px] text-[#6B7280]">
+          Select your class to see your grade-wide diagnostic test
+        </p>
+      </div>
+
+      <div className="mx-auto grid max-w-[700px] grid-cols-2 gap-5 sm:grid-cols-3">
+        {classLevels.map((cl) => {
+          const topicsForClass = quizCatalog.entries.filter(
+            (e) => e.classLevel === cl,
+          );
+          return (
+            <button
+              type="button"
+              key={cl}
+              onClick={() => onSelect(cl)}
+              className="cursor-pointer rounded-[20px] border border-gray-100 bg-white p-7 text-center shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-[#F5A623] hover:shadow-[0_8px_28px_rgba(245,166,35,0.14)]"
+            >
+              <div className="mb-3 text-[40px] leading-none">
+                {gradeEmojis[cl] ?? "📚"}
+              </div>
+              <h3 className="mb-1 text-[20px] font-extrabold text-[#1B4A4A]">
+                Grade {classNum(cl)}
+              </h3>
+              <p className="text-[13px] text-[#6B7280]">
+                {topicsForClass.length} topics covered
+              </p>
+              <div className="mt-4 inline-flex items-center gap-1 font-semibold text-[13px] text-[#F5A623]">
+                Select <span className="text-[16px]">›</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Grade Start Screen ────────────────────────────────────────────────────────
+function GradeStartScreen({
+  classLevel,
+  subject,
+  onBegin,
+  onBack,
+  isBusy,
+}: {
+  classLevel: string;
+  subject: string;
+  onBegin: () => void;
+  onBack: () => void;
+  isBusy: boolean;
+}) {
+  return (
+    <div className="mx-auto max-w-[680px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="mb-4 flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1 text-[13px] font-medium text-[#6B7280] transition-colors hover:text-[#1a1a1a]"
+        >
+          <ChevronLeft className="h-4 w-4" /> Back
+        </button>
+      </div>
+
+      <div className="rounded-[20px] border border-gray-100 bg-white p-5 shadow-sm sm:p-8">
+        <div className="mb-3 inline-block rounded-full bg-[#FFF8E7] px-3 py-1 font-mono text-[11px] font-bold tracking-wider text-[#1B4A4A]">
+          GRADE TEST
+        </div>
+
+        <h2 className="mb-2 text-[24px] font-extrabold tracking-tight text-[#1B4A4A] sm:text-[30px]">
+          Grade {classNum(classLevel)} {subject}
+        </h2>
+        <p className="mb-6 text-[14px] leading-relaxed text-[#6B7280]">
+          Answer each question carefully. The test is designed to quickly check
+          your current understanding across all topics.
+        </p>
+
+        <div className="mb-7 grid gap-3 sm:grid-cols-3">
+          {[
+            { label: "Questions", value: "22" },
+            { label: "Estimated time", value: "20 min" },
+            { label: "Grade", value: `Grade ${classNum(classLevel)}` },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="rounded-[14px] border border-gray-100 bg-[#F8F9FA] p-4"
+            >
+              <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">
+                {item.label}
+              </div>
+              <div className="mt-1 text-[18px] font-extrabold text-[#1B4A4A]">
+                {item.value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mb-8 rounded-[14px] bg-[#FFF8E7] p-4 text-[13px] font-medium leading-relaxed text-[#6B7280]">
+          You can move through the test one question at a time. Try to answer
+          without guessing too quickly.
+        </div>
+
+        <button
+          onClick={onBegin}
+          disabled={isBusy}
+          className="flex w-full items-center justify-center gap-3 rounded-full bg-[#F5A623] py-4 font-bold text-[17px] text-white shadow-[0_6px_20px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(245,166,35,0.40)] disabled:opacity-60"
+        >
+          {isBusy ? (
+            <>
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              Preparing…
+            </>
+          ) : (
+            "Begin Test"
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Question Input ────────────────────────────────────────────────────────────
 function QuestionInput({
   question,
   answer,
@@ -459,34 +1063,48 @@ function QuestionInput({
   answer: string;
   setAnswer: (value: string) => void;
 }) {
+  const [selectedItem, setSelectedItem] = useState<string | null>(null);
+
   if (question.questionType === "mcq" && question.options) {
+    const payload = question.payload as
+      | { options?: Array<{ svg?: string | null }> }
+      | undefined;
     return (
       <div className="flex flex-col gap-3">
         {question.options.map((option, index) => {
           const label = OPTION_LABELS[index] ?? "";
           const selected = answer === label;
+          const optionSvg = payload?.options?.[index]?.svg;
           return (
             <button
               key={`${question.id}-${label}`}
               type="button"
               onClick={() => setAnswer(label)}
-              className={`group flex w-full items-center gap-4 border-2 p-4 text-left transition-all duration-200 ${THEME.roundedSm} ${
+              className={`group flex w-full items-center gap-4 border-2 p-4 text-left transition-all duration-200 rounded-full ${
                 selected
-                  ? "border-[#3a5ccc] bg-[rgba(58,92,204,0.06)] text-[#1a1a2e]"
-                  : `border-[rgba(26,26,46,0.06)] bg-white text-[#1a1a2e] hover:translate-x-1 hover:border-[#3a5ccc]/50 hover:shadow-md`
+                  ? "border-[#F5A623] bg-[rgba(245,166,35,0.05)] text-[#1B4A4A]"
+                  : "border-gray-100 bg-white text-[#1a1a1a] hover:translate-x-0.5 hover:border-[#2EC4B6]/50 hover:shadow-sm"
               }`}
             >
               <span
-                className={`flex h-8 w-8 shrink-0 items-center justify-center border-2 font-bricolage text-[14px] font-extrabold transition-all ${THEME.roundedSm} ${
+                className={`flex h-8 w-8 shrink-0 items-center justify-center border-2 font-mono text-[14px] font-extrabold transition-all rounded-full ${
                   selected
-                    ? "border-[#3a5ccc] bg-[#3a5ccc] text-white"
-                    : `border-[rgba(26,26,46,0.08)] bg-[#f5f3f0] text-[#5a5a72] group-hover:border-[#3a5ccc] group-hover:text-[#3a5ccc]`
+                    ? "border-[#F5A623] bg-[#F5A623] text-white"
+                    : "border-gray-200 bg-[#F8F9FA] text-[#6B7280] group-hover:border-[#F5A623] group-hover:text-[#F5A623]"
                 }`}
               >
                 {label}
               </span>
-              <span className="font-sans text-[15px] font-semibold leading-snug">
-                {option}
+              <span className="flex flex-1 items-center justify-between gap-4">
+                <span className="text-[15px] font-semibold leading-snug">
+                  {option}
+                </span>
+                {optionSvg ? (
+                  <span
+                    className="h-20 w-24 shrink-0 rounded-[10px] border border-gray-100 bg-[#F8F9FA] p-2"
+                    dangerouslySetInnerHTML={{ __html: optionSvg }}
+                  />
+                ) : null}
               </span>
             </button>
           );
@@ -505,13 +1123,13 @@ function QuestionInput({
               key={value}
               type="button"
               onClick={() => setAnswer(value)}
-              className={`flex-1 border-2 p-5 text-center transition-all duration-200 ${THEME.roundedSm} ${
+              className={`flex-1 border-2 p-5 text-center transition-all duration-200 rounded-full ${
                 selected
-                  ? "border-[#3a5ccc] bg-[rgba(58,92,204,0.06)] text-[#1a1a2e] font-bold"
-                  : `border-[rgba(26,26,46,0.06)] bg-white text-[#5a5a72] font-semibold hover:-translate-y-0.5 hover:border-[#3a5ccc]/50 hover:shadow-md`
+                  ? "border-[#F5A623] bg-[rgba(245,166,35,0.05)] font-bold text-[#1B4A4A]"
+                  : "border-gray-100 bg-white font-semibold text-[#6B7280] hover:-translate-y-0.5 hover:border-[#2EC4B6]/50 hover:shadow-sm"
               }`}
             >
-              <span className="font-bricolage text-[16px] uppercase tracking-wider">
+              <span className="font-mono text-[16px] uppercase tracking-wider">
                 {value === "true" ? "True" : "False"}
               </span>
             </button>
@@ -538,61 +1156,681 @@ function QuestionInput({
         ? ((payload as MatchingQuestionPayload)?.responses ?? [])
         : ((payload as DragDropQuestionPayload)?.dropZones ?? []);
     const answerMap = getAnswerMap(answer);
+    const isOrdinalDragDrop =
+      question.questionType === "drag_drop" &&
+      rightItems.every((target) => /^\d+(st|nd|rd|th)$/i.test(target));
+    const isSingleItemTarget =
+      question.questionType === "matching" || isOrdinalDragDrop;
+    const targetToItems = rightItems.reduce<Record<string, string[]>>(
+      (acc, target) => {
+        acc[target] = Object.entries(answerMap)
+          .filter(([_item, mappedTarget]) => mappedTarget === target)
+          .map(([item]) => item);
+        return acc;
+      },
+      {},
+    );
+
+    const commitAnswerMap = (nextMap: Record<string, string>) => {
+      setAnswer(JSON.stringify(nextMap));
+    };
+
+    // ── Desktop drag handlers ──────────────────────────────────────────────────
+    const handleDragStart = (
+      event: React.DragEvent<HTMLElement>,
+      item: string,
+    ) => {
+      event.dataTransfer.setData("text/plain", item);
+      event.dataTransfer.effectAllowed = "move";
+    };
+
+    const handleDrop = (
+      event: React.DragEvent<HTMLElement>,
+      target: string,
+    ) => {
+      event.preventDefault();
+      const item = event.dataTransfer.getData("text/plain");
+      if (!item || !leftItems.includes(item)) return;
+      const nextMap = Object.fromEntries(
+        Object.entries(answerMap).filter(
+          ([mappedItem, mappedTarget]) =>
+            mappedItem !== item &&
+            (!isSingleItemTarget || mappedTarget !== target),
+        ),
+      );
+      nextMap[item] = target;
+      commitAnswerMap(nextMap);
+      setSelectedItem(null);
+    };
+
+    // ── Tap-to-select / tap-to-place (mobile + desktop) ──────────────────────
+    const handleSourceTap = (item: string) => {
+      if (answerMap[item]) {
+        // Already placed — un-place it
+        const nextMap = Object.fromEntries(
+          Object.entries(answerMap).filter(([k]) => k !== item),
+        );
+        commitAnswerMap(nextMap);
+        setSelectedItem(null);
+      } else {
+        setSelectedItem(selectedItem === item ? null : item);
+      }
+    };
+
+    const handleZoneTap = (target: string) => {
+      if (selectedItem) {
+        // Place the selected item into this zone
+        const nextMap = Object.fromEntries(
+          Object.entries(answerMap).filter(
+            ([mappedItem, mappedTarget]) =>
+              mappedItem !== selectedItem &&
+              (!isSingleItemTarget || mappedTarget !== target),
+          ),
+        );
+        nextMap[selectedItem] = target;
+        commitAnswerMap(nextMap);
+        setSelectedItem(null);
+      } else {
+        // No selection — clear the zone
+        const nextMap = Object.fromEntries(
+          Object.entries(answerMap).filter(([, t]) => t !== target),
+        );
+        commitAnswerMap(nextMap);
+      }
+    };
 
     return (
-      <div className="flex flex-col gap-5">
-        {leftItems.map((item) => (
-          <div key={item} className="flex flex-col gap-2">
-            <span className="font-bricolage text-[14px] font-bold text-[#1a1a2e]">
-              {item}
+      <div className="rounded-[20px] bg-[#F8F9FA] p-4 sm:p-5">
+        {/* Instruction */}
+        <div className="mb-3 text-center font-mono text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">
+          {selectedItem ? (
+            <span className="text-[#F5A623]">
+              Now tap a box to place "{selectedItem}"
             </span>
-            <select
-              value={answerMap[item] ?? ""}
-              onChange={(event) =>
-                setAnswer(
-                  JSON.stringify({ ...answerMap, [item]: event.target.value }),
-                )
-              }
-              className={`w-full appearance-none border border-[rgba(26,26,46,0.1)] bg-[#f5f3f0] px-4 py-3 font-sans text-[15px] font-semibold text-[#1a1a2e] outline-none transition-all focus:border-[#3a5ccc] focus:bg-white ${THEME.roundedSm}`}
-            >
-              <option value="">Select matching item...</option>
-              {rightItems.map((choice) => (
-                <option key={choice} value={choice}>
-                  {choice}
-                </option>
-              ))}
-            </select>
+          ) : (
+            "Tap a piece to select it, then tap a box"
+          )}
+        </div>
+
+        {/* Source chips */}
+        <div className="mb-4 flex min-h-[72px] flex-wrap items-center justify-center gap-2.5 rounded-[10px] bg-white p-3 sm:gap-3 sm:p-4">
+          {leftItems.map((item) => {
+            const isPlaced = Boolean(answerMap[item]);
+            const isSelected = selectedItem === item;
+            return (
+              <button
+                key={item}
+                type="button"
+                draggable={!isPlaced}
+                onDragStart={(e) => handleDragStart(e, item)}
+                onClick={() => handleSourceTap(item)}
+                className={`select-none rounded-full border-2 px-4 py-2.5 font-mono text-[15px] font-bold transition-all duration-150 sm:px-5 sm:py-3 sm:text-[16px] ${
+                  isSelected
+                    ? "scale-105 border-[#F5A623] bg-[#F5A623] text-white shadow-[0_0_0_4px_rgba(245,166,35,0.25)]"
+                    : isPlaced
+                      ? "cursor-pointer border-[#E2DED4] bg-[#F0EDE6] text-[#9CA3AF] line-through opacity-50"
+                      : "cursor-pointer border-[#F5A623] bg-white text-[#1B4A4A] shadow-sm hover:-translate-y-0.5 hover:scale-[1.03]"
+                }`}
+              >
+                {item}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Drop zones */}
+        {isOrdinalDragDrop ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-[10px] sm:gap-3">
+            <div className="font-semibold text-[13px] text-[#1a1a1a]">
+              Smallest →
+            </div>
+            {rightItems.map((target, index) => {
+              const placedItem = targetToItems[target]?.[0];
+              const isActiveTarget = Boolean(selectedItem);
+              return (
+                <button
+                  key={target}
+                  type="button"
+                  onClick={() => handleZoneTap(target)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(e) => handleDrop(e, target)}
+                  className={`min-h-[48px] min-w-[72px] flex-1 rounded-[10px] border-2 px-3 py-2.5 text-center font-mono text-[14px] font-bold transition-all sm:min-w-[92px] sm:px-4 sm:py-3 ${
+                    placedItem
+                      ? "border-[#F5A623] bg-white text-[#1B4A4A]"
+                      : isActiveTarget
+                        ? "border-[#F5A623] border-dashed bg-[#FFF8E7] text-[#F5A623]"
+                        : "border-dashed border-[#C4C0B8] bg-white text-[#9CA3AF]"
+                  }`}
+                >
+                  {placedItem ?? `${index + 1}`}
+                </button>
+              );
+            })}
+            <div className="font-semibold text-[13px] text-[#1a1a1a]">
+              ← Largest
+            </div>
           </div>
-        ))}
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {rightItems.map((target) => {
+              const placedItems = targetToItems[target] ?? [];
+              const isActiveTarget = Boolean(selectedItem);
+              return (
+                <div
+                  key={target}
+                  className="flex items-center gap-2.5 sm:gap-3"
+                >
+                  <div className="w-[80px] shrink-0 font-semibold text-[13px] text-[#1a1a1a] sm:w-[90px] sm:text-[14px]">
+                    {target}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleZoneTap(target)}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                    }}
+                    onDrop={(e) => handleDrop(e, target)}
+                    className={`min-h-[48px] flex-1 rounded-[10px] border-2 px-3 py-2.5 text-center font-mono text-[13px] font-bold transition-all sm:px-4 sm:text-[14px] ${
+                      placedItems.length > 0
+                        ? "border-[#F5A623] bg-white text-[#1B4A4A]"
+                        : isActiveTarget
+                          ? "border-[#F5A623] border-dashed bg-[#FFF8E7] text-[#F5A623]"
+                          : "border-dashed border-[#C4C0B8] bg-white text-[#9CA3AF]"
+                    }`}
+                  >
+                    {placedItems.length > 0
+                      ? placedItems.join(", ")
+                      : "Tap to place"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {question.questionType === "matching" && !selectedItem && (
+          <div className="mt-3 text-center text-[11px] font-semibold text-[#9CA3AF]">
+            Tap a placed item to remove it
+          </div>
+        )}
       </div>
     );
   }
 
   if (question.questionType === "fitb") {
     return (
-      <div className="flex flex-col">
-        <input
-          value={answer}
-          onChange={(event) => setAnswer(event.target.value)}
-          placeholder="Type the missing word or phrase..."
-          className={`w-full border border-[rgba(26,26,46,0.1)] bg-[#f5f3f0] px-4 py-4 font-sans text-[15px] font-semibold text-[#1a1a2e] outline-none transition-all focus:border-[#3a5ccc] focus:bg-white focus:shadow-sm ${THEME.roundedSm}`}
-        />
-      </div>
+      <input
+        value={answer}
+        onChange={(e) => setAnswer(e.target.value)}
+        placeholder="Type the missing word or phrase…"
+        className="w-full rounded-full border border-gray-200 bg-[#F8F9FA] px-5 py-4 text-[15px] font-semibold text-[#1a1a1a] outline-none transition-all focus:border-[#F5A623] focus:bg-white focus:shadow-[0_0_0_3px_rgba(245,166,35,0.15)]"
+      />
     );
   }
 
   return (
-    <div className="flex flex-col">
-      <textarea
-        value={answer}
-        onChange={(event) => setAnswer(event.target.value)}
-        placeholder="Type your detailed response here..."
-        className={`min-h-[140px] w-full resize-y border border-[rgba(26,26,46,0.1)] bg-[#f5f3f0] px-5 py-4 font-sans text-[15px] font-semibold text-[#1a1a2e] outline-none transition-all focus:border-[#3a5ccc] focus:bg-white focus:shadow-sm ${THEME.roundedSm}`}
-      />
+    <input
+      value={answer}
+      onChange={(e) => setAnswer(e.target.value)}
+      placeholder="Type your answer…"
+      className="w-full rounded-full border border-gray-200 bg-[#F8F9FA] px-5 py-4 text-[15px] font-semibold text-[#1a1a1a] outline-none transition-all focus:border-[#F5A623] focus:bg-white focus:shadow-[0_0_0_3px_rgba(245,166,35,0.15)]"
+    />
+  );
+}
+
+// ─── Mascot Report V2 ──────────────────────────────────────────────────────────
+function MascotReportV2({
+  report,
+  onReset,
+}: {
+  report: DiagnosticReport;
+  onReset: () => void;
+}) {
+  const studentName = getStudentDisplayName(report.studentId);
+  const firstName = studentName.split(" ")[0];
+  const results = report.results ?? [];
+  const learningObjectives = report.learningObjectiveResults ?? [];
+  const score = report.overallReadinessScore ?? report.readinessScore ?? 0;
+  const roundedScore = Math.round(score);
+
+  const totalQuestions = results.length || report.totalQuestionsShown || 0;
+  const correctCount = results.filter((r) => r.verdict === "correct").length;
+  const partialCount = results.filter((r) => r.verdict === "partial").length;
+  const wrongRecords = useMemo(
+    () => results.filter((r) => r.verdict !== "correct"),
+    [results],
+  );
+  const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedReviewId(wrongRecords[0]?.question.id ?? null);
+  }, [wrongRecords]);
+
+  const selectedReview =
+    wrongRecords.find((record) => record.question.id === selectedReviewId) ??
+    wrongRecords[0] ??
+    null;
+
+  // Sort LOs: best → worst
+  const sortedLOs = [...learningObjectives].sort((a, b) => b.score - a.score);
+
+  const getMascotConfig = (pct: number) => {
+    if (pct >= 80)
+      return {
+        face: "🦁",
+        badge: "🏆",
+        tier: "Excellent work",
+        tierColor: "#1e7e34",
+      };
+    if (pct >= 60)
+      return {
+        face: "🦊",
+        badge: "⛰️",
+        tier: "Great effort",
+        tierColor: "#1e7e34",
+      };
+    if (pct >= 40)
+      return {
+        face: "🐯",
+        badge: "💪",
+        tier: "Solid climb",
+        tierColor: "#b8860b",
+      };
+    return {
+      face: "🐻",
+      badge: "🔧",
+      tier: "Keep going",
+      tierColor: "#c0392b",
+    };
+  };
+
+  const mascot = getMascotConfig(roundedScore);
+
+  const getMasteryPips = (pct: number) => {
+    if (pct >= 90) return { filled: 5, label: "Expert" };
+    if (pct >= 75) return { filled: 4, label: "Proficient" };
+    if (pct >= 60) return { filled: 3, label: "Developing" };
+    if (pct >= 40) return { filled: 2, label: "Climbing" };
+    return { filled: 1, label: "Starting" };
+  };
+
+  const mastery = getMasteryPips(roundedScore);
+
+  const getStars = (loScore: number) => {
+    if (loScore >= 80) return 3;
+    if (loScore >= 50) return 2;
+    return 1;
+  };
+
+  const getChipStyle = (loScore: number) => {
+    if (loScore >= 80)
+      return {
+        border: "#c7e7cf",
+        bg: "#f1faf3",
+        icon: "⛰️",
+        iconClass: "text-[#2aae4a]",
+      };
+    if (loScore >= 50)
+      return {
+        border: "#f0dcb0",
+        bg: "#fff7e6",
+        icon: "🧗",
+        iconClass: "text-[#b8860b]",
+      };
+    return {
+      border: "#f3cbc6",
+      bg: "#fdf0ee",
+      icon: "🐣",
+      iconClass: "text-[#e25a44]",
+    };
+  };
+
+  const getChipFeedback = (lo: {
+    learningObjective: string;
+    score: number;
+  }) => {
+    const label = formatLearningObjectiveLabel(lo.learningObjective);
+    if (lo.score >= 80)
+      return `Sharp! You've mastered "${label}" with confidence.`;
+    if (lo.score >= 50)
+      return `Good progress on "${label}"! A bit more practice and you'll nail it.`;
+    return `Let's revisit "${label}" — review the fundamentals and try again soon.`;
+  };
+
+  const strongLOs = sortedLOs.filter((lo) => lo.score >= 80);
+  const weakLOs = sortedLOs.filter((lo) => lo.score < 50);
+
+  const speechMessage = (() => {
+    if (strongLOs.length >= 2 && weakLOs.length === 0)
+      return `You're crushing everything! Keep up this incredible streak — you're ready for the next level.`;
+    if (strongLOs.length > 0 && weakLOs.length > 0)
+      return `You nailed ${formatLearningObjectiveLabel(strongLOs[0]?.learningObjective)}! Let's work on ${formatLearningObjectiveLabel(weakLOs[weakLOs.length - 1]?.learningObjective)} next.`;
+    if (weakLOs.length > 0)
+      return `Every expert started here! Focus on ${formatLearningObjectiveLabel(weakLOs[weakLOs.length - 1]?.learningObjective)} first — you've got this!`;
+    return `You're making great progress! Keep practising to reach the top.`;
+  })();
+
+  const parentNotes = [
+    `${firstName} completed the "${report.topic}" diagnostic today.`,
+    `They got ${correctCount} out of ${totalQuestions} questions right.`,
+    strongLOs.length > 0
+      ? `Strong areas: ${strongLOs
+          .slice(0, 2)
+          .map((lo) => formatLearningObjectiveLabel(lo.learningObjective))
+          .join(", ")}.`
+      : "Building foundations across all areas.",
+    weakLOs.length > 0
+      ? `Needs more practice on: ${weakLOs
+          .slice(-2)
+          .map((lo) => formatLearningObjectiveLabel(lo.learningObjective))
+          .join(", ")}.`
+      : "Performing well across all objectives.",
+    weakLOs.length > 0
+      ? `Suggested next step: spend 10 minutes practising ${formatLearningObjectiveLabel(weakLOs[weakLOs.length - 1]?.learningObjective)} this week.`
+      : `Suggested next step: try a harder topic or take the grade test.`,
+  ];
+
+  return (
+    <div className="mx-auto max-w-[580px]">
+      {/* Context bar */}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-1 px-1 text-[11px] text-[#888]">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-[#555] truncate max-w-[180px] sm:max-w-none">
+            {report.topic} · {classLabel(report.classLevel ?? "class6")}
+          </span>
+          <span className="rounded-full bg-[#F5A623] px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-white shrink-0">
+            Diagnostic
+          </span>
+        </div>
+        <span>{firstName} · Today</span>
+      </div>
+
+      {/* Report card */}
+      <div className="overflow-hidden rounded-[22px] bg-white shadow-[0_10px_32px_rgba(60,60,80,0.08),0_2px_8px_rgba(60,60,80,0.04)]">
+        {/* Mascot hero */}
+        <div className="flex items-center gap-3 bg-[linear-gradient(135deg,#fff4e0,#ffe8d2)] px-4 py-4 sm:gap-4 sm:px-6 sm:py-5">
+          <div className="relative flex h-[68px] w-[68px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(145deg,#ffd166,#ffb347)] shadow-[0_4px_12px_rgba(255,160,60,0.35)] sm:h-[82px] sm:w-[82px]">
+            <span className="text-[36px] leading-none sm:text-[44px]">
+              {mascot.face}
+            </span>
+            <span className="absolute -right-1 -top-1 flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-white bg-[#2aae4a] text-[12px] shadow-sm sm:h-[26px] sm:w-[26px] sm:text-[14px]">
+              {mascot.badge}
+            </span>
+          </div>
+          <div className="relative flex-1 min-w-0 rounded-[14px] bg-white px-3 py-3 shadow-sm before:absolute before:-left-[8px] before:top-[20px] before:border-b-[8px] before:border-r-[10px] before:border-t-[8px] before:border-b-transparent before:border-r-white before:border-t-transparent sm:px-4">
+            <div className="text-[14px] font-bold text-[#1a1a1a] sm:text-[15px]">
+              {roundedScore >= 80
+                ? `Outstanding, ${firstName}! 🎉`
+                : roundedScore >= 60
+                  ? `Nice climb, ${firstName}! 🧗`
+                  : roundedScore >= 40
+                    ? `Good effort, ${firstName}! 💪`
+                    : `Keep going, ${firstName}! 🌱`}
+            </div>
+            <div className="mt-0.5 text-[12px] leading-relaxed text-[#444] sm:text-[13px]">
+              {speechMessage}
+            </div>
+          </div>
+        </div>
+
+        {/* Score strip */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-t border-[#efece5] bg-[#fafaf7] px-5 py-3.5">
+          <div className="flex items-center gap-2.5">
+            <span
+              className="text-[15px] font-bold"
+              style={{ color: mascot.tierColor }}
+            >
+              {mascot.tier}
+            </span>
+            <StarRating
+              filled={Math.min(
+                3,
+                Math.max(1, Math.round(roundedScore / 33.4 + 0.5)),
+              )}
+              total={3}
+              size={15}
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div
+                key={i}
+                className="h-[5px] w-[22px] rounded-[3px]"
+                style={{
+                  background: i < mastery.filled ? "#2aae4a" : "#e5e2d9",
+                  boxShadow:
+                    i === mastery.filled - 1
+                      ? "0 0 0 2px rgba(42,174,74,0.25)"
+                      : undefined,
+                }}
+              />
+            ))}
+            <span className="ml-2 font-mono text-[10px] font-semibold text-[#888]">
+              {mastery.label}
+            </span>
+          </div>
+        </div>
+
+        {/* Question heatmap */}
+        {results.length > 0 && (
+          <div className="border-b border-[#efece5] px-5 py-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#666]">
+                Question heatmap
+              </div>
+              <div className="font-mono text-[10px] font-semibold text-[#888]">
+                Green = correct, red = needs review
+              </div>
+            </div>
+            <div className="grid grid-cols-6 gap-2 sm:grid-cols-9">
+              {results.map((record, index) => {
+                const isCorrect = record.verdict === "correct";
+                return (
+                  <button
+                    key={record.question.id}
+                    type="button"
+                    onClick={() =>
+                      !isCorrect && setSelectedReviewId(record.question.id)
+                    }
+                    className={`flex h-9 items-center justify-center rounded-[9px] border font-mono text-[12px] font-bold transition-all ${
+                      isCorrect
+                        ? "border-[#bfe7c8] bg-[#edf9f0] text-[#1f8a3b]"
+                        : "border-[#f2b8ae] bg-[#fff0ee] text-[#c0392b] hover:bg-[#ffe4e0]"
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* LO chips */}
+        <div className="px-5 py-5">
+          <div className="mb-3 font-mono text-[11px] font-bold uppercase tracking-wider text-[#666]">
+            Your climb, topic by topic
+          </div>
+          <div className="flex flex-col gap-2.5">
+            {sortedLOs.map((lo) => {
+              const chip = getChipStyle(lo.score);
+              const stars = getStars(lo.score);
+              const label = formatLearningObjectiveLabel(lo.learningObjective);
+              return (
+                <div
+                  key={lo.learningObjective}
+                  className="rounded-[12px] border p-3"
+                  style={{ background: chip.bg, borderColor: chip.border }}
+                >
+                  <div className="mb-1 flex items-center gap-2.5">
+                    <span className="w-[22px] shrink-0 text-center text-[16px] leading-none">
+                      {chip.icon}
+                    </span>
+                    <span className="flex-1 text-[13px] font-bold text-[#111]">
+                      {label}
+                    </span>
+                    <StarRating filled={stars} total={3} size={14} />
+                  </div>
+                  <div className="pl-[30px] text-[12px] leading-relaxed text-[#444]">
+                    {getChipFeedback(lo)}
+                  </div>
+                  <div className="mt-2 pl-[30px]">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#e5e2d9]">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{
+                            width: `${lo.score}%`,
+                            background:
+                              lo.score >= 80
+                                ? "#2aae4a"
+                                : lo.score >= 50
+                                  ? "#f59e0b"
+                                  : "#ef4444",
+                          }}
+                        />
+                      </div>
+                      <span className="font-mono text-[10px] font-bold text-[#888]">
+                        {Math.round(lo.score)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Missed question review */}
+        {selectedReview && (
+          <div className="border-t border-[#efece5] bg-[#fffaf4] px-5 py-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <div className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#9a6308]">
+                  Review a missed question
+                </div>
+                <div className="mt-1 text-[14px] font-bold text-[#1a1a1a]">
+                  Question{" "}
+                  {results.findIndex(
+                    (record) =>
+                      record.question.id === selectedReview.question.id,
+                  ) + 1}
+                </div>
+              </div>
+              <div className="flex gap-1.5">
+                {wrongRecords.slice(0, 6).map((record) => (
+                  <button
+                    key={record.question.id}
+                    type="button"
+                    onClick={() => setSelectedReviewId(record.question.id)}
+                    className={`h-7 w-7 rounded-[7px] font-mono text-[11px] font-bold ${
+                      selectedReview.question.id === record.question.id
+                        ? "bg-[#c0392b] text-white"
+                        : "bg-white text-[#c0392b] ring-1 ring-[#f2b8ae]"
+                    }`}
+                  >
+                    {results.findIndex(
+                      (item) => item.question.id === record.question.id,
+                    ) + 1}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-[12px] border border-[#f0dcb0] bg-white p-4">
+              <div className="mb-2 text-[13px] font-bold leading-relaxed text-[#1a1a1a]">
+                {selectedReview.question.question}
+              </div>
+              {getQuestionSvg(
+                selectedReview.question as QuestionDisplayData,
+              ) && (
+                <div
+                  className="mb-3 flex min-h-[120px] items-center justify-center rounded-[12px] border border-[#E8E3D8] bg-[#FAFAF7] p-4 [&_svg]:h-auto [&_svg]:max-h-[180px] [&_svg]:w-full [&_svg]:max-w-[460px]"
+                  dangerouslySetInnerHTML={{
+                    __html:
+                      getQuestionSvg(
+                        selectedReview.question as QuestionDisplayData,
+                      ) ?? "",
+                  }}
+                />
+              )}
+              <div className="grid gap-2 text-[12px] leading-relaxed text-[#4B5563] sm:grid-cols-2">
+                <div>
+                  <span className="font-bold text-[#c0392b]">Your answer:</span>{" "}
+                  {formatAnswerSummary(
+                    selectedReview.question as QuestionDisplayData,
+                    selectedReview.studentAnswer,
+                  )}
+                </div>
+                <div>
+                  <span className="font-bold text-[#1f8a3b]">
+                    Correct answer:
+                  </span>{" "}
+                  {getCorrectAnswerSummary(
+                    selectedReview.question as QuestionDisplayData,
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 rounded-[10px] bg-[#f6f8fb] p-3 text-[12px] font-medium leading-relaxed text-[#3a4a64]">
+                {getQuestionExplanation(selectedReview)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="border-t border-[#efece5] bg-[#FAFAF7] px-5 py-4">
+          <div className="mb-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[#666]">
+            Quick feedback
+          </div>
+          <div className="grid gap-2 text-[12px] leading-relaxed text-[#444] sm:grid-cols-3">
+            <div>
+              <span className="font-bold text-[#1a1a1a]">Accuracy:</span>{" "}
+              {correctCount}/{totalQuestions} correct
+            </div>
+            <div>
+              <span className="font-bold text-[#1a1a1a]">Partial:</span>{" "}
+              {partialCount} questions
+            </div>
+            <div>
+              <span className="font-bold text-[#1a1a1a]">Review:</span>{" "}
+              {wrongRecords.length} questions need attention
+            </div>
+          </div>
+        </div>
+
+        {/* Parent strip */}
+        <div className="border-t border-[#e8ecf2] bg-[#f6f8fb] px-5 py-4">
+          <div className="mb-2 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-[#5a6b85]">
+            👨‍👩‍👧 For Parents
+          </div>
+          {parentNotes.map((note, i) => (
+            <div
+              key={i}
+              className="mb-1 flex items-start gap-2 text-[12px] leading-relaxed text-[#3a4a64]"
+            >
+              <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[#5a6b85]" />
+              <span>{note}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-8 flex justify-center">
+        <button
+          onClick={onReset}
+          className="flex items-center gap-2 rounded-full bg-[#F5A623] px-10 py-4 text-[16px] font-bold text-white shadow-[0_8px_24px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-1 hover:shadow-[0_12px_36px_rgba(245,166,35,0.40)]"
+        >
+          <RotateCcw className="h-4 w-4" /> Take Another Test
+        </button>
+      </div>
     </div>
   );
 }
 
+// ─── Report V1 (existing analytics view) ──────────────────────────────────────
 function ReportView({
   report,
   onReset,
@@ -600,8 +1838,14 @@ function ReportView({
   report: DiagnosticReport;
   onReset: () => void;
 }) {
+  const [showMethodology, setShowMethodology] = useState(false);
+  const [selectedReviewQuestionId, setSelectedReviewQuestionId] = useState<
+    string | null
+  >(null);
   const [countScore, setCountScore] = useState(0);
   const [countPct, setCountPct] = useState(0);
+  const [rocketBottom, setRocketBottom] = useState(0);
+  const [showParticles, setShowParticles] = useState(false);
 
   const score = report.overallReadinessScore ?? report.readinessScore ?? 0;
   const roundedScore = Math.round(score);
@@ -611,234 +1855,620 @@ function ReportView({
   const learningObjectives = report.learningObjectiveResults ?? [];
 
   const totalQuestions = results.length || report.totalQuestionsShown || 0;
-  const correctCount = results.filter(
-    (record) => record.verdict === "correct",
-  ).length;
+  const correctCount = results.filter((r) => r.verdict === "correct").length;
   const rapidCount = results.filter(
-    (record) =>
-      (record.timeTakenMs ?? 0) > 0 &&
-      (record.timeTakenMs ?? 0) < RAPID_RESPONSE_THRESHOLD_MS,
-  ).length;
-  const penaltyCount = results.filter(
-    (record) =>
-      record.verdict === "correct" &&
-      (record.timeTakenMs ?? 0) >
-        getQuestionTimeLimitMs(record.question.difficultyLevel),
+    (r) =>
+      (r.timeTakenMs ?? 0) > 0 &&
+      (r.timeTakenMs ?? 0) < RAPID_RESPONSE_THRESHOLD_MS,
   ).length;
   const totalTimeTakenMs = results.reduce(
-    (sum, record) => sum + (record.timeTakenMs ?? 0),
+    (sum, r) => sum + (r.timeTakenMs ?? 0),
     0,
   );
   const avgTimeTakenMs =
     totalQuestions > 0 ? totalTimeTakenMs / totalQuestions : 0;
   const totalBasePoints = results.reduce(
-    (sum, record) =>
-      sum + getQuestionBasePoints(record.question.difficultyLevel),
+    (sum, r) => sum + getQuestionBasePoints(r.question.difficultyLevel),
     0,
   );
-  const totalFinalPoints = results.reduce((sum, record) => {
-    const base = getQuestionBasePoints(record.question.difficultyLevel);
-    if (record.verdict === "correct") {
-      const slow =
-        (record.timeTakenMs ?? 0) >
-        getQuestionTimeLimitMs(record.question.difficultyLevel);
-      return sum + base * (slow ? 0.9 : 1);
-    }
-    if (record.verdict === "partial") return sum + base * 0.5;
+  const totalFinalPoints = results.reduce((sum, r) => {
+    const base = getQuestionBasePoints(r.question.difficultyLevel);
+    if (r.verdict === "correct") return sum + base;
+    if (r.verdict === "partial") return sum + base * 0.5;
     return sum;
   }, 0);
-  const totalPenaltyPoints = totalBasePoints - totalFinalPoints;
+  const selectedReviewRecord =
+    results.find((record) => record.question.id === selectedReviewQuestionId) ??
+    results[0] ??
+    null;
+  const selectedReviewIndex = selectedReviewRecord
+    ? results.findIndex(
+        (record) => record.question.id === selectedReviewRecord.question.id,
+      )
+    : -1;
+  const selectedReviewQuestionSvg = getQuestionSvg(
+    selectedReviewRecord?.question as QuestionDisplayData | undefined,
+  );
 
   useEffect(() => {
+    setSelectedReviewQuestionId(results[0]?.question.id ?? null);
+  }, [results]);
+
+  useEffect(() => {
+    setShowParticles(true);
     const timer = setTimeout(() => {
       const targetScore = Math.round(totalFinalPoints);
       const targetPct = roundedScore;
-      const duration = 1200;
+      const duration = 1400;
       const startTime = performance.now();
       const animate = (now: number) => {
         const progress = Math.min((now - startTime) / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
+        const eased = 1 - (1 - progress) ** 3;
         setCountScore(Math.round(eased * targetScore));
         setCountPct(Math.round(eased * targetPct));
+        setRocketBottom(eased * targetPct);
         if (progress < 1) requestAnimationFrame(animate);
       };
       requestAnimationFrame(animate);
-    }, 250);
+    }, 500);
     return () => clearTimeout(timer);
   }, [totalFinalPoints, roundedScore]);
 
   const getHeroContent = (pct: number) => {
     if (pct >= 90)
       return {
-        face: "🐰",
-        badge: "🏆",
-        title: `Top of the mountain, ${firstName}!`,
-        line: "You aced almost every peak today. Keep this streak going on the next test.",
-        tier: "Outstanding",
-        tierColor: "#1e7e34",
+        emoji: "🏆",
+        greeting: `Outstanding work, ${firstName}!`,
+        subtitle:
+          "You've absolutely crushed this diagnostic — your understanding is rock-solid!",
+        altitude: "🌌 Stratosphere reached!",
       };
     if (pct >= 70)
       return {
-        face: "🐰",
-        badge: "⛰️",
-        title: `Nice climb, ${firstName}!`,
-        line: "Strong grip on most concepts. One more push on the tricky ones and you're at the summit.",
-        tier: "Great effort",
-        tierColor: "#1e7e34",
+        emoji: "🌟",
+        greeting: `Great job, ${firstName}!`,
+        subtitle:
+          "You've got a strong grip on most concepts. A little more focus on the tricky ones and you'll be unstoppable!",
+        altitude: "☁️ Cruising through the clouds",
       };
     if (pct >= 50)
       return {
-        face: "🐰",
-        badge: "🥾",
-        title: `Solid climb, ${firstName}!`,
-        line: "You're halfway up. Let's revisit the trickier topics and try them again.",
-        tier: "Solid climb",
-        tierColor: "#b8860b",
+        emoji: "💪",
+        greeting: `Nice effort, ${firstName}!`,
+        subtitle:
+          "You're building a solid foundation. Let's work on the areas where you stumbled — you're closer than you think!",
+        altitude: "🛫 Gaining altitude",
       };
     return {
-      face: "🐰",
-      badge: "🧗",
-      title: `Keep climbing, ${firstName}!`,
-      line: "Every climber starts at base camp. Review the concepts below and give it another shot.",
-      tier: "Building up",
-      tierColor: "#b85a4a",
+      emoji: "🧪",
+      greeting: `Keep going, ${firstName}!`,
+      subtitle:
+        "Every scientist starts somewhere. Review the concepts below and give it another shot — you've got this!",
+      altitude: "🔧 Pre-flight check — preparing for takeoff",
     };
   };
 
   const hero = getHeroContent(roundedScore);
+  const starCount = Math.min(5, Math.max(1, Math.ceil(roundedScore / 20)));
   const accentColor =
-    roundedScore >= 70 ? "#2ecc87" : roundedScore >= 50 ? "#3a5ccc" : "#f46853";
+    roundedScore >= 70 ? "#22C55E" : roundedScore >= 50 ? "#F5A623" : "#f46853";
   const pctColor = accentColor;
   const pctBg =
     roundedScore >= 70
-      ? "rgba(46,204,135,0.1)"
+      ? "rgba(34,197,94,0.1)"
       : roundedScore >= 50
-        ? "rgba(58,92,204,0.08)"
+        ? "rgba(245,166,35,0.10)"
         : "rgba(244,104,83,0.08)";
-
-  const masteredCount = learningObjectives.filter((lo) => lo.score >= 80).length;
-  const developingCount = learningObjectives.filter(
-    (lo) => lo.score >= 50 && lo.score < 80,
-  ).length;
-  const needsWorkLOs = learningObjectives.filter((lo) => lo.score < 50);
-  const testModeLabel = report.mode === "grade" ? "Grade Test" : "Topic Test";
-  const today = new Date().toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+  const sortedLearningObjectives = [...learningObjectives].sort(
+    (left, right) => right.score - left.score,
+  );
+  const strongestObjective = sortedLearningObjectives[0];
+  const weakestObjectives = [...learningObjectives].sort(
+    (left, right) => left.score - right.score,
+  );
+  const primaryFocusObjective = weakestObjectives[0];
+  const secondaryFocusObjective = weakestObjectives.find(
+    (lo) => lo.learningObjective !== primaryFocusObjective?.learningObjective,
+  );
+  const strongestLabel = formatLearningObjectiveLabel(
+    strongestObjective?.learningObjective,
+  );
+  const primaryFocusLabel = formatLearningObjectiveLabel(
+    primaryFocusObjective?.learningObjective,
+  );
+  const secondaryFocusLabel = secondaryFocusObjective
+    ? formatLearningObjectiveLabel(secondaryFocusObjective.learningObjective)
+    : "comparing fractions without a picture";
 
   return (
-    <div className="dash font-sans text-[#1a1a2e] pb-20 max-w-[720px] mx-auto px-6 flex flex-col gap-[14px]">
+    <div className="font-sans text-[#1a1a1a] pb-20 max-w-7xl mx-auto flex flex-col gap-[18px]">
       <style
         dangerouslySetInnerHTML={{
           __html: `
         @keyframes cardUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes bounceIn { 0% { transform: scale(0) rotate(-10deg); } 50% { transform: scale(1.15) rotate(5deg); } 100% { transform: scale(1) rotate(0deg); } }
-
-        .dash-card { background: white; border: 1px solid rgba(26,26,46,0.06); border-radius: 18px; box-shadow: 0 2px 20px rgba(26,26,46,0.05); overflow: hidden; animation: cardUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
-
-        .lo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
-        .lo-card { background: white; border: 1px solid rgba(26,26,46,0.06); border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 20px rgba(26,26,46,0.05); animation: cardUp 0.5s both; transition: transform 0.2s, box-shadow 0.2s; }
-        .lo-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(26,26,46,0.08); }
-        .lo-status-badge { font-size: 0.68rem; padding: 3px 10px; border-radius: 20px; font-weight: 700; white-space: nowrap; }
-        .lo-status-badge.mastered { background: rgba(46,204,135,0.1); color: #2ecc87; }
-        .lo-status-badge.developing { background: rgba(255,197,61,0.12); color: #b8860b; }
-        .lo-status-badge.needs-work { background: rgba(244,104,83,0.08); color: #f46853; }
-
-        .mascot-circle { width:88px; height:88px; flex-shrink:0; border-radius:50%; background: linear-gradient(145deg,#ffd166 0%,#ffb347 100%); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(255,160,60,0.35); position:relative; animation: bounceIn 0.6s 0.2s both; }
-        .mascot-face { font-size: 46px; line-height: 1; }
-        .mascot-badge { position:absolute; top:-4px; right:-4px; background:#2aae4a; color:#fff; font-size:14px; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.15); }
-        .speech-bubble { flex:1; background:#fff; border-radius:14px; padding:14px 16px; position:relative; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
-        .speech-bubble::before { content:''; position:absolute; left:-8px; top:24px; width:0; height:0; border-top:8px solid transparent; border-bottom:8px solid transparent; border-right:10px solid #fff; }
+        @keyframes bounceIn { 0% { transform: scale(0) rotate(-10deg); } 50% { transform: scale(1.25) rotate(5deg); } 100% { transform: scale(1) rotate(0deg); } }
+        @keyframes starTwinkle { 0% { opacity: 0; transform: scale(0); } 50% { opacity: 1; transform: scale(1.3); } 100% { opacity: 0.6; transform: scale(1); } }
+        @keyframes floatUp { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 10% { opacity: 0.35; } 90% { opacity: 0.35; } 100% { transform: translateY(-10vh) scale(1); opacity: 0; } }
+        .v1-card { background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 18px; box-shadow: 0 2px 20px rgba(26,26,46,0.05); overflow: hidden; animation: cardUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+        .v1-result-hero { padding: 44px 36px 40px; text-align: center; position: relative; overflow: hidden; background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 18px; box-shadow: 0 2px 20px rgba(26,26,46,0.05); animation: cardUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+        .v1-result-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 0%, rgba(245,166,35,0.05), transparent 70%); }
+        .v1-result-emoji { font-size: 3.6rem; margin-bottom: 8px; display: block; animation: bounceIn 0.6s 0.2s both; }
+        .v1-rocket-launchpad { position: relative; width: 120px; height: 240px; flex-shrink: 0; }
+        .v1-rocket-track { position: absolute; left: 50%; top: 20px; bottom: 20px; width: 3px; margin-left: -1.5px; background: #f0eee9; border-radius: 3px; }
+        .v1-rocket-track-fill { position: absolute; bottom: 0; left: 0; width: 100%; border-radius: 3px; transition: height 1.8s cubic-bezier(0.22,1,0.36,1); }
+        .v1-rocket-marker { position: absolute; left: -16px; width: 35px; height: 1px; background: rgba(0,0,0,0.06); }
+        .v1-rocket-marker-label { position: absolute; left: -38px; top: -7px; font-family: 'Courier New',monospace; font-size: 0.55rem; color: #9a9ab0; font-weight: 700; }
+        .v1-rocket-ship { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%) translateY(10px); transition: bottom 1.8s cubic-bezier(0.22,1,0.36,1); z-index: 3; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.12)); }
+        .v1-kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+        .v1-kpi { background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 18px; padding: 18px 20px; box-shadow: 0 2px 20px rgba(26,26,46,0.05); animation: cardUp 0.5s cubic-bezier(0.22,1,0.36,1) both; transition: transform 0.2s; }
+        .v1-kpi:hover { transform: translateY(-3px); }
+        .v1-kpi-val { font-weight: 800; font-size: 1.7rem; letter-spacing: -0.02em; line-height: 1; }
+        .v1-lo-grid { display: flex; flex-direction: column; gap: 0; }
+        .v1-lo-card { background: transparent; border-bottom: 1px solid rgba(0,0,0,0.07); padding: 12px 0; animation: cardUp 0.5s both; }
+        .v1-lo-card:last-child { border-bottom: none; }
+        .v1-lo-card:hover { background: rgba(0,0,0,0.015); border-radius: 8px; }
+        .v1-student-table { width: 100%; border-collapse: separate; border-spacing: 0 5px; font-size: 0.88rem; }
+        .v1-student-table th { text-align: left; font-size: 0.72rem; font-weight: 700; color: #9a9ab0; text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 12px; }
+        .v1-student-table td { padding: 11px 12px; background: #F8F9FA; border: none; vertical-align: middle; }
+        .v1-student-table tr td:first-child { border-radius: 10px 0 0 10px; }
+        .v1-student-table tr td:last-child { border-radius: 0 10px 10px 0; }
+        .v1-student-table tbody tr:hover td { background: rgba(245,166,35,0.04); }
+        .v1-diff-badge { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 12px; border-radius: 14px; white-space: nowrap; }
+        .v1-diff-badge.easy { background: rgba(46,204,135,0.1); color: #2ecc87; }
+        .v1-diff-badge.medium { background: rgba(245,158,11,0.12); color: #b8860b; }
+        .v1-diff-badge.hard { background: rgba(244,104,83,0.08); color: #f46853; }
+        .v1-lo-status-badge { font-size: 0.68rem; padding: 3px 10px; border-radius: 20px; font-weight: 700; white-space: nowrap; }
+        .v1-lo-status-badge.mastered { background: rgba(46,204,135,0.1); color: #2ecc87; }
+        .v1-lo-status-badge.developing { background: rgba(245,158,11,0.12); color: #b8860b; }
+        .v1-lo-status-badge.needs-work { background: rgba(244,104,83,0.08); color: #f46853; }
+        .v1-particle { position: absolute; border-radius: 50%; animation: floatUp linear infinite; opacity: 0; pointer-events: none; }
+        @media(max-width: 900px) { .v1-kpi-strip { grid-template-columns: repeat(2, 1fr); } }
+        @media(max-width: 480px) { .v1-kpi-strip { grid-template-columns: repeat(2, 1fr); } }
+        @media(max-width: 380px) { .v1-kpi-strip { grid-template-columns: 1fr; } .v1-kpi { display: flex; align-items: center; gap: 12px; padding: 14px 16px; } .v1-kpi > :first-child { margin-bottom: 0; flex-shrink: 0; } .v1-kpi-val { font-size: 1.3rem; } }
+        @media(max-width: 640px) { .v1-result-hero { padding: 28px 18px 24px; } .hero-title { font-size: 1.2rem !important; } .hero-subtitle { font-size: 0.95rem !important; } }
       `,
         }}
       />
 
-      {/* Context Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1.5 text-[12px] text-[#888]">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-[#555]">
-            {report.topic ? `${report.topic} · ` : ""}
-            {classLabel(report.classLevel)}
-          </span>
-          <span className="rounded-[10px] bg-[#4338CA] px-2 py-[3px] font-mono text-[10px] font-bold uppercase tracking-wider text-white">
-            {testModeLabel}
-          </span>
+      {showParticles && (
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div
+              key={i}
+              className="v1-particle"
+              style={{
+                width: `${Math.random() * 4 + 2}px`,
+                height: `${Math.random() * 4 + 2}px`,
+                left: `${Math.random() * 100}%`,
+                background: [
+                  "#F5A623",
+                  "#f46853",
+                  "#2EC4B6",
+                  "#ffc53d",
+                  "#22C55E",
+                ][Math.floor(Math.random() * 5)],
+                animationDuration: `${Math.random() * 14 + 12}s`,
+                animationDelay: `${Math.random() * 10}s`,
+              }}
+            />
+          ))}
         </div>
-        <span>
-          {studentName} · {today}
-        </span>
+      )}
+
+      <div className="v1-result-hero">
+        <div className="hero-title font-extrabold text-[1.5rem] mb-1">
+          {hero.greeting}
+        </div>
+        <div className="hero-subtitle text-[1.05rem] font-semibold text-[#5a5a72] mb-6 max-w-[600px] mx-auto leading-relaxed">
+          {hero.subtitle}
+        </div>
+
+        <div className="flex items-center justify-center gap-6 mb-5 flex-wrap sm:gap-11">
+          <div className="v1-rocket-launchpad">
+            <div className="v1-rocket-track">
+              {[25, 50, 75, 100].map((m) => (
+                <div
+                  key={m}
+                  className="v1-rocket-marker"
+                  style={{ bottom: `${m}%` }}
+                >
+                  <span className="v1-rocket-marker-label">
+                    {m}
+                    {m === 100 ? "" : "%"}
+                  </span>
+                </div>
+              ))}
+              <div
+                className="v1-rocket-track-fill"
+                style={{
+                  height: `${rocketBottom}%`,
+                  background: `linear-gradient(to top, ${accentColor}, ${accentColor}44)`,
+                }}
+              />
+            </div>
+            <svg
+              className="v1-rocket-ship"
+              style={{ bottom: `${(rocketBottom / 100) * 200}px` }}
+              width="40"
+              height="56"
+              viewBox="0 0 40 56"
+            >
+              <defs>
+                <linearGradient id="bodyGradV1" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#e8e4dc" />
+                  <stop offset="100%" stopColor="#d4d0c8" />
+                </linearGradient>
+              </defs>
+              <path d="M8,40 L4,52 L14,44 Z" fill={accentColor} opacity=".8" />
+              <path
+                d="M32,40 L36,52 L26,44 Z"
+                fill={accentColor}
+                opacity=".8"
+              />
+              <rect
+                x="12"
+                y="14"
+                width="16"
+                height="32"
+                rx="3"
+                fill="url(#bodyGradV1)"
+                stroke="#c4bfb4"
+                strokeWidth="1"
+              />
+              <path d="M12,14 Q12,2 20,0 Q28,2 28,14 Z" fill={accentColor} />
+              <circle
+                cx="20"
+                cy="24"
+                r="4.5"
+                fill="#F5A623"
+                stroke="#E0941A"
+                strokeWidth="1"
+              />
+              <circle
+                cx="18.5"
+                cy="22.5"
+                r="1.2"
+                fill="rgba(255,255,255,0.5)"
+              />
+            </svg>
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              {Array.from({
+                length: Math.max(3, Math.floor(roundedScore / 10)),
+              }).map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute rounded-full bg-[#ffc53d] opacity-0"
+                  style={{
+                    width: `${Math.random() * 3 + 2}px`,
+                    height: `${Math.random() * 3 + 2}px`,
+                    left: `${Math.random() * 100}%`,
+                    top: `${Math.random() * 70}%`,
+                    animation: `starTwinkle 1.5s ease both ${Math.random() * 1.2 + 0.6}s`,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="text-left">
+            <div
+              className="font-extrabold text-[4rem] leading-none tracking-tighter"
+              style={{ color: accentColor }}
+            >
+              {countPct}
+            </div>
+            <div className="font-mono text-[1.1rem] text-[#9a9ab0] font-bold mt-1">
+              / 100
+            </div>
+            <div className="mt-2">
+              <StarRating filled={starCount} size={20} />
+            </div>
+            <div className="text-[0.72rem] text-[#9a9ab0] font-semibold mt-2">
+              {hero.altitude}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-center gap-3 flex-wrap">
+          {[
+            `👤 ${studentName}`,
+            `✅ ${correctCount}/${totalQuestions} Correct`,
+            `⏱ ${formatCompactDuration(totalTimeTakenMs)} Total`,
+            `📝 ${report.topic}`,
+          ].map((pill) => (
+            <span
+              key={pill}
+              className="text-[0.78rem] text-[#6B7280] font-semibold flex items-center gap-1.5 bg-[#F8F9FA] border border-gray-100 px-3.5 py-1.5 rounded-full"
+            >
+              {pill}
+            </span>
+          ))}
+        </div>
       </div>
 
-      {/* Mascot Hero */}
-      <div className="dash-card">
-        <div
-          className="flex items-center gap-4 p-6"
-          style={{
-            background: "linear-gradient(135deg,#fff4e0 0%,#ffe8d2 100%)",
-          }}
-        >
-          <div className="mascot-circle">
-            <span className="mascot-face">{hero.face}</span>
-            <span className="mascot-badge">{hero.badge}</span>
-          </div>
-          <div className="speech-bubble">
-            <div className="font-bricolage text-[16px] font-extrabold text-[#1a1a2e]">
-              {hero.title}
+      <div className="v1-kpi-strip">
+        {[
+          {
+            icon: "📊",
+            bg: "rgba(245,166,35,0.10)",
+            color: "#F5A623",
+            val: `${roundedScore}%`,
+            label: "Score",
+            detail: `Scaled to 100 · ${correctCount}/${totalQuestions} correct`,
+          },
+          {
+            icon: "✅",
+            bg: "rgba(34,197,94,0.08)",
+            color: "#22C55E",
+            val: String(correctCount),
+            label: "Correct Answers",
+            detail: `${totalQuestions - correctCount} incorrect out of ${totalQuestions} total`,
+          },
+          {
+            icon: "⚡",
+            bg: "rgba(46,196,182,0.10)",
+            color: "#2EC4B6",
+            val: String(rapidCount),
+            label: "Rapid Answers",
+            detail: "Answered in under 2s (flagged)",
+          },
+          {
+            icon: "⏳",
+            bg: "rgba(34,197,94,0.08)",
+            color: "#22C55E",
+            val: formatDuration(avgTimeTakenMs),
+            label: "Avg Time / Question",
+            detail: `${formatCompactDuration(totalTimeTakenMs)} total test time`,
+          },
+        ].map((kpi) => (
+          <div key={kpi.label} className="v1-kpi">
+            <div
+              className="w-10 h-10 rounded-[12px] grid place-items-center text-[1.1rem] mb-2.5"
+              style={{ background: kpi.bg, color: kpi.color }}
+            >
+              {kpi.icon}
             </div>
-            <div className="mt-1 font-sans text-[13px] leading-relaxed text-[#444]">
-              {hero.line}
+            <div className="v1-kpi-val">{kpi.val}</div>
+            <div className="text-[0.75rem] text-[#5a5a72] mt-1 font-medium">
+              {kpi.label}
+            </div>
+            <div className="text-[0.7rem] text-[#9a9ab0] mt-1.5 font-medium leading-relaxed">
+              {kpi.detail}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {results.length > 0 && selectedReviewRecord && (
+        <div className="v1-card">
+          <div className="px-5 pt-4 pb-3">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="font-bold text-[0.95rem] flex items-center gap-2">
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-[#F5A623] text-white">
+                    ✓
+                  </span>
+                  Review your answers
+                </div>
+                <div className="mt-1 text-[0.72rem] text-[#6B7280] font-medium">
+                  Tap any question to see your answer, the correct answer, and
+                  the explanation.
+                </div>
+              </div>
+              <div className="hidden items-center gap-3 font-mono text-[0.68rem] font-bold text-[#6B7280] sm:flex">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#2E9E5B]" />
+                  Correct
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#F46853]" />
+                  Wrong
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#D97706]" />
+                  Partial
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-5 pb-5">
+            <div className="grid grid-cols-6 gap-2 sm:grid-cols-9 lg:grid-cols-[repeat(18,minmax(0,1fr))]">
+              {results.map((record, index) => {
+                const isSelected =
+                  record.question.id === selectedReviewRecord.question.id;
+                const isCorrect = record.verdict === "correct";
+                const isPartial = record.verdict === "partial";
+                const tileClass = isCorrect
+                  ? "border-[#2E9E5B] bg-[#EAF8EF] text-[#1F7A45]"
+                  : isPartial
+                    ? "border-[#D97706] bg-[#FFF7E6] text-[#92400E]"
+                    : "border-[#F46853] bg-[#FDEDE9] text-[#D63B28]";
+                return (
+                  <button
+                    key={record.question.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedReviewQuestionId(record.question.id)
+                    }
+                    className={`flex aspect-square min-h-[48px] items-center justify-center rounded-[10px] border-2 font-mono text-[0.82rem] font-extrabold transition-all hover:-translate-y-0.5 ${tileClass} ${
+                      isSelected
+                        ? "shadow-[0_0_0_3px_rgba(245,166,35,0.40)] ring-2 ring-[#F5A623]"
+                        : ""
+                    }`}
+                    aria-label={`Review question ${index + 1}`}
+                  >
+                    {index + 1}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 rounded-[16px] border border-[#E8E3D8] bg-[#F8F9FA] p-5">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="font-mono text-[0.72rem] font-bold uppercase tracking-widest text-[#6B7280]">
+                    Question {selectedReviewIndex + 1}
+                  </div>
+                  <div className="mt-2 max-w-[920px] text-[1rem] font-extrabold leading-relaxed text-[#111827]">
+                    {selectedReviewRecord.question.question}
+                  </div>
+                  {selectedReviewQuestionSvg && (
+                    <div
+                      className="mt-4 flex min-h-[140px] max-w-[560px] items-center justify-center rounded-[14px] border border-[#E8E3D8] bg-white p-4 shadow-sm [&_svg]:h-auto [&_svg]:max-h-[210px] [&_svg]:w-full [&_svg]:max-w-[520px]"
+                      dangerouslySetInnerHTML={{
+                        __html: selectedReviewQuestionSvg,
+                      }}
+                    />
+                  )}
+                </div>
+                <span
+                  className={`rounded-full px-3 py-1 font-mono text-[0.68rem] font-extrabold uppercase tracking-wider ${
+                    selectedReviewRecord.verdict === "correct"
+                      ? "bg-[#EAF8EF] text-[#1F7A45]"
+                      : selectedReviewRecord.verdict === "partial"
+                        ? "bg-[#FFF7E6] text-[#92400E]"
+                        : "bg-[#FDEDE9] text-[#D63B28]"
+                  }`}
+                >
+                  {selectedReviewRecord.verdict === "correct"
+                    ? "Got it right"
+                    : selectedReviewRecord.verdict === "partial"
+                      ? "Partial"
+                      : "Got it wrong"}
+                </span>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-[150px_1fr]">
+                <div className="font-mono text-[0.72rem] font-bold uppercase tracking-widest text-[#4B5563]">
+                  Your answer
+                </div>
+                <div
+                  className={`rounded-[10px] border px-4 py-3 text-[0.92rem] font-semibold ${
+                    selectedReviewRecord.verdict === "correct"
+                      ? "border-[#2E9E5B] bg-[#F6FBF7]"
+                      : "border-[#F46853] bg-[#FFF7F5]"
+                  }`}
+                >
+                  {formatAnswerSummary(
+                    selectedReviewRecord.question as QuestionDisplayData,
+                    selectedReviewRecord.studentAnswer,
+                  )}
+                </div>
+
+                <div className="font-mono text-[0.72rem] font-bold uppercase tracking-widest text-[#4B5563]">
+                  Correct answer
+                </div>
+                <div className="rounded-[10px] border border-[#2E9E5B] bg-[#F6FBF7] px-4 py-3 text-[0.92rem] font-semibold">
+                  {getCorrectAnswerSummary(
+                    selectedReviewRecord.question as QuestionDisplayData,
+                  )}
+                </div>
+
+                <div className="font-mono text-[0.72rem] font-bold uppercase tracking-widest text-[#4B5563]">
+                  Why
+                </div>
+                <div className="rounded-[10px] border-l-4 border-[#F5A623] bg-white px-4 py-3 text-[0.92rem] font-medium leading-relaxed text-[#334155]">
+                  {getQuestionExplanation(selectedReviewRecord)}
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const previous =
+                      results[Math.max(0, selectedReviewIndex - 1)];
+                    if (previous)
+                      setSelectedReviewQuestionId(previous.question.id);
+                  }}
+                  disabled={selectedReviewIndex <= 0}
+                  className="rounded-full border border-[#E2DED4] bg-white px-5 py-2 text-[0.82rem] font-bold text-[#4B5563] transition-all hover:bg-[#FAFAF7] disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  ← Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next =
+                      results[
+                        Math.min(results.length - 1, selectedReviewIndex + 1)
+                      ];
+                    if (next) setSelectedReviewQuestionId(next.question.id);
+                  }}
+                  disabled={selectedReviewIndex >= results.length - 1}
+                  className="rounded-full border border-[#E2DED4] bg-white px-5 py-2 text-[0.82rem] font-bold text-[#111827] transition-all hover:bg-[#FAFAF7] disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  Next →
+                </button>
+              </div>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Score Strip */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-y border-[#efece5] bg-[#fafaf7] px-6 py-4">
-          <div className="flex items-center gap-3">
-            <span
-              className="font-sans text-[15px] font-bold"
-              style={{ color: hero.tierColor }}
+      <div className="rounded-[18px] border border-[#F5DDD0] bg-[linear-gradient(135deg,#FFF8F2_0%,#FDF0E8_100%)] p-5 shadow-[0_2px_20px_rgba(26,26,46,0.04)] sm:p-8">
+        <div className="mb-5 text-[1.1rem] font-extrabold text-[#1B4A4A] sm:text-[1.2rem]">
+          What went well &amp; what to work on next
+        </div>
+
+        <p className="mb-5 max-w-[980px] text-[0.95rem] font-medium leading-[1.8] text-[#111827] sm:text-[1rem]">
+          You did one thing really well in this test. When fractions were shown
+          on a number line, you knew exactly where they should go. That means
+          you&apos;ve got a strong sense of which fractions are bigger and which
+          are smaller, and that&apos;s one of the most important fraction
+          skills.
+        </p>
+
+        <p className="mb-6 max-w-[980px] text-[1rem] font-medium leading-[1.8] text-[#111827]">
+          The tricky part was spotting when two fractions are secretly the same,
+          like 2/4 and 1/2. You also slipped up on making fractions simpler, and
+          comparing them without a picture. Most kids your age find these tricky
+          at first. They click fast once you see the pattern.
+        </p>
+
+        <div className="my-6 h-px bg-[rgba(0,0,0,0.08)]" />
+
+        <div className="mb-4 font-mono text-[0.72rem] font-extrabold uppercase tracking-[0.16em] text-[#6B7280]">
+          How to get a higher score
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {[
+            <>
+              Watch the short video on{" "}
+              <strong>{primaryFocusLabel.toLowerCase()}</strong>.
+            </>,
+            <>
+              Practice <strong>10 questions</strong> on{" "}
+              {primaryFocusLabel.toLowerCase()}. Aim for 7 right.
+            </>,
+            <>
+              Retake the test. Most students improve once they review the
+              pattern.
+            </>,
+          ].map((item, index) => (
+            <div
+              key={index}
+              className="flex items-start gap-3 rounded-[10px] bg-white/75 px-4 py-3 text-[0.92rem] leading-relaxed text-[#111827]"
             >
-              {hero.tier}
-            </span>
-            <span
-              className="rounded-[10px] px-2.5 py-[3px] font-mono text-[12px] font-bold tabular-nums"
-              style={{ background: pctBg, color: pctColor }}
-            >
-              {countScore}/{totalBasePoints} pts
-            </span>
-            <span className="rounded-[10px] bg-white px-2.5 py-[3px] font-mono text-[12px] font-bold tabular-nums text-[#1a1a2e]">
-              {countPct}%
-            </span>
-          </div>
-          <div className="flex items-center gap-4 font-mono text-[11px] font-semibold uppercase tracking-wider text-[#5a5a72]">
-            <span>
-              <span className="font-bricolage text-[15px] font-extrabold tracking-tight text-[#1a1a2e]">
-                {correctCount}
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#F5A623] font-mono text-[0.75rem] font-extrabold text-white">
+                {index + 1}
               </span>
-              /{totalQuestions} correct
-            </span>
-            <span>
-              <span className="font-bricolage text-[15px] font-extrabold tracking-tight text-[#1a1a2e]">
-                {formatCompactDuration(totalTimeTakenMs)}
-              </span>{" "}
-              total
-            </span>
-            <span>
-              <span className="font-bricolage text-[15px] font-extrabold tracking-tight text-[#1a1a2e]">
-                {formatDuration(avgTimeTakenMs)}
-              </span>{" "}
-              avg
-            </span>
-          </div>
+              <span className="flex-1">{item}</span>
+            </div>
+          ))}
         </div>
-      </div>
 
-      {/* Learning Objectives Grid */}
-      <div className="dash-card">
-        <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+        <button
+          type="button"
+          className="mt-6 rounded-full bg-[#F5A623] px-7 py-3 text-[0.92rem] font-bold text-white shadow-[0_8px_20px_rgba(245,166,35,0.28)] transition-all hover:bg-[#E0941A] hover:-translate-y-0.5"
+        >
+          Let&apos;s Start
+        </button>
+
+        <div className="hidden">
           <div>
-            <div className="font-bricolage font-bold text-[0.95rem] flex items-center gap-2">
+            <div className="font-bold text-[0.95rem] flex items-center gap-2">
               🎯 Learning Objective Breakdown
             </div>
             <div className="text-[0.72rem] text-[#9a9ab0] font-medium">
@@ -846,67 +2476,62 @@ function ReportView({
             </div>
           </div>
         </div>
-        <div className="px-5 pb-5">
-          <div className="lo-grid">
+        <div className="hidden">
+          <div className="v1-lo-grid">
             {learningObjectives.map((lo, i) => {
               let status = "needs-work",
                 statusText = "Needs Practice",
-                pctColor = "#f46853";
+                pctCol = "#f46853";
               if (lo.score >= 80) {
                 status = "mastered";
                 statusText = "Mastered";
-                pctColor = "#2ecc87";
+                pctCol = "#2ecc87";
               } else if (lo.score >= 50) {
                 status = "developing";
                 statusText = "Developing";
-                pctColor = "#b8860b";
+                pctCol = "#b8860b";
               }
-
               const barColor =
                 lo.score >= 80
                   ? "#2ecc87"
                   : lo.score >= 50
                     ? "#ffc53d"
                     : "#f46853";
-
               return (
                 <div
                   key={lo.learningObjective}
-                  className="lo-card"
+                  className="v1-lo-card"
                   style={{ animationDelay: `${0.2 + i * 0.06}s` }}
                 >
-                  <div className="flex items-center justify-between mb-1.5 gap-2">
-                    <span className="font-bold text-[0.85rem] leading-snug truncate">
+                  <div className="flex items-center gap-3 px-1">
+                    <span className="font-semibold text-[0.83rem] text-[#1a1a2e] truncate w-[200px] shrink-0">
                       {formatLearningObjectiveLabel(lo.learningObjective)}
                     </span>
-                    <span className={`lo-status-badge ${status}`}>
+                    <span className={`v1-lo-status-badge ${status} shrink-0`}>
                       {statusText}
                     </span>
-                  </div>
-                  <div className="font-mono text-[0.75rem] text-[#5a5a72] mb-1.5">
-                    {lo.correctCount}/{lo.correctCount + lo.incorrectCount}{" "}
-                    correct · {Math.round(lo.score / 2)}/10 pts
-                  </div>
-                  <div className="text-[0.78rem] text-[#5a5a72] leading-relaxed font-medium mb-2.5 line-clamp-3">
-                    {/* Feedback would go here, using report summary or generic per-status message */}
-                    {lo.score >= 80
-                      ? "You've mastered this objective! Strong grasp of concepts and reliable execution."
-                      : lo.score >= 50
-                        ? "You're getting there. Focus on the trickier scenarios to build more confidence."
-                        : "This area needs more focus. Let's revisit the core concepts and try again."}
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex-1 h-1.5 rounded-full bg-[#f0eee9] overflow-hidden">
+                    <div className="flex-1 h-1.5 rounded-full bg-[#F8F9FA] overflow-hidden min-w-0">
                       <div
                         className="h-full rounded-full transition-all duration-1000 delay-300"
                         style={{ width: `${lo.score}%`, background: barColor }}
                       />
                     </div>
                     <span
-                      className="font-mono text-[0.72rem] font-bold min-w-[32px] text-right"
-                      style={{ color: pctColor }}
+                      className="font-mono text-[0.72rem] font-bold min-w-[32px] text-right shrink-0"
+                      style={{ color: pctCol }}
                     >
                       {Math.round(lo.score)}%
+                    </span>
+                    <span className="font-mono text-[0.72rem] text-[#9a9ab0] shrink-0">
+                      {lo.correctCount}/{lo.correctCount + lo.incorrectCount}{" "}
+                      correct
+                    </span>
+                    <span className="text-[0.72rem] text-[#9a9ab0] italic shrink-0 border-l border-[rgba(0,0,0,0.1)] pl-3">
+                      {lo.score >= 80
+                        ? "Great job! You've mastered this."
+                        : lo.score >= 50
+                          ? "Getting there — focus on trickier scenarios."
+                          : "Needs more focus — revisit core concepts."}
                     </span>
                   </div>
                 </div>
@@ -916,412 +2541,309 @@ function ReportView({
         </div>
       </div>
 
-      {/* Parent Strip */}
-      <div className="dash-card border-t border-[#e8ecf2] bg-[#f6f8fb]">
-        <div className="px-6 py-5">
-          <div className="mb-3 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[#5a6b85]">
-            👨‍👩‍👧 For Parents
+      <div className="v1-card">
+        <div className="px-5 pt-4 pb-3 flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <div className="font-bold text-[0.95rem]">
+              📋 Question-by-Question Breakdown
+            </div>
+            <div className="text-[0.72rem] text-[#9a9ab0] font-medium">
+              Detailed analysis per question
+            </div>
           </div>
-          <div className="space-y-1.5">
-            {[
-              `${firstName} completed the ${testModeLabel.toLowerCase()} for ${report.topic || classLabel(report.classLevel)} today.`,
-              `${correctCount} out of ${totalQuestions} questions correct (${roundedScore}% adjusted score).`,
-              masteredCount > 0
-                ? `Mastered ${masteredCount} learning objective${masteredCount === 1 ? "" : "s"}${developingCount > 0 ? `, ${developingCount} still developing` : ""}.`
-                : `${developingCount} learning objective${developingCount === 1 ? "" : "s"} still developing.`,
-              needsWorkLOs.length > 0
-                ? `Suggested next step: practice ${formatLearningObjectiveLabel(needsWorkLOs[0].learningObjective).toLowerCase()}.`
-                : `Suggested next step: try a harder topic to keep stretching.`,
-            ].map((line, i) => (
-              <div
-                key={i}
-                className="flex items-start gap-2 font-sans text-[12.5px] leading-relaxed text-[#3a4a64]"
-              >
-                <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[#5a6b85]" />
-                <span>{line}</span>
+          <button
+            onClick={() => setShowMethodology(true)}
+            className="px-4 py-1.5 rounded-full font-bold text-[0.78rem] border border-[rgba(245,166,35,0.25)] bg-[rgba(245,166,35,0.06)] text-[#F5A623] transition-all hover:bg-[rgba(245,166,35,0.12)]"
+          >
+            🔬 Methodology
+          </button>
+        </div>
+        <div className="px-5 pb-5 overflow-x-auto">
+          <table className="v1-student-table min-w-[1000px] whitespace-nowrap">
+            <thead>
+              <tr>
+                <th>Q</th>
+                <th>Difficulty</th>
+                <th>Your Answer</th>
+                <th>Correct</th>
+                <th>Result</th>
+                <th>Time</th>
+                <th>Pts</th>
+                <th>Earned</th>
+                <th>Flags</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((record, index) => {
+                const difficulty = normalizeDifficultyLevel(
+                  record.question.difficultyLevel,
+                );
+                const isCorrect = record.verdict === "correct";
+                const isRapid =
+                  (record.timeTakenMs ?? 0) > 0 &&
+                  (record.timeTakenMs ?? 0) < RAPID_RESPONSE_THRESHOLD_MS;
+                const finalPoints = getQuestionFinalPoints(record);
+                const basePoints = getQuestionBasePoints(difficulty);
+                const scoreColor = finalPoints === 0 ? "#f46853" : "#2ecc87";
+                return (
+                  <tr key={record.question.id}>
+                    <td>
+                      <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] bg-white font-mono text-[0.82rem] font-bold">
+                        {index + 1}
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`v1-diff-badge ${difficulty}`}>
+                        {difficulty}
+                      </span>
+                    </td>
+                    <td className="max-w-[180px]">
+                      <span
+                        className={`font-mono font-bold text-[0.85rem] block truncate ${isCorrect ? "text-[#2ecc87]" : "text-[#f46853]"}`}
+                      >
+                        {formatAnswerSummary(
+                          record.question as QuestionDisplayData,
+                          record.studentAnswer,
+                        )}
+                      </span>
+                    </td>
+                    <td className="max-w-[180px]">
+                      <span className="font-mono font-bold text-[0.85rem] text-[#2ecc87] block truncate">
+                        {getCorrectAnswerSummary(
+                          record.question as QuestionDisplayData,
+                        )}
+                      </span>
+                    </td>
+                    <td className="font-bold text-[1.05rem]">
+                      {isCorrect ? "✓" : "✗"}
+                    </td>
+                    <td>
+                      <span className="font-mono text-[0.82rem] font-bold text-[#5a5a72]">
+                        {formatDuration(record.timeTakenMs)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="font-mono text-[0.88rem] font-bold text-[#5a5a72]">
+                        {basePoints}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        className="font-mono text-[0.88rem] font-bold"
+                        style={{ color: scoreColor }}
+                      >
+                        {formatPoints(finalPoints)}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex gap-1.5">
+                        {isRapid && (
+                          <span className="text-[0.68rem] font-bold px-2.5 py-1 rounded-full bg-[rgba(245,166,35,0.10)] text-[#F5A623]">
+                            ⚡ Rapid
+                          </span>
+                        )}
+                        {isCorrect && !isRapid && (
+                          <span className="text-[0.68rem] font-bold px-2.5 py-1 rounded-full bg-[rgba(46,204,135,0.08)] text-[#2ecc87]">
+                            ✓ Clean
+                          </span>
+                        )}
+                        {!isCorrect && !isRapid && null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr style={{ background: "rgba(245,166,35,0.04)" }}>
+                <td
+                  colSpan={5}
+                  className="text-right py-3 font-bold text-[0.92rem]"
+                >
+                  Total
+                </td>
+                <td className="font-mono text-[0.82rem] font-bold">
+                  {formatCompactDuration(totalTimeTakenMs)}
+                </td>
+                <td></td>
+                <td className="font-mono text-[0.95rem] font-bold text-[#F5A623]">
+                  {roundedScore}%
+                </td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Progress comparison card */}
+      <div
+        className="v1-card rounded-[18px] overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg,#FFF8E7 0%,#FDEFD0 100%)",
+          border: "1px solid #F5DDB0",
+        }}
+      >
+        <div className="p-6">
+          <div className="mb-1 flex items-center gap-2 text-[1.05rem] font-extrabold text-[#1B4A4A]">
+            <span>📝</span> Your progress this time
+          </div>
+          <div className="mb-4 text-[0.85rem] font-medium text-[#F5A623]">
+            You took this test 2 weeks ago. Here is how you have improved:
+          </div>
+
+          <div className="rounded-[14px] bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 text-center">
+                <div className="mb-1 font-mono text-[0.65rem] font-bold uppercase tracking-widest text-[#9CA3AF]">
+                  Last time
+                </div>
+                <div className="text-[2rem] font-extrabold text-[#1B4A4A]">
+                  9/18
+                </div>
+                <div className="mt-1 flex justify-center">
+                  <StarRating filled={3} total={5} size={14} />
+                </div>
               </div>
-            ))}
+
+              <div className="shrink-0 text-[1.4rem] text-[#9CA3AF]">→</div>
+
+              <div className="flex-1 text-center">
+                <div className="mb-1 font-mono text-[0.65rem] font-bold uppercase tracking-widest text-[#9CA3AF]">
+                  This time
+                </div>
+                <div className="text-[2rem] font-extrabold text-[#1B4A4A]">
+                  13/18
+                </div>
+                <div className="mt-1 flex justify-center">
+                  <StarRating filled={4} total={5} size={14} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-[12px] bg-[#D4F5EC] px-4 py-3 text-[0.88rem] font-semibold text-[#1B4A4A]">
+            🎉 You got 4 more questions right this time! Great improvement on
+            Equivalent Fractions.
           </div>
         </div>
       </div>
 
-      <div className="mt-4 flex justify-center">
+      <div className="mt-6 flex justify-center">
         <button
           onClick={onReset}
-          className="flex items-center gap-2 px-10 py-4 font-sans text-[16px] font-bold text-white transition-all duration-300 bg-[linear-gradient(135deg,#3a5ccc,#7c5cfc)] rounded-full shadow-[0_8px_24px_rgba(58,92,204,0.25)] hover:-translate-y-1.5 hover:shadow-[0_12px_36px_rgba(58,92,204,0.35)]"
+          className="flex items-center gap-2 rounded-full bg-[#F5A623] px-10 py-4 text-[16px] font-bold text-white shadow-[0_8px_24px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-1 hover:shadow-[0_12px_36px_rgba(245,166,35,0.40)]"
         >
-          <RotateCcw className="h-4 w-4" />
-          Take another test
+          <RotateCcw className="h-4 w-4" /> Run New Diagnostic
         </button>
       </div>
-    </div>
-  );
-}
 
-function SetupForm({
-  form,
-  setForm,
-  quizCatalog,
-  defaultTopicEntry,
-  onStart,
-  onBack,
-  isBusy,
-}: {
-  form: CreateSessionInput;
-  setForm: React.Dispatch<React.SetStateAction<CreateSessionInput>>;
-  quizCatalog: DemoQuizCatalog;
-  defaultTopicEntry: DemoQuizCatalogEntry | null;
-  onStart: () => void;
-  onBack?: () => void;
-  isBusy: boolean;
-}) {
-  const defaultEntry = defaultTopicEntry ?? getDefaultCatalogEntry(quizCatalog);
-  const [selectedTopic, setSelectedTopic] = useState<string | null>(() => {
-    return form.topic || defaultEntry?.topic || null;
-  });
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    if (defaultEntry?.classLevel) return defaultEntry.classLevel;
-    const firstClass = quizCatalog.entries[0]?.classLevel;
-    return firstClass ?? "class5";
-  });
-
-  const classLevels = useMemo(
-    () =>
-      Array.from(new Set(quizCatalog.entries.map((e) => e.classLevel))).sort(),
-    [quizCatalog.entries],
-  );
-
-  const filteredEntries = useMemo(
-    () => quizCatalog.entries.filter((e) => e.classLevel === activeTab),
-    [activeTab, quizCatalog.entries],
-  );
-
-  const effectiveTopic = selectedTopic || defaultEntry?.topic || null;
-  const effectiveTopicLabel =
-    effectiveTopic ?? DIAGNOSTIC_CONTENT_DEFAULTS.topic;
-  const effectiveTopicSlug = (
-    effectiveTopic ?? DIAGNOSTIC_CONTENT_DEFAULTS.topic
-  ).toLowerCase();
-
-  const selectedEntry = useMemo(
-    () =>
-      quizCatalog.entries.find(
-        (entry) =>
-          entry.subject === form.subject &&
-          entry.classLevel === form.classLevel &&
-          entry.topic === effectiveTopic,
-      ),
-    [effectiveTopic, form.classLevel, form.subject, quizCatalog.entries],
-  );
-
-  useEffect(() => {
-    if (selectedTopic || !defaultEntry?.topic) return;
-
-    setSelectedTopic(defaultEntry.topic);
-    setActiveTab(defaultEntry.classLevel);
-    setForm((prev) => ({
-      ...prev,
-      subject: defaultEntry.subject,
-      classLevel: defaultEntry.classLevel,
-      topic: defaultEntry.topic,
-    }));
-  }, [defaultEntry, selectedTopic, setForm]);
-
-  const handleSelectTopic = (topic: string, classLevel: string) => {
-    setSelectedTopic(topic);
-    setForm((prev) => ({ ...prev, topic, classLevel: classLevel as never }));
-  };
-
-  return (
-    <div className="flex items-center justify-center animate-in fade-in slide-in-from-bottom-4 duration-500 py-4">
-      <div
-        className={`relative w-full max-w-[560px] overflow-hidden bg-white p-7 text-center border border-[rgba(26,26,46,0.06)] ${THEME.rounded} ${THEME.shadowFloat}`}
-      >
-        <div className="absolute top-0 left-0 right-0 h-1 bg-[linear-gradient(90deg,#3a5ccc,#7c5cfc)]" />
-
-        {onBack && (
-          <button
-            onClick={onBack}
-            className="mb-4 flex items-center gap-1 font-sans text-[12px] font-medium text-[#8a8aa0] transition-colors hover:text-[#1a1a2e]"
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-            <span>Choose test type</span>
-          </button>
-        )}
-
-        <div className="mb-1 inline-block bg-[#EEF2FF] text-[#4338CA] font-mono text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md mb-3">
-          Topic Test
-        </div>
-
-        {/* Icon + title */}
-        <div className="mb-1 flex justify-center">
-          <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-[rgba(58,92,204,0.06)]">
-            <Calculator className="h-7 w-7 text-[#3a5ccc]" />
-          </div>
-        </div>
-
-        <h2 className="mb-1 font-bricolage text-[24px] font-extrabold tracking-tight text-[#1a1a2e]">
-          {effectiveTopicLabel}
-        </h2>
-        <p className="mx-auto mb-5 max-w-[400px] font-sans text-[13px] leading-relaxed text-[#8a8aa0]">
-          A timed diagnostic to evaluate conceptual depth and readiness.
-        </p>
-
-        <div className="mb-5 flex justify-center gap-2">
-          <span className="rounded-full bg-[rgba(58,92,204,0.08)] px-5 py-2 font-mono text-[12px] font-bold text-[#3a5ccc]">
-            {selectedEntry
-              ? `${selectedEntry.learningObjectives.length * 3} questions`
-              : "— questions"}
-          </span>
-          <span className="rounded-full bg-[rgba(58,92,204,0.08)] px-5 py-2 font-mono text-[12px] font-bold uppercase text-[#3a5ccc]">
-            {classLabel(form.classLevel)}
-          </span>
-        </div>
-
-        <button
-          className={`group relative flex w-full items-center justify-center gap-2 py-3 font-sans text-[15px] font-bold text-white transition-all duration-300 ${THEME.primaryGradient} rounded-full shadow-[0_6px_20px_rgba(58,92,204,0.2)] hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(58,92,204,0.3)] disabled:opacity-50 disabled:hover:translate-y-0`}
-          onClick={onStart}
-          disabled={isBusy || !selectedEntry}
+      {showMethodology && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[rgba(0,0,0,0.3)] backdrop-blur-[4px]"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowMethodology(false);
+          }}
         >
-          {isBusy ? (
-            <>
-              <div className="h-4 w-4 animate-spin border-2 border-white/30 border-t-white rounded-full" />
-              <span>Preparing...</span>
-            </>
-          ) : (
-            <>
-              <span className="font-bricolage tracking-tight">
-                Begin Diagnostic
-              </span>
-              <Rocket className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </>
-          )}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function TestSelectorScreen({
-  quizCatalog,
-  onSelect,
-}: {
-  quizCatalog: DemoQuizCatalog;
-  onSelect: (mode: "topic" | "grade") => void;
-}) {
-  const gradeClassLevels = useMemo(
-    () => Array.from(new Set(quizCatalog.entries.map((e) => e.classLevel))).sort(),
-    [quizCatalog.entries],
-  );
-  const firstClass = gradeClassLevels[0] ?? "class4";
-  const gradeTargets = GRADE_TEST_COUNTS[firstClass] ?? GRADE_TEST_COUNTS.class4;
-  const gradeTotal = gradeTargets.easy + gradeTargets.medium + gradeTargets.hard;
-
-  return (
-    <div className="flex flex-col items-center justify-center animate-in fade-in slide-in-from-bottom-4 duration-500 py-8">
-      <div className="text-center mb-8">
-        <h2 className="font-bricolage text-[28px] font-extrabold tracking-tight text-[#1a1a2e] mb-2">
-          Choose your test
-        </h2>
-        <p className="font-sans text-[14px] text-[#8a8aa0] max-w-[480px] leading-relaxed">
-          Ready to see how you are doing in Maths? Pick the test that fits what you want to check.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full max-w-[820px]">
-        {/* Topic Test card */}
-        <button
-          type="button"
-          onClick={() => onSelect("topic")}
-          className="group text-left bg-white border border-[rgba(26,26,46,0.06)] rounded-[20px] p-7 shadow-[0_2px_20px_rgba(26,26,46,0.05)] hover:border-[#7c5cfc]/40 hover:-translate-y-1 hover:shadow-[0_8px_28px_rgba(124,92,252,0.12)] transition-all duration-200"
-        >
-          <div className="w-14 h-14 rounded-[14px] bg-[linear-gradient(135deg,#EEF2FF,#DDD6FE)] flex items-center justify-center text-[28px] mb-4">
-            📝
-          </div>
-          <h3 className="font-bricolage text-[20px] font-bold text-[#1a1a2e] mb-2">Topic Test</h3>
-          <p className="font-sans text-[13px] text-[#8a8aa0] leading-relaxed mb-4">
-            Test your knowledge on one specific topic. Good for checking if you have mastered what you just learnt.
-          </p>
-          <div className="flex gap-2 flex-wrap mb-4">
-            <span className="bg-[#F5F2EB] px-3 py-1 rounded-full font-mono text-[11px] text-[#4B5563]">3 per LO</span>
-            <span className="bg-[#F5F2EB] px-3 py-1 rounded-full font-mono text-[11px] text-[#4B5563]">One topic</span>
-            <span className="bg-[#F5F2EB] px-3 py-1 rounded-full font-mono text-[11px] text-[#4B5563]">15–24 min</span>
-          </div>
-          <span className="font-sans text-[13px] font-semibold text-[#6366F1] group-hover:underline">
-            Start a topic test →
-          </span>
-        </button>
-
-        {/* Grade Test card */}
-        <button
-          type="button"
-          onClick={() => onSelect("grade")}
-          className="group text-left bg-white border border-[rgba(26,26,46,0.06)] rounded-[20px] p-7 shadow-[0_2px_20px_rgba(26,26,46,0.05)] hover:border-[#f59e0b]/40 hover:-translate-y-1 hover:shadow-[0_8px_28px_rgba(245,158,11,0.12)] transition-all duration-200"
-        >
-          <div className="w-14 h-14 rounded-[14px] bg-[linear-gradient(135deg,#FEF3C7,#FED7AA)] flex items-center justify-center text-[28px] mb-4">
-            🏆
-          </div>
-          <h3 className="font-bricolage text-[20px] font-bold text-[#1a1a2e] mb-2">Grade Test</h3>
-          <p className="font-sans text-[13px] text-[#8a8aa0] leading-relaxed mb-4">
-            Test your knowledge across your whole grade. Good for finding which topics to focus on next.
-          </p>
-          <div className="flex gap-2 flex-wrap mb-4">
-            <span className="bg-[#F5F2EB] px-3 py-1 rounded-full font-mono text-[11px] text-[#4B5563]">{gradeTotal} questions</span>
-            <span className="bg-[#F5F2EB] px-3 py-1 rounded-full font-mono text-[11px] text-[#4B5563]">All topics</span>
-            <span className="bg-[#F5F2EB] px-3 py-1 rounded-full font-mono text-[11px] text-[#4B5563]">20–30 min</span>
-          </div>
-          <span className="font-sans text-[13px] font-semibold text-[#d97706] group-hover:underline">
-            Start a grade test →
-          </span>
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function GradeStartScreen({
-  quizCatalog,
-  form,
-  setForm,
-  onStart,
-  onBack,
-  isBusy,
-}: {
-  quizCatalog: DemoQuizCatalog;
-  form: CreateSessionInput;
-  setForm: React.Dispatch<React.SetStateAction<CreateSessionInput>>;
-  onStart: () => void;
-  onBack: () => void;
-  isBusy: boolean;
-}) {
-  const classLevels = useMemo(
-    () => Array.from(new Set(quizCatalog.entries.map((e) => e.classLevel))).sort(),
-    [quizCatalog.entries],
-  );
-
-  const selectedClassLevel = form.classLevel;
-  const targets = GRADE_TEST_COUNTS[selectedClassLevel] ?? GRADE_TEST_COUNTS.class4;
-  const total = targets.easy + targets.medium + targets.hard;
-
-  const topicsForGrade = useMemo(
-    () =>
-      quizCatalog.entries
-        .filter((e) => e.classLevel === selectedClassLevel)
-        .map((e) => e.topic),
-    [quizCatalog.entries, selectedClassLevel],
-  );
-
-  return (
-    <div className="flex items-center justify-center animate-in fade-in slide-in-from-bottom-4 duration-500 py-4">
-      <div className={`relative w-full max-w-[560px] overflow-hidden bg-white p-7 border border-[rgba(26,26,46,0.06)] ${THEME.rounded} ${THEME.shadowFloat}`}>
-        <div className="absolute top-0 left-0 right-0 h-1 bg-[linear-gradient(90deg,#f59e0b,#ef4444)]" />
-
-        <button
-          onClick={onBack}
-          className="mb-4 flex items-center gap-1 font-sans text-[12px] font-medium text-[#8a8aa0] transition-colors hover:text-[#1a1a2e]"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          <span>Choose test type</span>
-        </button>
-
-        <div className="mb-4 inline-block bg-[#FEF3C7] text-[#B45309] font-mono text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md">
-          Grade Test
-        </div>
-
-        {/* Grade selector */}
-        <div className="mb-4">
-          <div className="mb-1.5 font-sans text-[10px] font-bold uppercase tracking-wider text-[#8a8aa0]">Select grade</div>
-          <div className="flex flex-wrap gap-2">
-            {classLevels.map((cl) => (
+          <div className="bg-white rounded-[18px] max-w-[580px] w-full max-h-[85vh] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[rgba(0,0,0,0.08)] bg-white p-6">
+              <h3 className="font-bold text-[1.05rem] flex items-center gap-2">
+                🔬 Scoring Methodology
+              </h3>
               <button
-                key={cl}
-                type="button"
-                onClick={() => setForm((prev) => ({ ...prev, classLevel: cl as never }))}
-                className={`rounded-full px-4 py-1.5 font-mono text-[12px] font-bold transition-all ${
-                  selectedClassLevel === cl
-                    ? "bg-[#3a5ccc] text-white"
-                    : "bg-[rgba(58,92,204,0.08)] text-[#3a5ccc] hover:bg-[rgba(58,92,204,0.14)]"
-                }`}
+                onClick={() => setShowMethodology(false)}
+                className="w-8 h-8 rounded-full border border-[rgba(0,0,0,0.08)] flex items-center justify-center text-[#6B7280] hover:bg-[#F8F9FA]"
               >
-                {classLabel(cl)}
+                ✕
               </button>
-            ))}
-          </div>
-        </div>
-
-        <h2 className="mb-1 font-bricolage text-[24px] font-extrabold tracking-tight text-[#1a1a2e]">
-          {classLabel(selectedClassLevel)} · All Topics
-        </h2>
-        <p className="mx-auto mb-5 font-sans text-[13px] leading-relaxed text-[#8a8aa0]">
-          A full-grade diagnostic covering all topics. Identifies your strengths and areas to focus on.
-        </p>
-
-        <div className="mb-5 flex justify-center gap-2 flex-wrap">
-          <span className="rounded-full bg-[rgba(58,92,204,0.08)] px-4 py-1.5 font-mono text-[12px] font-bold text-[#3a5ccc]">
-            {total} questions
-          </span>
-          <span className="rounded-full bg-[rgba(46,204,135,0.1)] px-4 py-1.5 font-mono text-[12px] font-bold text-[#2ecc87]">
-            {targets.easy} easy
-          </span>
-          <span className="rounded-full bg-[rgba(255,197,61,0.12)] px-4 py-1.5 font-mono text-[12px] font-bold text-[#b8860b]">
-            {targets.medium} medium
-          </span>
-          <span className="rounded-full bg-[rgba(244,104,83,0.08)] px-4 py-1.5 font-mono text-[12px] font-bold text-[#f46853]">
-            {targets.hard} hard
-          </span>
-        </div>
-
-        {topicsForGrade.length > 0 && (
-          <div className="mb-5 text-left">
-            <div className="mb-2 font-sans text-[10px] font-bold uppercase tracking-wider text-[#8a8aa0]">
-              Topics covered
             </div>
-            <div className="rounded-[14px] border border-[rgba(26,26,46,0.06)] bg-[#faf8f5] overflow-hidden">
-              {topicsForGrade.map((topic, idx) => (
-                <div
-                  key={idx}
-                  className={`flex items-center gap-3 px-4 py-2.5 ${idx !== topicsForGrade.length - 1 ? "border-b border-[rgba(26,26,46,0.04)]" : ""}`}
-                >
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[rgba(245,158,11,0.1)] font-mono text-[10px] font-bold text-[#d97706]">
-                    {idx + 1}
-                  </div>
-                  <span className="font-sans text-[12px] font-medium text-[#1a1a2e]">{topic}</span>
+            <div className="p-6 space-y-5">
+              <p className="text-[0.84rem] text-[#5a5a72] leading-relaxed">
+                Your diagnostic score reflects how well you understand each
+                concept. Harder questions reward more points.
+              </p>
+              <div>
+                <h4 className="font-bold text-[0.9rem] mb-2">
+                  📐 Points by Difficulty
+                </h4>
+                <div className="border border-[rgba(0,0,0,0.08)] rounded-xl overflow-hidden">
+                  <table className="w-full text-[0.82rem]">
+                    <thead className="bg-[#F8F9FA] border-b border-[rgba(0,0,0,0.08)]">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-bold text-[#9a9ab0] uppercase text-[0.7rem]">
+                          Difficulty
+                        </th>
+                        <th className="text-left px-3 py-2 font-bold text-[#9a9ab0] uppercase text-[0.7rem]">
+                          Score
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[rgba(0,0,0,0.06)]">
+                      {[
+                        ["Easy", "easy", "2 pts"],
+                        ["Medium", "medium", "3 pts"],
+                        ["Hard", "hard", "4 pts"],
+                      ].map(([label, cls, pts]) => (
+                        <tr key={cls}>
+                          <td className="px-3 py-2">
+                            <span className={`v1-diff-badge ${cls}`}>
+                              {label}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 font-bold">{pts}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
+              </div>
+              <div className="p-4 rounded-xl bg-[rgba(245,166,35,0.04)] border border-[rgba(245,166,35,0.12)] text-[0.82rem] text-[#5a5a72] leading-relaxed">
+                <strong className="text-[#F5A623]">💡 Time tracking:</strong>{" "}
+                Time spent on each question is recorded to help identify
+                confidence or hesitation — but there is no time limit or
+                penalty.
+              </div>
             </div>
           </div>
-        )}
-
-        <button
-          className={`group relative flex w-full items-center justify-center gap-2 py-3 font-sans text-[15px] font-bold text-white transition-all duration-300 bg-[linear-gradient(135deg,#f59e0b,#ef4444)] rounded-full shadow-[0_6px_20px_rgba(245,158,11,0.25)] hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(245,158,11,0.35)] disabled:opacity-50 disabled:hover:translate-y-0`}
-          onClick={onStart}
-          disabled={isBusy}
-        >
-          {isBusy ? (
-            <>
-              <div className="h-4 w-4 animate-spin border-2 border-white/30 border-t-white rounded-full" />
-              <span>Preparing...</span>
-            </>
-          ) : (
-            <>
-              <span className="font-bricolage tracking-tight">Begin Grade Test</span>
-              <Rocket className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </>
-          )}
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
+// ─── Result Tabs (V1 / V2) ────────────────────────────────────────────────────
+function ResultTabs({
+  report,
+  onReset,
+}: {
+  report: DiagnosticReport;
+  onReset: () => void;
+}) {
+  return <ReportView report={report} onReset={onReset} />;
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────────
 export function DiagnosticDemo({
   quizCatalog,
   defaultTopicEntry,
+  defaultTopicLearningObjectives,
 }: {
   quizCatalog: DemoQuizCatalog;
   defaultTopicEntry: DemoQuizCatalogEntry | null;
+  defaultTopicLearningObjectives: string[];
 }) {
-  const [selectedTestMode, setSelectedTestMode] = useState<"topic" | "grade" | null>(null);
+  const [appScreen, setAppScreen] = useState<AppScreen>("selector");
+  const [testMode, setTestMode] = useState<"topic" | "grade">("topic");
+  const [selectedGradeClass, setSelectedGradeClass] = useState<string>(
+    defaultTopicEntry?.classLevel ?? DIAGNOSTIC_CONTENT_DEFAULTS.classLevel,
+  );
+  const [selectedTopicEntry, setSelectedTopicEntry] =
+    useState<DemoQuizCatalogEntry | null>(() => defaultTopicEntry);
+  const [toast, setToast] = useState<{
+    emoji: string;
+    title: string;
+    message: string;
+  } | null>(null);
+
   const [form, setForm] = useState<CreateSessionInput>(() =>
     buildDefaultForm(defaultTopicEntry),
   );
@@ -1330,15 +2852,13 @@ export function DiagnosticDemo({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentAnswer, setCurrentAnswer] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [questionElapsedMs, setQuestionElapsedMs] = useState(0);
   const [responseMeta, setResponseMeta] = useState<
     Record<
       string,
       { timeTakenMs: number; allocatedTimeMs: number; wasAutoSkipped: boolean }
     >
   >({});
-  const [interstitial, setInterstitial] = useState<
-    (typeof INTERSTITIALS)[number] | null
-  >(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<"load" | "submit" | null>(
     null,
@@ -1346,9 +2866,6 @@ export function DiagnosticDemo({
   const [isPending, startTransition] = useTransition();
 
   const currentQuestion = quiz?.questions[currentIndex] ?? null;
-  const currentQuestionTimeLimitMs = currentQuestion
-    ? getQuestionTimeLimitMs(currentQuestion.difficultyLevel)
-    : 0;
   const isBusy = isPending || pendingAction !== null;
 
   const quizRef = useRef<DemoLoadedQuiz | null>(quiz);
@@ -1361,6 +2878,11 @@ export function DiagnosticDemo({
   const advanceRef = useRef<
     (overrideAnswer?: string, meta?: { wasAutoSkipped?: boolean }) => void
   >(() => {});
+  const setToastRef = useRef(setToast);
+
+  useEffect(() => {
+    setToastRef.current = setToast;
+  }, [setToast]);
 
   useEffect(() => {
     quizRef.current = quiz;
@@ -1379,7 +2901,6 @@ export function DiagnosticDemo({
   ) => {
     const activeQuiz = quizRef.current;
     if (!activeQuiz) return;
-
     setPendingAction("submit");
     startTransition(() => {
       void (async () => {
@@ -1412,6 +2933,13 @@ export function DiagnosticDemo({
     if (!activeQuiz || !question) return;
 
     advanceLockRef.current = true;
+
+    // Trigger toast at certain question indices
+    const toastIdx = TOAST_TRIGGERS.indexOf(questionIndex);
+    if (toastIdx >= 0) {
+      setToastRef.current(TOAST_CONFIGS[toastIdx] ?? null);
+    }
+
     const questionTimeLimitMs = getQuestionTimeLimitMs(
       question.difficultyLevel,
     );
@@ -1439,58 +2967,40 @@ export function DiagnosticDemo({
     }
 
     const nextIndex = questionIndex + 1;
-    const completedCount = questionIndex + 1;
-    const totalQ = activeQuiz.questions.length;
-    const t1 = Math.round(totalQ * 0.33);
-    const t2 = Math.round(totalQ * 0.66);
-    const t3 = Math.round(totalQ * 0.88);
-    const interstitialToShow =
-      completedCount === t1
-        ? INTERSTITIALS[0]
-        : completedCount === t2
-          ? INTERSTITIALS[1]
-          : completedCount === t3
-            ? INTERSTITIALS[2]
-            : null;
-
+    questionStartedAtRef.current = Date.now();
     setCurrentIndex(nextIndex);
     setCurrentAnswer(nextAnswers[activeQuiz.questions[nextIndex].id] ?? "");
-    if (interstitialToShow) {
-      setInterstitial(interstitialToShow);
-      setTimeout(() => {
-        setInterstitial((prev) =>
-          prev === interstitialToShow ? null : prev,
-        );
-      }, 3200);
-    }
   };
-
-  const [elapsedMs, setElapsedMs] = useState(0);
 
   useEffect(() => {
     if (!currentQuestion) return;
     advanceLockRef.current = false;
     questionStartedAtRef.current = Date.now();
-    setElapsedMs(0);
-    const interval = setInterval(() => {
-      setElapsedMs(Math.max(0, Date.now() - questionStartedAtRef.current));
-    }, 250);
-    return () => clearInterval(interval);
+    setQuestionElapsedMs(0);
   }, [currentQuestion]);
 
-  const startQuizRun = (overrideTestMode?: "topic" | "grade") => {
-    const activeTestMode = overrideTestMode ?? selectedTestMode ?? "topic";
-    const sessionForm = { ...form, testMode: activeTestMode };
+  useEffect(() => {
+    if (!currentQuestion || !quiz) return;
+    const timer = window.setInterval(() => {
+      setQuestionElapsedMs(
+        Math.max(0, Date.now() - questionStartedAtRef.current),
+      );
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [currentQuestion, quiz]);
+
+  const startQuizRun = useCallback(() => {
     setPendingAction("load");
     startTransition(() => {
       void (async () => {
         try {
           setError(null);
-          const loadedQuiz = await loadQuiz(sessionForm);
+          const loadedQuiz = await loadQuiz(form);
           setQuiz(loadedQuiz);
           setReport(null);
           setCurrentIndex(0);
           setAnswers({});
+          setQuestionElapsedMs(0);
           setResponseMeta({});
           setCurrentAnswer("");
         } catch (err) {
@@ -1500,19 +3010,24 @@ export function DiagnosticDemo({
         }
       })();
     });
-  };
+  }, [form]);
 
   const resetQuiz = () => {
-    setSelectedTestMode(null);
     setQuiz(null);
     setReport(null);
     setCurrentIndex(0);
     setCurrentAnswer("");
     setAnswers({});
+    setQuestionElapsedMs(0);
     setResponseMeta({});
-    setInterstitial(null);
     setError(null);
     setPendingAction(null);
+    setAppScreen("selector");
+    setSelectedTopicEntry(defaultTopicEntry);
+    setSelectedGradeClass(
+      defaultTopicEntry?.classLevel ?? DIAGNOSTIC_CONTENT_DEFAULTS.classLevel,
+    );
+    setForm(buildDefaultForm(defaultTopicEntry));
   };
 
   const canSubmitCurrent =
@@ -1523,358 +3038,385 @@ export function DiagnosticDemo({
       ? Object.keys(getAnswerMap(currentAnswer)).length > 0
       : currentAnswer.trim() !== "");
 
-  const answeredCount = Object.keys(answers).length;
-  const pctComplete = quiz
-    ? Math.round((answeredCount / quiz.questions.length) * 100)
-    : 0;
+  const answeredCount = Object.keys(responseMeta).length;
+
+  // Grade test: get topics for selected class
+  const gradeTopics = useMemo(() => {
+    if (!selectedGradeClass) return [];
+    return quizCatalog.entries
+      .filter((e) => e.classLevel === selectedGradeClass)
+      .map((e) => e.topic);
+  }, [quizCatalog.entries, selectedGradeClass]);
+
+  const gradeSubject = useMemo(() => {
+    if (!selectedGradeClass) return "Maths";
+    return (
+      quizCatalog.entries.find((e) => e.classLevel === selectedGradeClass)
+        ?.subject ?? "Maths"
+    );
+  }, [quizCatalog.entries, selectedGradeClass]);
+
+  const selectFixedTopicTest = () => {
+    const topicEntry = defaultTopicEntry ?? getDefaultCatalogEntry(quizCatalog);
+
+    if (topicEntry) {
+      setSelectedTopicEntry(topicEntry);
+      setForm({
+        studentId: "Riya Sharma",
+        testMode: "topic",
+        subject: topicEntry.subject,
+        classLevel: topicEntry.classLevel,
+        topic: topicEntry.topic,
+        maxQuestions: topicEntry.questionCount,
+      });
+    }
+    setTestMode("topic");
+    setAppScreen("topic-start");
+  };
+
+  const selectFixedGradeTest = () => {
+    const gradeClass =
+      defaultTopicEntry?.classLevel ?? DIAGNOSTIC_CONTENT_DEFAULTS.classLevel;
+    const gradeEntry =
+      quizCatalog.entries.find((entry) => entry.classLevel === gradeClass) ??
+      defaultTopicEntry;
+
+    setSelectedGradeClass(gradeClass);
+    if (gradeEntry) {
+      setForm({
+        studentId: "Riya Sharma",
+        testMode: "grade",
+        subject: gradeEntry.subject,
+        classLevel: gradeEntry.classLevel,
+        topic: gradeEntry.topic,
+        maxQuestions: gradeEntry.questionCount,
+      });
+    }
+    setTestMode("grade");
+    setAppScreen("grade-start");
+  };
+
+  const handleSelectGradeClass = (cl: string) => {
+    setSelectedGradeClass(cl);
+    const firstEntry = quizCatalog.entries.find((e) => e.classLevel === cl);
+    if (firstEntry) {
+      setForm((prev) => ({
+        ...prev,
+        classLevel: cl as never,
+        subject: firstEntry.subject,
+        testMode: "grade",
+        topic: firstEntry.topic,
+        maxQuestions: 22,
+      }));
+    }
+    setAppScreen("grade-start");
+  };
+
+  const isQuizActive = !!quiz && !!currentQuestion;
+  const isSubmitting = pendingAction === "submit";
+  const showResult = !!report;
 
   return (
-    <div className={THEME.page} style={{ backgroundImage: AMBIENT_BG }}>
-      <div className="mx-auto max-w-[1200px] px-6 py-4 sm:px-10">
-        {/* Compact Logo & Back Button Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[linear-gradient(135deg,#3a5ccc,#7c5cfc)] text-white shadow-sm">
-              <FlaskConical className="h-4 w-4" />
+    <div className={THEME.page}>
+      <div className="mx-auto max-w-[1480px] px-4 py-4 sm:px-6 lg:px-10">
+        {/* Header */}
+        <div className="mb-8 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-full border-2 border-[#F5A623] bg-white text-[20px]">
+              🔭
             </div>
-            <span className="font-bricolage text-[20px] font-extrabold tracking-tight text-[#1a1a2e] uppercase">
-              Diagnostic Agent
+            <span className="font-bold text-[15px] tracking-[0.02em] text-[#1B4A4A] uppercase sm:text-[18px]">
+              <span className="hidden sm:inline">Diagnostic Agent</span>
+              <span className="sm:hidden">Diagnostic</span>
             </span>
           </div>
-          {quiz || report ? (
+
+          {isQuizActive || isSubmitting || showResult ? (
             <button
               onClick={resetQuiz}
-              className="flex items-center gap-1 font-sans text-[13px] font-medium text-[#8a8aa0] transition-colors hover:text-[#1a1a2e]"
+              className="flex items-center gap-1 text-[14px] text-[#6B7280] transition-colors hover:text-[#1a1a1a]"
             >
-              <ChevronLeft className="h-4 w-4" />
-              <span>Back</span>
+              ‹ Back
+            </button>
+          ) : appScreen !== "selector" ? (
+            <button
+              onClick={() => setAppScreen("selector")}
+              className="flex items-center gap-1 text-[14px] text-[#6B7280] transition-colors hover:text-[#1a1a1a]"
+            >
+              ‹ Back
             </button>
           ) : (
             <Link
               href="/"
-              className="flex items-center gap-1 font-sans text-[13px] font-medium text-[#8a8aa0] transition-colors hover:text-[#1a1a2e]"
+              className="flex items-center gap-1 text-[14px] text-[#6B7280] transition-colors hover:text-[#1a1a1a]"
             >
-              <ChevronLeft className="h-4 w-4" />
-              <span>Back</span>
+              <ChevronLeft className="h-4 w-4" /> Back
             </Link>
           )}
         </div>
 
         {error && (
-          <div
-            className={`mb-8 flex items-center gap-3 border border-[#f46853]/20 bg-[#f46853]/5 p-4 text-[#f46853] ${THEME.roundedSm}`}
-          >
-            <AlertCircle className="h-5 w-5" />
-            <span className="font-sans text-[15px] font-semibold">{error}</span>
+          <div className="mb-6 flex items-center gap-3 rounded-[12px] border border-[#f46853]/20 bg-[#f46853]/5 p-4 text-[#f46853]">
+            <AlertCircle className="h-5 w-5 shrink-0" />
+            <span className="text-[15px] font-semibold">{error}</span>
           </div>
         )}
 
-        {!quiz && !report && selectedTestMode === null && (
-          <TestSelectorScreen
-            quizCatalog={quizCatalog}
-            onSelect={(mode) => {
-              setSelectedTestMode(mode);
-              setForm((prev) => ({ ...prev, testMode: mode }));
-            }}
-          />
-        )}
+        {/* Selector */}
+        {!isQuizActive &&
+          !isSubmitting &&
+          !showResult &&
+          appScreen === "selector" && (
+            <SelectorScreen
+              onSelectTopic={selectFixedTopicTest}
+              onSelectGrade={selectFixedGradeTest}
+            />
+          )}
 
-        {!quiz && !report && selectedTestMode === "topic" && (
-          <SetupForm
-            form={form}
-            setForm={setForm}
-            quizCatalog={quizCatalog}
-            defaultTopicEntry={defaultTopicEntry}
-            onStart={() => startQuizRun("topic")}
-            onBack={() => setSelectedTestMode(null)}
-            isBusy={isBusy}
-          />
-        )}
+        {/* Topic Browse */}
+        {!isQuizActive &&
+          !isSubmitting &&
+          !showResult &&
+          appScreen === "topic-browse" && (
+            <TopicBrowseScreen
+              form={form}
+              setForm={setForm}
+              quizCatalog={quizCatalog}
+              defaultTopicEntry={defaultTopicEntry}
+              onContinue={() => setAppScreen("topic-start")}
+              onBack={() => setAppScreen("selector")}
+              onSelectEntry={(entry) => setSelectedTopicEntry(entry)}
+            />
+          )}
 
-        {!quiz && !report && selectedTestMode === "grade" && (
-          <GradeStartScreen
-            quizCatalog={quizCatalog}
-            form={form}
-            setForm={setForm}
-            onStart={() => startQuizRun("grade")}
-            onBack={() => setSelectedTestMode(null)}
-            isBusy={isBusy}
-          />
-        )}
-
-        {quiz && interstitial && (
-          <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
-            <div
-              className="pointer-events-auto flex max-w-[440px] items-center gap-3 rounded-full border border-[rgba(26,26,46,0.08)] bg-white/95 px-4 py-3 shadow-[0_12px_40px_rgba(26,26,46,0.18)] backdrop-blur"
-              style={{
-                animation:
-                  "interstitialPop 0.4s cubic-bezier(0.17,0.89,0.32,1.49) both",
+        {/* Topic Start */}
+        {!isQuizActive &&
+          !isSubmitting &&
+          !showResult &&
+          appScreen === "topic-start" && (
+            <TopicStartScreen
+              form={form}
+              learningObjectives={
+                selectedTopicEntry?.learningObjectives ??
+                defaultTopicLearningObjectives
+              }
+              onBegin={() => {
+                startQuizRun();
               }}
-            >
-              <div className="text-[24px] leading-none">
-                {interstitial.icon}
-              </div>
-              <div className="text-left">
-                <div className="font-bricolage text-[14px] font-extrabold leading-tight text-[#1a1a2e]">
-                  {interstitial.title}
-                </div>
-                <div className="font-sans text-[12px] leading-snug text-[#5a5a72]">
-                  {interstitial.subtitle}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+              onBack={() => setAppScreen("selector")}
+              isBusy={isBusy}
+            />
+          )}
 
-        {quiz && currentQuestion && (
+        {/* Grade Browse */}
+        {!isQuizActive &&
+          !isSubmitting &&
+          !showResult &&
+          appScreen === "grade-browse" && (
+            <GradeBrowseScreen
+              quizCatalog={quizCatalog}
+              onSelect={handleSelectGradeClass}
+              onBack={() => setAppScreen("selector")}
+            />
+          )}
+
+        {/* Grade Start */}
+        {!isQuizActive &&
+          !isSubmitting &&
+          !showResult &&
+          appScreen === "grade-start" && (
+            <GradeStartScreen
+              classLevel={selectedGradeClass}
+              subject={gradeSubject}
+              onBegin={() => {
+                startQuizRun();
+              }}
+              onBack={() => setAppScreen("selector")}
+              isBusy={isBusy}
+            />
+          )}
+
+        {/* Quiz */}
+        {isQuizActive && quiz && currentQuestion && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Assessment Header */}
-            <div
-              className={`mb-5 flex flex-wrap items-center justify-between gap-4 bg-white px-5 py-4 shadow-sm border border-[rgba(26,26,46,0.06)] ${THEME.rounded}`}
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#3a5ccc]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#3a5ccc]" />
-                  Conceptual Diagnosis
-                </div>
-                <h2 className="mt-0.5 font-bricolage text-[18px] font-extrabold text-[#1a1a2e]">
-                  {quiz.topic}
-                </h2>
-                <div className="mt-0.5 flex flex-wrap gap-2">
-                  <span className="font-sans text-[12px] font-bold text-[#8a8aa0]">
-                    {quiz.subject}
-                  </span>
-                  <span className="text-[#8a8aa0] opacity-30">|</span>
-                  <span className="font-sans text-[12px] font-bold text-[#8a8aa0]">
+            {/* Question header card */}
+            <div className="mb-5 rounded-[16px] border border-[rgba(0,0,0,0.08)] bg-white px-4 py-4 shadow-sm sm:px-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#2EC4B6]">
+                    {testMode === "grade" ? "GRADE TEST" : "TOPIC TEST"} /{" "}
                     {classLabel(quiz.classLevel)}
-                  </span>
-                  <span className="text-[#8a8aa0] opacity-30">|</span>
-                  <span className="font-sans text-[12px] font-bold text-[#8a8aa0]">
-                    {quiz.questions.length} Questions
-                  </span>
+                  </div>
+                  <div className="mt-0.5 text-[18px] font-extrabold text-[#1a1a1a] sm:text-[20px]">
+                    Question {currentIndex + 1} of {quiz.questions.length}
+                  </div>
+                  {quiz.topic && (
+                    <div className="mt-1 text-[12px] font-medium text-[#6B7280]">
+                      {quiz.topic}
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-[14px] bg-[#F8F9FA] px-3 py-2 text-right sm:px-4">
+                  <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">
+                    Time taken
+                  </div>
+                  <div className="font-mono text-[20px] font-extrabold text-[#1B4A4A] sm:text-[22px]">
+                    {Math.round(questionElapsedMs / 1000)}s
+                  </div>
+                  <div className="mt-0.5 font-mono text-[9px] font-bold uppercase tracking-widest text-[#9CA3AF]">
+                    This question
+                  </div>
                 </div>
               </div>
-
             </div>
 
-            <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
-              {/* Question Area */}
-              <div className="flex flex-col gap-6">
-                <div className="mb-2">
-                  <div className="mb-2.5 flex items-center justify-between">
-                    <span className="font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-[#8a8aa0]">
-                      Progress
-                    </span>
-                    <span className="font-mono text-[12px] font-bold text-[#3a5ccc]">
-                      {answeredCount} / {quiz.questions.length}
-                    </span>
+            {/* Mobile progress bar — visible only below lg (when sidebar is hidden) */}
+            <div className="mb-4 lg:hidden">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-mono text-[11px] font-bold text-[#6B7280]">
+                  Progress
+                </span>
+                <span className="font-mono text-[11px] font-bold text-[#6B7280]">
+                  {answeredCount}/{quiz.questions.length} answered
+                </span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-[#F0EDE6]">
+                <div
+                  className="h-full rounded-full bg-[#F5A623] transition-all duration-500"
+                  style={{
+                    width: `${(answeredCount / quiz.questions.length) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
+              {/* Question card */}
+              <div className="overflow-hidden rounded-[16px] border border-[rgba(0,0,0,0.08)] bg-white">
+                {/* Question top */}
+                <div className="relative border-b border-[rgba(0,0,0,0.08)] px-4 pb-5 pt-6 sm:px-7">
+                  <div className="absolute right-5 top-4 hidden font-mono text-[36px] font-extrabold leading-none text-[#E5E3DB] select-none sm:block">
+                    {String(currentIndex + 1).padStart(2, "0")}
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-[#f5f3f0]">
-                    <div
-                      className="h-full rounded-full bg-[linear-gradient(90deg,#3a5ccc,#7c5cfc)] transition-all duration-500 ease-out"
-                      style={{ width: `${pctComplete}%` }}
-                    />
-                  </div>
+
+                  {"scenario" in (currentQuestion.payload ?? {}) && (
+                    <div className="mb-4 rounded-[12px] border border-[#F5A623]/10 bg-[#FFF8E7] p-4">
+                      <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#F5A623]">
+                        Scenario
+                      </div>
+                      <p className="text-[15px] font-semibold leading-relaxed text-[#1a1a1a]">
+                        {String(
+                          (currentQuestion.payload as { scenario?: string })
+                            .scenario ?? "",
+                        )}
+                      </p>
+                    </div>
+                  )}
+
+                  {typeof (
+                    currentQuestion.payload as
+                      | { questionSvg?: unknown }
+                      | undefined
+                  )?.questionSvg === "string" && (
+                    <div className="mb-5 flex justify-center rounded-[14px] border border-[#E8E3D8] bg-[#FAFAF7] p-4">
+                      <div
+                        className="h-[180px] w-full max-w-[360px] [&_svg]:h-full [&_svg]:w-full"
+                        dangerouslySetInnerHTML={{
+                          __html: String(
+                            (
+                              currentQuestion.payload as {
+                                questionSvg?: string;
+                              }
+                            ).questionSvg,
+                          ),
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <h3 className="text-[17px] font-semibold leading-[1.5] text-[#1a1a1a]">
+                    {currentQuestion.question}
+                  </h3>
                 </div>
 
-                <div
-                  className={`relative overflow-hidden bg-white p-6 shadow-sm border border-[rgba(26,26,46,0.06)] ${THEME.rounded}`}
-                >
-                  <div className="relative z-10">
-                    <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
-                      <div className="rounded-full bg-[rgba(58,92,204,0.08)] px-3 py-1 font-sans text-[10px] font-bold uppercase tracking-wider text-[#3a5ccc]">
-                        {formatLearningObjectiveLabel(
-                          currentQuestion.learningObjective,
-                        )}
-                      </div>
-                      {(() => {
-                        const limit = currentQuestionTimeLimitMs || 0;
-                        const ratio = limit > 0 ? elapsedMs / limit : 0;
-                        const isWarn = ratio >= 0.66 && ratio < 0.9;
-                        const isUrgent = ratio >= 0.9;
-                        const tone = isUrgent
-                          ? "bg-[rgba(220,38,38,0.1)] text-[#dc2626] border-[rgba(220,38,38,0.25)]"
-                          : isWarn
-                            ? "bg-[rgba(255,154,60,0.12)] text-[#ff9a3c] border-[rgba(255,154,60,0.3)]"
-                            : "bg-[rgba(58,92,204,0.08)] text-[#3a5ccc] border-[rgba(58,92,204,0.2)]";
-                        const seconds = Math.floor(elapsedMs / 1000);
-                        const mm = String(Math.floor(seconds / 60)).padStart(
-                          2,
-                          "0",
-                        );
-                        const ss = String(seconds % 60).padStart(2, "0");
-                        return (
-                          <div
-                            className={`flex items-center gap-2 rounded-full border px-3 py-1 font-mono text-[12px] font-bold tabular-nums ${tone} ${isUrgent ? "animate-pulse" : ""}`}
-                          >
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full ${isUrgent ? "bg-[#dc2626]" : isWarn ? "bg-[#ff9a3c]" : "bg-[#3a5ccc]"}`}
-                            />
-                            <span>
-                              {mm}:{ss}
-                            </span>
-                          </div>
-                        );
-                      })()}
-                    </div>
+                {/* Answer area */}
+                <div className="px-4 py-5 sm:px-7">
+                  <QuestionInput
+                    question={currentQuestion}
+                    answer={currentAnswer}
+                    setAnswer={setCurrentAnswer}
+                  />
+                </div>
 
-                    {"scenario" in (currentQuestion.payload ?? {}) && (
-                      <div className="mb-6 rounded-[16px] bg-[#fff7ed] p-5 border border-[#ff9a3c]/10">
-                        <div className="mb-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ff9a3c]">
-                          Scenario
-                        </div>
-                        <p className="font-sans text-[15px] font-semibold leading-relaxed text-[#1a1a2e]">
-                          {String(
-                            (currentQuestion.payload as { scenario?: string })
-                              .scenario ?? "",
-                          )}
-                        </p>
-                      </div>
-                    )}
-
-                    <h3 className="mb-5 flex gap-3 font-bricolage text-[19px] font-bold leading-tight text-[#1a1a2e] sm:text-[21px]">
-                      <span className="shrink-0 font-mono text-[#3a5ccc]">
-                        Q{currentIndex + 1}.
-                      </span>
-                      <span className="flex-1 break-words">
-                        {currentQuestion.question}
-                      </span>
-                    </h3>
-
-                    <QuestionInput
-                      question={currentQuestion}
-                      answer={currentAnswer}
-                      setAnswer={setCurrentAnswer}
-                    />
-
-                    <div className="mt-6 flex items-center justify-end border-t border-[rgba(26,26,46,0.06)] pt-5">
-                      <button
-                        className={`flex h-10 items-center gap-2 rounded-full ${THEME.primaryGradient} px-8 font-sans text-[13px] font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 disabled:opacity-50`}
-                        onClick={() => advanceRef.current(currentAnswer)}
-                        disabled={!canSubmitCurrent || isBusy}
-                      >
-                        {isBusy
-                          ? "Saving..."
-                          : currentIndex === quiz.questions.length - 1
-                            ? "Complete Diagnostic"
-                            : "Next Question"}
-                        {!isBusy && <ChevronRight className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
+                {/* Next button */}
+                <div className="flex justify-end border-t border-[rgba(0,0,0,0.08)] px-4 py-4 sm:px-7">
+                  <button
+                    onClick={() => advanceRef.current(currentAnswer)}
+                    disabled={!canSubmitCurrent || isBusy}
+                    className="flex items-center gap-2 rounded-full bg-[#F5A623] px-7 py-3 font-bold text-[15px] text-white shadow-sm transition-all hover:bg-[#E0941A] hover:-translate-y-0.5 disabled:opacity-50"
+                  >
+                    {isBusy
+                      ? "Saving…"
+                      : currentIndex === quiz.questions.length - 1
+                        ? "Finish Test"
+                        : "Next Question"}
+                    {!isBusy && <ChevronRight className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
 
               {/* Sidebar */}
-              <aside className="space-y-6">
-                {/* Map Grid */}
-                <div
-                  className={`bg-white p-6 border border-[rgba(26,26,46,0.06)] shadow-sm ${THEME.rounded}`}
-                >
-                  <h4 className="mb-5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#8a8aa0]">
-                    Question Map
-                  </h4>
-                  <div className="grid grid-cols-5 gap-2.5">
+              <aside>
+                <div className="rounded-[16px] border border-[rgba(0,0,0,0.08)] bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <h4 className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#6B7280]">
+                      Question Map
+                    </h4>
+                    <span className="font-mono text-[10px] font-bold text-[#9CA3AF]">
+                      {answeredCount}/{quiz.questions.length}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1.5">
                     {quiz.questions.map((q, i) => {
                       const isActive = i === currentIndex;
                       const hasResponded = q.id in responseMeta;
-                      const wasSkipped =
-                        hasResponded && responseMeta[q.id]?.wasAutoSkipped;
-                      let isAnswered = false;
-                      if (hasResponded) {
-                        const ans = answers[q.id] || "";
-                        if (
-                          q.questionType === "matching" ||
-                          q.questionType === "drag_drop"
-                        ) {
-                          isAnswered =
-                            Object.keys(getAnswerMap(ans)).length > 0;
-                        } else {
-                          isAnswered = ans.trim() !== "";
-                        }
-                      }
-                      const isSkipped = hasResponded && !isAnswered;
-
+                      const ans = answers[q.id] || "";
+                      const isAnswered =
+                        hasResponded &&
+                        (q.questionType === "matching" ||
+                        q.questionType === "drag_drop"
+                          ? Object.keys(getAnswerMap(ans)).length > 0
+                          : ans.trim() !== "");
+                      const mapTileClass = isAnswered
+                        ? "border-[#F5A623] bg-[#FFF8E7] text-[#1B4A4A]"
+                        : "border-gray-200 bg-[#F8F9FA] text-[#8B95A5]";
                       return (
                         <div
                           key={q.id}
-                          className={`flex aspect-square items-center justify-center border-2 font-mono text-[11px] font-bold transition-all duration-300 ${THEME.roundedSm} ${
+                          className={`flex aspect-square items-center justify-center rounded-[8px] border-2 font-mono text-[11px] font-bold transition-all ${
                             isActive
-                              ? "border-[#3a5ccc] bg-[#3a5ccc]/15 text-[#3a5ccc] shadow-sm"
-                              : isAnswered
-                                ? "border-[#1ab373] bg-[#1ab373]/15 text-[#0e9b61]"
-                                : isSkipped
-                                  ? "border-[#e8920a] bg-[#e8920a]/15 text-[#c47a08]"
-                                  : "border-[rgba(26,26,46,0.12)] bg-[rgba(26,26,46,0.03)] text-[#a0a0b8]"
+                              ? `${isAnswered ? mapTileClass : "border-[#F5A623] bg-white text-[#1B4A4A]"} shadow-[0_0_0_3px_rgba(245,166,35,0.20)]`
+                              : mapTileClass
                           }`}
-                          title={
-                            isAnswered
-                              ? "Done"
-                              : isSkipped
-                                ? `Skipped${wasSkipped ? " (timed out)" : ""}`
-                                : "Not reached"
-                          }
                         >
                           {i + 1}
                         </div>
                       );
                     })}
                   </div>
-
-                  {/* Legend */}
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <span className="flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-widest text-[#8a8aa0]">
-                      <span className="h-2.5 w-2.5 rounded-sm border-2 border-[#1ab373] bg-[#1ab373]/15" />
-                      Done
+                  <div className="mt-3 flex flex-wrap gap-2.5 font-mono text-[10px] text-[#6B7280]">
+                    <span className="flex items-center gap-1">
+                      <span className="h-2.5 w-2.5 rounded-full border border-[#F5A623] bg-[#FFF8E7]" />
+                      Answered
                     </span>
-                    <span className="flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-widest text-[#8a8aa0]">
-                      <span className="h-2.5 w-2.5 rounded-sm border-2 border-[#e8920a] bg-[#e8920a]/15" />
-                      Skipped
+                    <span className="flex items-center gap-1">
+                      <span className="h-2.5 w-2.5 rounded-full border-2 border-[#F5A623] bg-white" />
+                      Current
                     </span>
-                    <span className="flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-widest text-[#8a8aa0]">
-                      <span className="h-2.5 w-2.5 rounded-sm border-2 border-[rgba(26,26,46,0.05)] bg-[#faf8f5]" />
+                    <span className="flex items-center gap-1">
+                      <span className="h-2.5 w-2.5 rounded-full border border-[#E2DED4] bg-[#F8F9FA]" />
                       Upcoming
                     </span>
-                  </div>
-                </div>
-
-                {/* Coverage */}
-                <div
-                  className={`bg-white p-6 border border-[rgba(26,26,46,0.06)] shadow-sm ${THEME.rounded}`}
-                >
-                  <h4 className="mb-5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#8a8aa0]">
-                    LO Coverage
-                  </h4>
-                  <div className="space-y-3.5">
-                    {Array.from(
-                      new Set(quiz.questions.map((q) => q.learningObjective)),
-                    ).map((lo) => {
-                      const loQuestions = quiz.questions.filter(
-                        (q) => q.learningObjective === lo,
-                      );
-                      const loAnswered = loQuestions.filter(
-                        (q) => q.id in answers,
-                      ).length;
-                      const isComplete = loAnswered === loQuestions.length;
-                      return (
-                        <div key={lo} className="flex items-center gap-3">
-                          <div
-                            className={`h-2.5 w-2.5 shrink-0 rounded-full border-2 transition-all ${
-                              isComplete
-                                ? "border-[#2ecc87] bg-[#2ecc87]"
-                                : loAnswered > 0
-                                  ? "border-[#3a5ccc] bg-[#3a5ccc]"
-                                  : "border-[rgba(26,26,46,0.1)]"
-                            }`}
-                          />
-                          <span
-                            className={`truncate font-sans text-[12px] font-bold ${isComplete || loAnswered > 0 ? "text-[#1a1a2e]" : "text-[#8a8aa0]"}`}
-                          >
-                            {formatLearningObjectiveLabel(lo)}
-                          </span>
-                        </div>
-                      );
-                    })}
                   </div>
                 </div>
               </aside>
@@ -1882,8 +3424,27 @@ export function DiagnosticDemo({
           </div>
         )}
 
-        {report && <ReportView report={report} onReset={resetQuiz} />}
+        {/* Submitting */}
+        {isSubmitting && (
+          <div className="flex flex-col items-center justify-center py-32 text-center">
+            <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[#FFF8E7] border-t-[#F5A623]" />
+            <div className="font-bold text-[18px] text-[#1a1a1a]">
+              Analysing your results…
+            </div>
+            <div className="mt-1 text-[14px] text-[#6B7280]">
+              This will only take a moment
+            </div>
+          </div>
+        )}
+
+        {/* Result */}
+        {showResult && report && (
+          <ResultTabs report={report} onReset={resetQuiz} />
+        )}
       </div>
+
+      {/* AI Tutor Chat Bubble */}
+      <AIChatBubble config={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 }
