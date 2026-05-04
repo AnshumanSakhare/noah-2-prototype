@@ -564,7 +564,6 @@ function AIChatBubble({
       <div className="animate-in zoom-in-75 duration-400 flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#ffd166,#F5A623)] text-[1.5rem] shadow-[0_4px_18px_rgba(245,166,35,0.45)] ring-2 ring-white sm:h-[52px] sm:w-[52px] sm:text-[1.7rem]">
         🦉
       </div>
-
     </div>
   );
 }
@@ -1396,6 +1395,7 @@ function MascotReportV2({
   const learningObjectives = report.learningObjectiveResults ?? [];
   const score = report.overallReadinessScore ?? report.readinessScore ?? 0;
   const roundedScore = Math.round(score);
+  const narrative = report.resultNarrative;
 
   const totalQuestions = results.length || report.totalQuestionsShown || 0;
   const correctCount = results.filter((r) => r.verdict === "correct").length;
@@ -1493,6 +1493,11 @@ function MascotReportV2({
     learningObjective: string;
     score: number;
   }) => {
+    const generated = narrative?.learningObjectiveFeedback.find(
+      (item) => item.learningObjective === lo.learningObjective,
+    )?.feedback;
+    if (generated) return generated;
+
     const label = formatLearningObjectiveLabel(lo.learningObjective);
     if (lo.score >= 80)
       return `Sharp! You've mastered "${label}" with confidence.`;
@@ -1514,7 +1519,7 @@ function MascotReportV2({
     return `You're making great progress! Keep practising to reach the top.`;
   })();
 
-  const parentNotes = [
+  const parentNotes = narrative?.parentNotes ?? [
     `${firstName} completed the "${report.topic}" diagnostic today.`,
     `They got ${correctCount} out of ${totalQuestions} questions right.`,
     strongLOs.length > 0
@@ -1775,7 +1780,9 @@ function MascotReportV2({
                 </div>
               </div>
               <div className="mt-3 rounded-[10px] bg-[#f6f8fb] p-3 text-[12px] font-medium leading-relaxed text-[#3a4a64]">
-                {getQuestionExplanation(selectedReview)}
+                {narrative?.questionReviewNotes.find(
+                  (item) => item.questionId === selectedReview.question.id,
+                )?.note ?? getQuestionExplanation(selectedReview)}
               </div>
             </div>
           </div>
@@ -1853,6 +1860,7 @@ function ReportView({
   const firstName = studentName.split(" ")[0];
   const results = report.results ?? [];
   const learningObjectives = report.learningObjectiveResults ?? [];
+  const narrative = report.resultNarrative;
 
   const totalQuestions = results.length || report.totalQuestionsShown || 0;
   const correctCount = results.filter((r) => r.verdict === "correct").length;
@@ -1889,6 +1897,18 @@ function ReportView({
   const selectedReviewQuestionSvg = getQuestionSvg(
     selectedReviewRecord?.question as QuestionDisplayData | undefined,
   );
+  const learningObjectiveFeedback = new Map(
+    (narrative?.learningObjectiveFeedback ?? []).map((item) => [
+      item.learningObjective,
+      item.feedback,
+    ]),
+  );
+  const questionReviewNotes = new Map(
+    (narrative?.questionReviewNotes ?? []).map((item) => [
+      item.questionId,
+      item.note,
+    ]),
+  );
 
   useEffect(() => {
     setSelectedReviewQuestionId(results[0]?.question.id ?? null);
@@ -1913,6 +1933,27 @@ function ReportView({
     }, 500);
     return () => clearTimeout(timer);
   }, [totalFinalPoints, roundedScore]);
+
+  if (!narrative) {
+    return (
+      <div className="mx-auto max-w-xl rounded-[18px] border border-[#F46853]/20 bg-[#FFF7F5] p-6 text-center">
+        <div className="text-[1.1rem] font-extrabold text-[#D63B28]">
+          Result summary was not generated.
+        </div>
+        <div className="mt-2 text-[0.92rem] font-medium leading-relaxed text-[#5a5a72]">
+          Please submit the quiz again so the dynamic result page can be
+          generated.
+        </div>
+        <button
+          type="button"
+          onClick={onReset}
+          className="mt-5 rounded-full bg-[#F5A623] px-7 py-3 text-[0.92rem] font-bold text-white shadow-sm transition-all hover:bg-[#E0941A]"
+        >
+          Retry Quiz
+        </button>
+      </div>
+    );
+  }
 
   const getHeroContent = (pct: number) => {
     if (pct >= 90)
@@ -1948,7 +1989,11 @@ function ReportView({
     };
   };
 
-  const hero = getHeroContent(roundedScore);
+  const hero = {
+    ...getHeroContent(roundedScore),
+    greeting: narrative.heroGreeting,
+    subtitle: narrative.heroSubtitle,
+  };
   const starCount = Math.min(5, Math.max(1, Math.ceil(roundedScore / 20)));
   const accentColor =
     roundedScore >= 70 ? "#22C55E" : roundedScore >= 50 ? "#F5A623" : "#f46853";
@@ -1962,23 +2007,6 @@ function ReportView({
   const sortedLearningObjectives = [...learningObjectives].sort(
     (left, right) => right.score - left.score,
   );
-  const strongestObjective = sortedLearningObjectives[0];
-  const weakestObjectives = [...learningObjectives].sort(
-    (left, right) => left.score - right.score,
-  );
-  const primaryFocusObjective = weakestObjectives[0];
-  const secondaryFocusObjective = weakestObjectives.find(
-    (lo) => lo.learningObjective !== primaryFocusObjective?.learningObjective,
-  );
-  const strongestLabel = formatLearningObjectiveLabel(
-    strongestObjective?.learningObjective,
-  );
-  const primaryFocusLabel = formatLearningObjectiveLabel(
-    primaryFocusObjective?.learningObjective,
-  );
-  const secondaryFocusLabel = secondaryFocusObjective
-    ? formatLearningObjectiveLabel(secondaryFocusObjective.learningObjective)
-    : "comparing fractions without a picture";
 
   return (
     <div className="font-sans text-[#1a1a1a] pb-20 max-w-7xl mx-auto flex flex-col gap-[18px]">
@@ -2368,7 +2396,8 @@ function ReportView({
                   Why
                 </div>
                 <div className="rounded-[10px] border-l-4 border-[#F5A623] bg-white px-4 py-3 text-[0.92rem] font-medium leading-relaxed text-[#334155]">
-                  {getQuestionExplanation(selectedReviewRecord)}
+                  {questionReviewNotes.get(selectedReviewRecord.question.id) ??
+                    getQuestionExplanation(selectedReviewRecord)}
                 </div>
               </div>
 
@@ -2412,18 +2441,15 @@ function ReportView({
         </div>
 
         <p className="mb-5 max-w-[980px] text-[0.95rem] font-medium leading-[1.8] text-[#111827] sm:text-[1rem]">
-          You did one thing really well in this test. When fractions were shown
-          on a number line, you knew exactly where they should go. That means
-          you&apos;ve got a strong sense of which fractions are bigger and which
-          are smaller, and that&apos;s one of the most important fraction
-          skills.
+          {narrative.mainSummary}
         </p>
 
+        <div className="mb-4 rounded-[12px] bg-white/75 px-4 py-3 text-[0.92rem] font-semibold leading-relaxed text-[#1B4A4A]">
+          {narrative.whatWentWell}
+        </div>
+
         <p className="mb-6 max-w-[980px] text-[1rem] font-medium leading-[1.8] text-[#111827]">
-          The tricky part was spotting when two fractions are secretly the same,
-          like 2/4 and 1/2. You also slipped up on making fractions simpler, and
-          comparing them without a picture. Most kids your age find these tricky
-          at first. They click fast once you see the pattern.
+          {narrative.whatNeedsPractice}
         </p>
 
         <div className="my-6 h-px bg-[rgba(0,0,0,0.08)]" />
@@ -2433,22 +2459,9 @@ function ReportView({
         </div>
 
         <div className="flex flex-col gap-2">
-          {[
-            <>
-              Watch the short video on{" "}
-              <strong>{primaryFocusLabel.toLowerCase()}</strong>.
-            </>,
-            <>
-              Practice <strong>10 questions</strong> on{" "}
-              {primaryFocusLabel.toLowerCase()}. Aim for 7 right.
-            </>,
-            <>
-              Retake the test. Most students improve once they review the
-              pattern.
-            </>,
-          ].map((item, index) => (
+          {narrative.practiceSteps.map((item, index) => (
             <div
-              key={index}
+              key={item}
               className="flex items-start gap-3 rounded-[10px] bg-white/75 px-4 py-3 text-[0.92rem] leading-relaxed text-[#111827]"
             >
               <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#F5A623] font-mono text-[0.75rem] font-extrabold text-white">
@@ -2459,12 +2472,29 @@ function ReportView({
           ))}
         </div>
 
-        <button
-          type="button"
-          className="mt-6 rounded-full bg-[#F5A623] px-7 py-3 text-[0.92rem] font-bold text-white shadow-[0_8px_20px_rgba(245,166,35,0.28)] transition-all hover:bg-[#E0941A] hover:-translate-y-0.5"
-        >
-          Let&apos;s Start
-        </button>
+        {sortedLearningObjectives.length > 0 && (
+          <div className="mt-6 grid gap-2 md:grid-cols-2">
+            {sortedLearningObjectives.slice(0, 6).map((lo) => (
+              <div
+                key={lo.learningObjective}
+                className="rounded-[12px] bg-white/75 px-4 py-3"
+              >
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <span className="text-[0.82rem] font-extrabold text-[#111827]">
+                    {formatLearningObjectiveLabel(lo.learningObjective)}
+                  </span>
+                  <span className="font-mono text-[0.72rem] font-bold text-[#F5A623]">
+                    {Math.round(lo.score)}%
+                  </span>
+                </div>
+                <div className="text-[0.82rem] font-medium leading-relaxed text-[#4B5563]">
+                  {learningObjectiveFeedback.get(lo.learningObjective) ??
+                    lo.diagnosticSummary}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="hidden">
           <div>
@@ -2675,55 +2705,38 @@ function ReportView({
         </div>
       </div>
 
-      {/* Progress comparison card */}
+      {/* Parent notes */}
       <div
         className="v1-card rounded-[18px] overflow-hidden"
         style={{
-          background: "linear-gradient(135deg,#FFF8E7 0%,#FDEFD0 100%)",
-          border: "1px solid #F5DDB0",
+          background: "linear-gradient(135deg,#F6F8FB 0%,#EEF3FA 100%)",
+          border: "1px solid #E2E8F0",
         }}
       >
         <div className="p-6">
           <div className="mb-1 flex items-center gap-2 text-[1.05rem] font-extrabold text-[#1B4A4A]">
-            <span>📝</span> Your progress this time
+            <span>📝</span> For Parents
           </div>
-          <div className="mb-4 text-[0.85rem] font-medium text-[#F5A623]">
-            You took this test 2 weeks ago. Here is how you have improved:
+          <div className="mb-4 text-[0.85rem] font-medium text-[#5a6b85]">
+            A quick readout from this diagnostic.
           </div>
 
-          <div className="rounded-[14px] bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex-1 text-center">
-                <div className="mb-1 font-mono text-[0.65rem] font-bold uppercase tracking-widest text-[#9CA3AF]">
-                  Last time
-                </div>
-                <div className="text-[2rem] font-extrabold text-[#1B4A4A]">
-                  9/18
-                </div>
-                <div className="mt-1 flex justify-center">
-                  <StarRating filled={3} total={5} size={14} />
-                </div>
+          <div className="flex flex-col gap-2">
+            {narrative.parentNotes.map((note) => (
+              <div
+                key={note}
+                className="flex items-start gap-3 rounded-[12px] bg-white/80 px-4 py-3 text-[0.88rem] font-medium leading-relaxed text-[#334155]"
+              >
+                <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#5a6b85]" />
+                <span>{note}</span>
               </div>
-
-              <div className="shrink-0 text-[1.4rem] text-[#9CA3AF]">→</div>
-
-              <div className="flex-1 text-center">
-                <div className="mb-1 font-mono text-[0.65rem] font-bold uppercase tracking-widest text-[#9CA3AF]">
-                  This time
-                </div>
-                <div className="text-[2rem] font-extrabold text-[#1B4A4A]">
-                  13/18
-                </div>
-                <div className="mt-1 flex justify-center">
-                  <StarRating filled={4} total={5} size={14} />
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
 
-          <div className="mt-4 rounded-[12px] bg-[#D4F5EC] px-4 py-3 text-[0.88rem] font-semibold text-[#1B4A4A]">
-            🎉 You got 4 more questions right this time! Great improvement on
-            Equivalent Fractions.
+          <div className="mt-4 rounded-[12px] bg-white/75 px-4 py-3 text-[0.88rem] font-semibold text-[#1B4A4A]">
+            {correctCount}/{totalQuestions} correct this time. Next focus:{" "}
+            {narrative.practiceSteps[0] ??
+              "review the recommended practice steps."}
           </div>
         </div>
       </div>
