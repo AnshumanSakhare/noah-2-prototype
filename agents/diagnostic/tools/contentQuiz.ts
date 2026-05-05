@@ -660,6 +660,15 @@ function countRemainingQuestions(
   );
 }
 
+function countSelectedQuestionsByBand(
+  questions: QuestionBankQuestion[],
+  band: DifficultyBand,
+) {
+  return questions.filter(
+    (question) => normalizeDifficultyBand(question.difficultyLevel) === band,
+  ).length;
+}
+
 function getInteractiveQuestionTarget(totalQuestions: number) {
   return Math.floor(totalQuestions / 3);
 }
@@ -873,27 +882,19 @@ function selectQuestionsAcrossLearningObjectives(
   }
 
   const selectedIds = new Set(selected.map((question) => question.id));
-  const seedQuestions = getFillQuestionsAfterInteractiveQuota(
+  const fillQuestions = getFillQuestionsAfterInteractiveQuota(
     questions,
     selectedIds,
     requestedTotal - selected.length,
   );
-  selected.push(
-    ...seedQuestionsAcrossObjectives(
-      seedQuestions,
-      requestedTotal - selected.length,
-    ),
-  );
-
-  const usedIds = new Set(selected.map((question) => question.id));
-  const remainingQuestions = seedQuestions.filter(
-    (question) => !usedIds.has(question.id),
-  );
-  const grouped = buildBandQueues(remainingQuestions);
+  const grouped = buildBandQueues(fillQuestions);
 
   for (const band of ["easy", "medium", "hard"] as const) {
     const requested = Math.min(
-      QUESTION_TARGETS[band],
+      Math.max(
+        0,
+        QUESTION_TARGETS[band] - countSelectedQuestionsByBand(selected, band),
+      ),
       requestedTotal - selected.length,
     );
     if (requested <= 0) continue;
@@ -929,6 +930,19 @@ function selectQuestionsAcrossLearningObjectives(
     }
 
     selected.push(...fallbackPick);
+  }
+
+  if (selected.length < requestedTotal) {
+    const usedIds = new Set(selected.map((question) => question.id));
+    const coverageFill = questions.filter(
+      (question) => !usedIds.has(question.id),
+    );
+    selected.push(
+      ...seedQuestionsAcrossObjectives(
+        coverageFill,
+        requestedTotal - selected.length,
+      ),
+    );
   }
 
   if (selected.length < requestedTotal) {
@@ -1002,7 +1016,10 @@ function selectQuestionsForGradeTest(
   const grouped = buildBandQueuesByTopic(fillQuestions);
 
   for (const band of ["easy", "medium", "hard"] as const) {
-    const requested = Math.min(targets[band], total - selected.length);
+    const requested = Math.min(
+      Math.max(0, targets[band] - countSelectedQuestionsByBand(selected, band)),
+      total - selected.length,
+    );
     if (requested <= 0) continue;
 
     const picked = takeRoundRobin(grouped.get(band) ?? new Map(), requested);
