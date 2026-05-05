@@ -63,4 +63,6 @@ export interface DemoQuizLoadResponse {
 
 export interface DemoQuizSubmitResponse {
   report: DiagnosticReport
+  assessmentId?: string
+  studentDbId?: string
 }

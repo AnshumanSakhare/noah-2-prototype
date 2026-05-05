@@ -1,0 +1,2 @@
+export const TOPIC_TEST_QUESTION_COUNT = 18;
+export const GRADE_TEST_QUESTION_COUNT = 22;

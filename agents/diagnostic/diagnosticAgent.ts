@@ -1,6 +1,9 @@
 import { buildLessonPlan, colorForStatus } from "./core/diagnosticEngine"
 import { getCorrectQuestionPoints } from "./timeScoring"
-import { getTopicQuizQuestions } from "./tools/contentQuiz"
+import {
+  getGradeQuizQuestions,
+  getTopicQuizQuestions,
+} from "./tools/contentQuiz"
 import type {
   AskedQuestionRecord,
   BloomLevel,
@@ -1173,15 +1176,23 @@ async function askQuestion(
 export async function runDiagnostic(
   config: DiagnosticConfig
 ): Promise<DiagnosticReport> {
-  const questionBank = await getTopicQuizQuestions({
-    subject: config.subject,
-    classLevel: config.classLevel,
-    topic: config.topic,
-    maxQuestions: config.maxQuestions,
-  })
+  const mode = config.testMode === "grade" ? "grade" : "topic"
+  const reportTopic = mode === "grade" ? "Grade Test" : config.topic
+  const questionBank =
+    mode === "grade"
+      ? await getGradeQuizQuestions({
+          subject: config.subject,
+          classLevel: config.classLevel,
+        })
+      : await getTopicQuizQuestions({
+          subject: config.subject,
+          classLevel: config.classLevel,
+          topic: config.topic,
+          maxQuestions: config.maxQuestions,
+        })
 
   if (questionBank.questions.length === 0) {
-    throw new Error(`No quiz questions found for ${config.topic}.`)
+    throw new Error(`No quiz questions found for ${reportTopic}.`)
   }
 
   const results: AskedQuestionRecord[] = []
@@ -1222,7 +1233,19 @@ export async function runDiagnostic(
     totalQuestionsShown += 1
   }
 
-  const topicResult = buildTopicResult(config.topic, results)
+  const topicResults =
+    mode === "grade"
+      ? Array.from(new Set(results.map((record) => record.question.topic)))
+          .filter(Boolean)
+          .map((topic) =>
+            buildTopicResult(
+              topic,
+              results.filter((record) => record.question.topic === topic)
+            )
+          )
+      : [buildTopicResult(reportTopic, results)]
+  const summaryTopicResult =
+    mode === "grade" ? buildTopicResult(reportTopic, results) : topicResults[0]
   const learningObjectiveResults = computeLearningObjectiveResults(
     config.studentId,
     results
@@ -1231,7 +1254,7 @@ export async function runDiagnostic(
   const bloomResults = computeBloomResults(results)
   const attemptedReadinessScore = Math.round(averageScore(results, true) * 100)
   const overallReadinessScore = Math.round(averageScore(results, false) * 100)
-  const lessonPlan = buildLessonPlan([topicResult])
+  const lessonPlan = buildLessonPlan(topicResults)
   const behavioralPatterns = Array.from(
     new Set(results.flatMap((record) => record.behavioralSignals ?? []))
   )
@@ -1243,16 +1266,16 @@ export async function runDiagnostic(
 
   return {
     studentId: config.studentId,
-    mode: "topic",
+    mode,
     subject: config.subject,
     classLevel: config.classLevel,
-    topic: config.topic,
+    topic: reportTopic,
     expectedLearningObjectives: questionBank.expectedLearningObjectives,
     totalQuestionsShown,
     maxQuestions: config.maxQuestions,
     questionBankSize: questionBank.questions.length,
     results,
-    topicResults: [topicResult],
+    topicResults,
     learningObjectiveResults,
     subtopicResults,
     bloomResults,
@@ -1270,9 +1293,9 @@ export async function runDiagnostic(
     distractorInsights,
     nextSteps,
     aiSummary: buildSummary(
-      config,
+      { ...config, topic: reportTopic },
       results,
-      topicResult,
+      summaryTopicResult,
       learningObjectiveResults
     ),
     stoppedBecause:

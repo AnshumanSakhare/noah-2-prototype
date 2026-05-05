@@ -6,7 +6,7 @@ import type {
   DemoQuizCatalogEntry,
   DemoQuizQuestion,
 } from "@/lib/demo-types";
-import { DIAGNOSTIC_CONTENT_DEFAULTS } from "@/lib/diagnostic-content-defaults";
+import { GRADE_TEST_QUESTION_COUNT } from "@/lib/quiz-counts";
 import type {
   BloomLevel,
   ClassLevel,
@@ -28,6 +28,7 @@ type ContentQuestionRow = {
   id: string;
   question_type: string;
   question_text: string;
+  question_svg: string | null;
   subject: string;
   grade: string;
   topic: string;
@@ -41,41 +42,27 @@ type ContentQuestionRow = {
   generation_metadata: unknown;
 };
 
-type TopicCatalogAccumulator = {
-  subject: Subject;
-  classLevel: ClassLevel;
-  topic: string;
-  learningObjectives: Set<string>;
-  questionCount: number;
-};
-
-type QuizContentStore = {
-  catalog: DemoQuizCatalog;
-  questions: QuestionBankQuestion[];
-};
-
-const DEFAULT_SUBJECT = DIAGNOSTIC_CONTENT_DEFAULTS.subject;
 const QUESTION_TARGETS: Record<DifficultyBand, number> = {
-  easy: 5,
-  medium: 5,
-  hard: 5,
+  easy: 6,
+  medium: 6,
+  hard: 6,
 };
 
 const GRADE_TEST_TARGETS: Record<ClassLevel, Record<DifficultyBand, number>> = {
-  classKG: { easy: 3, medium: 5, hard: 7 },
-  class1: { easy: 3, medium: 5, hard: 7 },
-  class2: { easy: 4, medium: 6, hard: 8 },
-  class3: { easy: 4, medium: 7, hard: 9 },
+  classKG: { easy: 5, medium: 7, hard: 10 },
+  class1: { easy: 5, medium: 7, hard: 10 },
+  class2: { easy: 5, medium: 7, hard: 10 },
+  class3: { easy: 5, medium: 7, hard: 10 },
   class4: { easy: 5, medium: 7, hard: 10 },
-  class5: { easy: 6, medium: 8, hard: 11 },
-  class6: { easy: 6, medium: 8, hard: 11 },
-  class7: { easy: 7, medium: 10, hard: 13 },
-  class8: { easy: 7, medium: 10, hard: 13 },
+  class5: { easy: 5, medium: 7, hard: 10 },
+  class6: { easy: 5, medium: 7, hard: 10 },
+  class7: { easy: 5, medium: 7, hard: 10 },
+  class8: { easy: 5, medium: 7, hard: 10 },
 };
 
 declare global {
   // eslint-disable-next-line no-var
-  var __diagnosticQuizContentPromise__: Promise<QuizContentStore> | undefined;
+  var __diagnosticQuizCatalogPromise__: Promise<DemoQuizCatalog> | undefined;
 }
 
 function normalizeText(value: string): string {
@@ -84,10 +71,6 @@ function normalizeText(value: string): string {
 
 function normalizeKey(value: string): string {
   return normalizeText(value).toLowerCase();
-}
-
-function buildTopicKey(subject: string, classLevel: ClassLevel, topic: string) {
-  return [normalizeKey(subject), classLevel, normalizeKey(topic)].join("::");
 }
 
 function toSubject(value: string): Subject {
@@ -112,6 +95,10 @@ function toClassLevel(value: string): ClassLevel {
   if (grade === 6) return "class6";
   if (grade === 7) return "class7";
   return "class8";
+}
+
+function toDbGrade(classLevel: ClassLevel) {
+  return classLevel === "classKG" ? "KG" : classLevel.replace("class", "");
 }
 
 function toBloomLevel(value: string): BloomLevel {
@@ -193,6 +180,12 @@ function toArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
+function toSvg(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.startsWith("<svg") ? trimmed : undefined;
+}
+
 function toMcqOptions(value: unknown): McqQuestionPayload["options"] {
   const rawOptions = Array.isArray(value)
     ? value
@@ -201,21 +194,34 @@ function toMcqOptions(value: unknown): McqQuestionPayload["options"] {
   return rawOptions
     .map((option) => {
       if (typeof option === "string") {
-        return { text: normalizeText(option), correct: false };
+        const svg = toSvg(option);
+        return {
+          text: svg ? "" : normalizeText(option),
+          ...(svg ? { svg } : {}),
+          correct: false,
+        };
       }
 
       const record = toRecord(option);
       const correctValue = record.correct ?? record.is_correct;
+      const svg = toSvg(
+        record.svg ??
+          record.option_svg ??
+          record.image_svg ??
+          record.visual_svg ??
+          record.media,
+      );
       return {
         text: normalizeText(
           String(record.text ?? record.label ?? record.value ?? ""),
         ),
+        ...(svg ? { svg } : {}),
         correct:
           correctValue === true ||
           String(correctValue).toLowerCase() === "true",
       };
     })
-    .filter((option) => option.text.length > 0);
+    .filter((option) => option.text.length > 0 || Boolean(option.svg));
 }
 
 function getPayload(row: ContentQuestionRow) {
@@ -230,6 +236,10 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
   const classLevel = toClassLevel(row.grade);
   const payload = getPayload(row);
   const explanationFromColumn = normalizeText(row.explanation);
+  const questionSvg =
+    toSvg(row.question_svg) ??
+    toSvg(payload.questionSvg) ??
+    toSvg(payload.question_svg);
 
   let options: string[] | undefined;
   let correctAnswer: string | undefined;
@@ -238,7 +248,11 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
   let typedPayload: QuestionBankQuestion["payload"];
 
   if (questionType === "mcq") {
-    const mcqOptions = toMcqOptions(row.options);
+    const mcqOptionsFromColumn = toMcqOptions(row.options);
+    const mcqOptions =
+      mcqOptionsFromColumn.length > 0
+        ? mcqOptionsFromColumn
+        : toMcqOptions(payload.options);
     options = mcqOptions.map((option) => option.text);
     const correctIndex = mcqOptions.findIndex((option) => option.correct);
     correctAnswer =
@@ -247,19 +261,20 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
     typedPayload = {
       options: mcqOptions,
       explanation: row.explanation,
+      ...(questionSvg ? { questionSvg } : {}),
     };
   } else if (questionType === "true_false") {
     const tfPayload = payload as unknown as TrueFalseQuestionPayload;
     options = ["True", "False"];
     explanation =
       normalizeText(tfPayload.explanation ?? "") || explanationFromColumn;
-    typedPayload = tfPayload;
+    typedPayload = { ...tfPayload, ...(questionSvg ? { questionSvg } : {}) };
   } else if (questionType === "fitb") {
     const fitbPayload = payload as unknown as FitbQuestionPayload;
     modelAnswer = normalizeText(fitbPayload.answer ?? "");
     explanation =
       normalizeText(fitbPayload.hint ?? "") || explanationFromColumn;
-    typedPayload = fitbPayload;
+    typedPayload = { ...fitbPayload, ...(questionSvg ? { questionSvg } : {}) };
   } else if (questionType === "matching") {
     const matchingPayload = payload as unknown as MatchingQuestionPayload;
     explanation =
@@ -270,6 +285,7 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
       premises: matchingPayload.premises ?? [],
       responses: matchingPayload.responses ?? [],
       answerKey: matchingPayload.answerKey ?? [],
+      ...(questionSvg ? { questionSvg } : {}),
     };
   } else if (questionType === "drag_drop") {
     const dragDropPayload = payload as unknown as DragDropQuestionPayload;
@@ -281,6 +297,7 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
       draggableItems: dragDropPayload.draggableItems ?? [],
       dropZones: dragDropPayload.dropZones ?? [],
       answerKey: dragDropPayload.answerKey ?? [],
+      ...(questionSvg ? { questionSvg } : {}),
     };
   } else if (questionType === "short_answer") {
     const shortAnswerPayload = payload as unknown as ShortAnswerQuestionPayload;
@@ -288,7 +305,10 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
     explanation =
       normalizeText(shortAnswerPayload.scoringGuidance ?? "") ||
       explanationFromColumn;
-    typedPayload = shortAnswerPayload;
+    typedPayload = {
+      ...shortAnswerPayload,
+      ...(questionSvg ? { questionSvg } : {}),
+    };
   } else if (questionType === "open_response") {
     const openResponsePayload =
       payload as unknown as OpenResponseQuestionPayload;
@@ -296,14 +316,20 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
     explanation =
       normalizeText(openResponsePayload.scoringGuidance ?? "") ||
       explanationFromColumn;
-    typedPayload = openResponsePayload;
+    typedPayload = {
+      ...openResponsePayload,
+      ...(questionSvg ? { questionSvg } : {}),
+    };
   } else {
     const wordProblemPayload = payload as unknown as WordProblemQuestionPayload;
     modelAnswer = normalizeText(wordProblemPayload.finalAnswer ?? "");
     explanation =
       normalizeText(wordProblemPayload.scoringGuidance ?? "") ||
       explanationFromColumn;
-    typedPayload = wordProblemPayload;
+    typedPayload = {
+      ...wordProblemPayload,
+      ...(questionSvg ? { questionSvg } : {}),
+    };
   }
 
   return {
@@ -336,90 +362,186 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
   };
 }
 
-async function loadQuizContentStore(): Promise<QuizContentStore> {
+const CONTENT_QUESTION_SELECT = `
+  SELECT
+    id::text,
+    question_type,
+    question_text,
+    question_svg,
+    subject,
+    grade,
+    topic,
+    subtopic,
+    learning_objective,
+    blooms_level,
+    difficulty_level,
+    difficulty_rating,
+    options,
+    explanation,
+    generation_metadata
+  FROM content_questions
+`;
+
+function toQuestions(rows: ContentQuestionRow[]) {
+  return rows
+    .filter((row) => row.id && row.question_text && row.question_type)
+    .map(buildQuestion);
+}
+
+async function loadDiagnosticQuizCatalog(): Promise<DemoQuizCatalog> {
   const result = await query(`
     SELECT
-      id::text,
-      question_type,
-      question_text,
       subject,
       grade,
       topic,
-      subtopic,
-      learning_objective,
-      blooms_level,
-      difficulty_level,
-      difficulty_rating,
-      options,
-      explanation,
-      generation_metadata
+      array_agg(DISTINCT learning_objective) FILTER (
+        WHERE learning_objective IS NOT NULL AND btrim(learning_objective) <> ''
+      ) AS learning_objectives,
+      count(*)::int AS question_count
     FROM content_questions
-    ORDER BY subject, grade, topic, learning_objective, difficulty_level, id
+    WHERE question_text IS NOT NULL
+      AND question_type IS NOT NULL
+      AND subject IS NOT NULL
+      AND grade IS NOT NULL
+      AND topic IS NOT NULL
+    GROUP BY subject, grade, topic
+    ORDER BY subject, grade, topic
   `);
-  const questions = (result.rows as ContentQuestionRow[])
-    .filter((row) => row.id && row.question_text && row.question_type)
-    .map(buildQuestion);
-  const entries = new Map<string, TopicCatalogAccumulator>();
-
-  for (const question of questions) {
-    const learningObjective =
-      question.learningObjective || "Untitled learning objective";
-    const subject = question.subject ?? DEFAULT_SUBJECT;
-    const key = buildTopicKey(subject, question.classLevel, question.topic);
-    const existing = entries.get(key);
-    if (existing) {
-      existing.questionCount += 1;
-      existing.learningObjectives.add(learningObjective);
-      continue;
-    }
-
-    entries.set(key, {
-      subject,
-      classLevel: question.classLevel,
-      topic: question.topic,
-      learningObjectives: new Set([learningObjective]),
-      questionCount: 1,
-    });
-  }
 
   return {
-    catalog: {
-      entries: Array.from(entries.values())
-        .map(
-          (entry): DemoQuizCatalogEntry => ({
-            subject: entry.subject,
-            classLevel: entry.classLevel,
-            topic: entry.topic,
-            learningObjectives: Array.from(entry.learningObjectives).sort(
-              (left, right) => left.localeCompare(right),
-            ),
-            questionCount: entry.questionCount,
-          }),
-        )
-        .sort((left, right) => {
-          const byClass = left.classLevel.localeCompare(right.classLevel);
-          if (byClass !== 0) return byClass;
-          return left.topic.localeCompare(right.topic);
+    entries: result.rows
+      .map(
+        (row: {
+          subject: string;
+          grade: string;
+          topic: string;
+          learning_objectives: string[] | null;
+          question_count: number;
+        }): DemoQuizCatalogEntry => ({
+          subject: toSubject(row.subject),
+          classLevel: toClassLevel(row.grade),
+          topic: normalizeText(row.topic),
+          learningObjectives: (row.learning_objectives ?? [])
+            .map(normalizeText)
+            .filter(Boolean)
+            .sort((left, right) => left.localeCompare(right)),
+          questionCount: row.question_count,
         }),
-    },
-    questions,
+      )
+      .sort((left, right) => {
+        const byClass = left.classLevel.localeCompare(right.classLevel);
+        if (byClass !== 0) return byClass;
+        return left.topic.localeCompare(right.topic);
+      }),
   };
 }
 
-async function getStore() {
+async function getCatalog() {
   if (process.env.NODE_ENV !== "production") {
-    return loadQuizContentStore();
+    return loadDiagnosticQuizCatalog();
   }
 
-  globalThis.__diagnosticQuizContentPromise__ ??= loadQuizContentStore();
-  return globalThis.__diagnosticQuizContentPromise__;
+  globalThis.__diagnosticQuizCatalogPromise__ ??= loadDiagnosticQuizCatalog();
+  return globalThis.__diagnosticQuizCatalogPromise__;
+}
+
+async function loadTopicQuestions(input: {
+  subject: Subject;
+  classLevel: ClassLevel;
+  topic: string;
+}) {
+  const result = await query(
+    `
+      ${CONTENT_QUESTION_SELECT}
+      WHERE subject = $1
+        AND grade = $2
+        AND topic = $3
+        AND question_text IS NOT NULL
+        AND question_type IS NOT NULL
+      ORDER BY learning_objective, difficulty_level, id
+    `,
+    [input.subject, toDbGrade(input.classLevel), input.topic],
+  );
+
+  return toQuestions(result.rows as ContentQuestionRow[]);
+}
+
+async function loadGradeQuestions(input: {
+  subject: Subject;
+  classLevel: ClassLevel;
+}) {
+  const targets = GRADE_TEST_TARGETS[input.classLevel];
+  const perTopicCandidateLimit = Math.max(
+    targets.easy,
+    targets.medium,
+    targets.hard,
+  );
+  const result = await query(
+    `
+      WITH ranked_questions AS (
+        SELECT
+          id::text,
+          question_type,
+          question_text,
+          question_svg,
+          subject,
+          grade,
+          topic,
+          subtopic,
+          learning_objective,
+          blooms_level,
+          difficulty_level,
+          difficulty_rating,
+          options,
+          explanation,
+          generation_metadata,
+          row_number() OVER (
+            PARTITION BY difficulty_level, topic
+            ORDER BY learning_objective, id
+          ) AS topic_difficulty_rank
+        FROM content_questions
+        WHERE subject = $1
+          AND grade = $2
+          AND question_text IS NOT NULL
+          AND question_type IS NOT NULL
+      )
+      SELECT
+        id,
+        question_type,
+        question_text,
+        question_svg,
+        subject,
+        grade,
+        topic,
+        subtopic,
+        learning_objective,
+        blooms_level,
+        difficulty_level,
+        difficulty_rating,
+        options,
+        explanation,
+        generation_metadata
+      FROM ranked_questions
+      WHERE topic_difficulty_rank <= $3
+      ORDER BY topic, learning_objective, difficulty_level, id
+    `,
+    [input.subject, toDbGrade(input.classLevel), perTopicCandidateLimit],
+  );
+
+  return toQuestions(result.rows as ContentQuestionRow[]);
 }
 
 function sortQuestionsForTopicQuiz(questions: QuestionBankQuestion[]) {
+  const difficultyOrder: Record<DifficultyBand, number> = {
+    easy: 0,
+    medium: 1,
+    hard: 2,
+  };
+
   return [...questions].sort((left, right) => {
     const byDifficulty =
-      QUESTION_TARGETS[normalizeDifficultyBand(left.difficultyLevel)] -
-      QUESTION_TARGETS[normalizeDifficultyBand(right.difficultyLevel)];
+      difficultyOrder[normalizeDifficultyBand(left.difficultyLevel)] -
+      difficultyOrder[normalizeDifficultyBand(right.difficultyLevel)];
     if (byDifficulty !== 0) return byDifficulty;
 
     const byObjective = (left.learningObjective ?? "").localeCompare(
@@ -503,14 +625,46 @@ function countRemainingQuestions(
   );
 }
 
+function seedQuestionsAcrossObjectives(
+  questions: QuestionBankQuestion[],
+  count: number,
+) {
+  const selected: QuestionBankQuestion[] = [];
+  const queuesByObjective = new Map<string, QuestionBankQuestion[]>();
+
+  for (const question of sortQuestionsForTopicQuiz(questions)) {
+    const objective =
+      question.learningObjective || "Untitled learning objective";
+    const queue = queuesByObjective.get(objective) ?? [];
+    queue.push(question);
+    queuesByObjective.set(objective, queue);
+  }
+
+  for (const objective of Array.from(queuesByObjective.keys()).sort((a, b) =>
+    a.localeCompare(b),
+  )) {
+    if (selected.length >= count) break;
+    const nextQuestion = queuesByObjective.get(objective)?.shift();
+    if (nextQuestion) selected.push(nextQuestion);
+  }
+
+  return selected;
+}
+
 function selectQuestionsAcrossLearningObjectives(
   questions: QuestionBankQuestion[],
   maxQuestions: number,
 ) {
-  const grouped = buildBandQueues(questions);
   const selected: QuestionBankQuestion[] = [];
   const warnings: string[] = [];
   const requestedTotal = Math.min(maxQuestions, questions.length);
+  selected.push(...seedQuestionsAcrossObjectives(questions, requestedTotal));
+
+  const selectedIds = new Set(selected.map((question) => question.id));
+  const remainingQuestions = questions.filter(
+    (question) => !selectedIds.has(question.id),
+  );
+  const grouped = buildBandQueues(remainingQuestions);
 
   for (const band of ["easy", "medium", "hard"] as const) {
     const requested = Math.min(
@@ -610,7 +764,7 @@ function selectQuestionsForGradeTest(
     }
   }
 
-  const total = targets.easy + targets.medium + targets.hard;
+  const total = GRADE_TEST_QUESTION_COUNT;
   while (selected.length < total) {
     const donor = (["easy", "medium", "hard"] as const)
       .map((b) => ({ b, n: countRemainingQuestions(grouped, b) }))
@@ -636,47 +790,83 @@ function selectQuestionsForGradeTest(
 function sanitizePayload(
   question: QuestionBankQuestion,
 ): DemoQuizQuestion["payload"] {
+  const questionSvg = toSvg(
+    (question.payload as { questionSvg?: unknown } | undefined)?.questionSvg,
+  );
+  const visualPayload: Record<string, string> = questionSvg
+    ? { questionSvg }
+    : {};
+
+  if (question.questionType === "mcq") {
+    const payload = question.payload as McqQuestionPayload | undefined;
+    const options =
+      payload?.options?.map((option) => ({
+        ...(option.svg ? { svg: option.svg } : {}),
+      })) ?? [];
+    const hasOptionSvg = options.some((option) => Boolean(option.svg));
+    const hasQuestionSvg = Boolean(visualPayload.questionSvg);
+
+    return hasOptionSvg || hasQuestionSvg
+      ? {
+          ...visualPayload,
+          ...(hasOptionSvg ? { options } : {}),
+        }
+      : undefined;
+  }
+
   if (question.questionType === "matching") {
     const payload = question.payload as MatchingQuestionPayload | undefined;
     return payload
       ? {
+          ...visualPayload,
           premises: payload.premises,
           responses: payload.responses,
         }
-      : undefined;
+      : Object.keys(visualPayload).length > 0
+        ? visualPayload
+        : undefined;
   }
 
   if (question.questionType === "drag_drop") {
     const payload = question.payload as DragDropQuestionPayload | undefined;
     return payload
       ? {
+          ...visualPayload,
           draggableItems: payload.draggableItems,
           dropZones: payload.dropZones,
         }
-      : undefined;
+      : Object.keys(visualPayload).length > 0
+        ? visualPayload
+        : undefined;
   }
 
   if (question.questionType === "word_problem") {
     const payload = question.payload as WordProblemQuestionPayload | undefined;
     return payload
       ? {
+          ...visualPayload,
           scenario: payload.scenario,
           hints: payload.hints,
           requiresCalculation: payload.requiresCalculation,
         }
-      : undefined;
+      : Object.keys(visualPayload).length > 0
+        ? visualPayload
+        : undefined;
   }
 
   if (question.questionType === "fitb") {
     const payload = question.payload as FitbQuestionPayload | undefined;
     return payload
       ? {
+          ...visualPayload,
           hint: payload.hint,
         }
-      : undefined;
+      : Object.keys(visualPayload).length > 0
+        ? visualPayload
+        : undefined;
   }
 
-  return undefined;
+  return Object.keys(visualPayload).length > 0 ? visualPayload : undefined;
 }
 
 export function toClientQuizQuestion(
@@ -698,8 +888,7 @@ export function toClientQuizQuestion(
 }
 
 export async function getDiagnosticQuizCatalog(): Promise<DemoQuizCatalog> {
-  const store = await getStore();
-  return store.catalog;
+  return getCatalog();
 }
 
 export async function getTopicQuizQuestions(input: {
@@ -708,16 +897,7 @@ export async function getTopicQuizQuestions(input: {
   topic: string;
   maxQuestions: number;
 }) {
-  const store = await getStore();
-  const topicKey = buildTopicKey(input.subject, input.classLevel, input.topic);
-  const matchingQuestions = store.questions.filter(
-    (question) =>
-      buildTopicKey(
-        question.subject ?? DEFAULT_SUBJECT,
-        question.classLevel,
-        question.topic,
-      ) === topicKey,
-  );
+  const matchingQuestions = await loadTopicQuestions(input);
 
   const { questions, coverageWarnings } =
     selectQuestionsAcrossLearningObjectives(
@@ -753,6 +933,35 @@ export async function getTopicQuizQuestions(input: {
   };
 }
 
+export async function getGradeQuizQuestions(input: {
+  subject: Subject;
+  classLevel: ClassLevel;
+}) {
+  const gradeQuestions = await loadGradeQuestions(input);
+  const { questions, coverageWarnings } = selectQuestionsForGradeTest(
+    gradeQuestions,
+    input.classLevel,
+  );
+
+  if (coverageWarnings?.length) {
+    console.warn(
+      `[diagnostic] Grade test coverage for ${input.classLevel}: ${coverageWarnings.join(" ")}`,
+    );
+  }
+
+  return {
+    subject: input.subject,
+    classLevel: input.classLevel,
+    topic: null,
+    expectedLearningObjectives: [] as string[],
+    questions,
+    coverageWarnings:
+      gradeQuestions.length === 0
+        ? [`No questions were found for ${input.classLevel}.`]
+        : coverageWarnings,
+  };
+}
+
 export async function getTopicQuizForClient(input: {
   studentId: string;
   subject: Subject;
@@ -779,26 +988,10 @@ export async function getGradeQuizForClient(input: {
   subject: Subject;
   classLevel: ClassLevel;
 }) {
-  const store = await getStore();
-  const gradeQuestions = store.questions.filter(
-    (q) =>
-      q.classLevel === input.classLevel &&
-      (q.subject ?? DEFAULT_SUBJECT) === input.subject,
-  );
-  const { questions, coverageWarnings } = selectQuestionsForGradeTest(
-    gradeQuestions,
-    input.classLevel,
-  );
-
-  if (coverageWarnings?.length) {
-    console.warn(
-      `[diagnostic] Grade test coverage for ${input.classLevel}: ${coverageWarnings.join(" ")}`,
-    );
-  }
-
+  const quiz = await getGradeQuizQuestions(input);
   const targets = GRADE_TEST_TARGETS[input.classLevel];
   const topicsInGrade = Array.from(
-    new Set(gradeQuestions.map((q) => q.topic).filter(Boolean)),
+    new Set(quiz.questions.map((q) => q.topic).filter(Boolean)),
   ).sort();
 
   return {
@@ -809,9 +1002,9 @@ export async function getGradeQuizForClient(input: {
     topic: null,
     expectedLearningObjectives: [] as string[],
     topicsInGrade,
-    maxQuestions: questions.length,
+    maxQuestions: quiz.questions.length,
     gradeTargets: targets,
-    questions: questions.map(toClientQuizQuestion),
-    coverageWarnings,
+    questions: quiz.questions.map(toClientQuizQuestion),
+    coverageWarnings: quiz.coverageWarnings,
   };
 }

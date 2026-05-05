@@ -52,6 +52,7 @@ export type ReliabilityBand = "low" | "medium" | "high";
 export interface McqOption {
   text: string;
   correct: boolean;
+  svg?: string;
 }
 
 export interface MatchingPair {
@@ -116,7 +117,7 @@ export interface WordProblemQuestionPayload {
   scoringGuidance?: string;
 }
 
-export type QuestionPayload =
+export type QuestionPayload = (
   | McqQuestionPayload
   | TrueFalseQuestionPayload
   | FitbQuestionPayload
@@ -124,7 +125,10 @@ export type QuestionPayload =
   | DragDropQuestionPayload
   | ShortAnswerQuestionPayload
   | OpenResponseQuestionPayload
-  | WordProblemQuestionPayload;
+  | WordProblemQuestionPayload
+) & {
+  questionSvg?: string;
+};
 
 export interface QuestionBankQuestion {
   id: string;
@@ -304,6 +308,18 @@ export interface ResultNarrative {
   parentNotes: string[];
 }
 
+export interface ProgressComparison {
+  previousAssessmentId: string;
+  previousSubmittedAt: string;
+  previousCorrectCount: number;
+  previousTotalQuestions: number;
+  currentCorrectCount: number;
+  currentTotalQuestions: number;
+  correctDelta: number;
+  topic: string;
+  improvedLearningObjective?: string;
+}
+
 export interface ShortAnswerSubmission {
   id: string;
   topic: string;
@@ -332,6 +348,7 @@ export interface BatchEvaluationResult {
 
 export interface DiagnosticConfig {
   studentId: string;
+  testMode?: TestMode;
   subject: Subject;
   classLevel: ClassLevel;
   topic: string;
@@ -369,5 +386,6 @@ export interface DiagnosticReport {
   nextSteps?: string[];
   aiSummary: string;
   resultNarrative?: ResultNarrative;
+  progressComparison?: ProgressComparison;
   stoppedBecause: "maxQuestions" | "noEligibleQuestions";
 }

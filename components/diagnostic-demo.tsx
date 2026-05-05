@@ -35,6 +35,10 @@ import type {
   DemoQuizSubmitResponse,
 } from "../lib/demo-types";
 import { DIAGNOSTIC_CONTENT_DEFAULTS } from "../lib/diagnostic-content-defaults";
+import {
+  GRADE_TEST_QUESTION_COUNT,
+  TOPIC_TEST_QUESTION_COUNT,
+} from "../lib/quiz-counts";
 
 const OPTION_LABELS = ["A", "B", "C", "D"] as const;
 
@@ -186,7 +190,7 @@ function buildDefaultForm(
         subject: entry.subject,
         classLevel: entry.classLevel,
         topic: entry.topic,
-        maxQuestions: entry.questionCount,
+        maxQuestions: TOPIC_TEST_QUESTION_COUNT,
       }
     : {
         studentId,
@@ -194,7 +198,7 @@ function buildDefaultForm(
         subject: DIAGNOSTIC_CONTENT_DEFAULTS.subject,
         classLevel: DIAGNOSTIC_CONTENT_DEFAULTS.classLevel,
         topic: DIAGNOSTIC_CONTENT_DEFAULTS.topic,
-        maxQuestions: 18,
+        maxQuestions: TOPIC_TEST_QUESTION_COUNT,
       };
 }
 
@@ -219,6 +223,26 @@ function formatCompactDuration(timeTakenMs?: number) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = Math.round(totalSeconds % 60);
   return `${minutes}m ${seconds}s`;
+}
+
+function formatRelativePastDate(value: string) {
+  const submittedAt = new Date(value).getTime();
+  if (!Number.isFinite(submittedAt)) return "last time";
+
+  const diffMs = Date.now() - submittedAt;
+  const days = Math.max(1, Math.round(diffMs / 86_400_000));
+  if (days < 7) return days === 1 ? "1 day ago" : `${days} days ago`;
+
+  const weeks = Math.round(days / 7);
+  if (weeks < 8) return weeks === 1 ? "1 week ago" : `${weeks} weeks ago`;
+
+  const months = Math.round(days / 30);
+  return months === 1 ? "1 month ago" : `${months} months ago`;
+}
+
+function scoreStars(correct: number, total: number) {
+  if (total <= 0) return 1;
+  return Math.min(5, Math.max(1, Math.ceil((correct / total) * 5)));
 }
 
 function getEstimatedTestTimeLabel() {
@@ -273,6 +297,158 @@ function getQuestionFinalPoints(record: {
   if (record.verdict === "correct") return base;
   if (record.verdict === "partial") return base * 0.5;
   return 0;
+}
+
+function getQuestionConceptText(record: DiagnosticReport["results"][number]) {
+  const source = [
+    record.question.subtopic,
+    record.question.learningObjective,
+    record.question.topic,
+    record.question.question,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (source.includes("number line")) {
+    return "where values belong on a number line";
+  }
+  if (source.includes("equivalent")) {
+    return "spotting when two answers are secretly the same";
+  }
+  if (source.includes("simpl") || source.includes("reduce")) {
+    return "making answers simpler without changing their value";
+  }
+  if (
+    source.includes("compare") ||
+    source.includes("bigger") ||
+    source.includes("smaller") ||
+    source.includes("least") ||
+    source.includes("greater")
+  ) {
+    return "telling which value is bigger or smaller";
+  }
+  if (source.includes("like term") || source.includes("collect")) {
+    return "putting similar terms together";
+  }
+  if (
+    source.includes("word") ||
+    source.includes("description") ||
+    source.includes("statement")
+  ) {
+    return "turning word clues into maths";
+  }
+  if (
+    source.includes("equal") ||
+    source.includes("equation") ||
+    source.includes("=")
+  ) {
+    return "checking when two expressions match";
+  }
+  if (source.includes("expression") || source.includes("algebra")) {
+    return "working with algebraic ideas";
+  }
+  if (source.includes("fraction")) {
+    return "thinking about parts of a whole";
+  }
+  if (source.includes("shape") || source.includes("angle")) {
+    return "using shape clues carefully";
+  }
+  if (source.includes("measure") || source.includes("unit")) {
+    return "using measurements and units";
+  }
+  return "using the key idea from the question";
+}
+
+function getQuestionSkillText(record: DiagnosticReport["results"][number]) {
+  switch (record.question.questionType) {
+    case "mcq":
+      return "you could choose the right idea from the options";
+    case "drag_drop":
+      return "you could place ideas in the right spot";
+    case "matching":
+      return "you could connect ideas that belong together";
+    case "word_problem":
+      return "you could use maths in a real-life situation";
+    case "fitb":
+      return "you could fill in the missing piece";
+    case "short_answer":
+    case "open_response":
+      return "you could explain your thinking in your own words";
+    case "true_false":
+      return "you could decide whether the statement made sense";
+    default:
+      return "you could use the right strategy";
+  }
+}
+
+function buildSimpleResultCopy({
+  firstName,
+  report,
+  results,
+  roundedScore,
+}: {
+  firstName: string;
+  report: DiagnosticReport;
+  results: DiagnosticReport["results"];
+  roundedScore: number;
+}) {
+  const correctRecords = results.filter(
+    (record) => record.verdict === "correct",
+  );
+  const practiceRecords = results.filter(
+    (record) => record.verdict !== "correct",
+  );
+  const strength = correctRecords[0];
+  const practice = practiceRecords[0];
+  const secondPractice = practiceRecords.find(
+    (record) =>
+      practice &&
+      getQuestionConceptText(record) !== getQuestionConceptText(practice),
+  );
+  const strengthConcept = strength
+    ? getQuestionConceptText(strength)
+    : "staying with the test and trying each question";
+  const practiceConcept = practice
+    ? getQuestionConceptText(practice)
+    : "trying a slightly harder challenge";
+  const secondPracticeConcept = secondPractice
+    ? getQuestionConceptText(secondPractice)
+    : null;
+
+  const mainSummary = strength
+    ? `You did something really well in this test. When the question was about ${strengthConcept}, ${getQuestionSkillText(strength)}. That shows your brain is starting to notice the important pattern.`
+    : `You made a start on this test, and that matters. The next step is to slow down, look for the pattern in each question, and try again with a little support.`;
+
+  const whatWentWell =
+    roundedScore >= 70
+      ? `You handled a lot of the test with confidence. Keep using that careful thinking when the question looks unfamiliar.`
+      : `You already have a starting point. Keep the questions you understood as your anchor, then build from there.`;
+
+  const trickyConcepts = secondPracticeConcept
+    ? `${practiceConcept}, and ${secondPracticeConcept}`
+    : practiceConcept;
+  const whatNeedsPractice = practice
+    ? `The tricky part was ${trickyConcepts}. Most students need a few tries before these click. Go slowly, say the pattern out loud, and the questions will start to feel easier.`
+    : `There was no big trouble spot here. To keep improving, try a harder version and explain each step before choosing an answer.`;
+
+  const practiceSteps = [
+    `Review one short example on ${practiceConcept}.`,
+    `Practise a small set on ${practiceConcept}. Aim to explain why each answer works.`,
+    "Retake the test after review. Most students improve once they can see the pattern.",
+  ];
+
+  return {
+    mainSummary,
+    whatWentWell,
+    whatNeedsPractice,
+    practiceSteps,
+    parentNotes: [
+      `${firstName} completed the ${report.topic} diagnostic.`,
+      `The main practice area is ${practiceConcept}.`,
+      "Short, focused practice followed by a retake is the best next step.",
+    ],
+  };
 }
 
 function formatPoints(value: number) {
@@ -345,6 +521,139 @@ function getCorrectAnswerSummary(question: QuestionDisplayData) {
     );
   }
   return question.modelAnswer ?? question.correctAnswer ?? "—";
+}
+
+function ProgressComparisonCard({
+  report,
+  currentCorrectCount,
+  currentTotalQuestions,
+}: {
+  report: DiagnosticReport;
+  currentCorrectCount: number;
+  currentTotalQuestions: number;
+}) {
+  const comparison = report.progressComparison;
+
+  if (!comparison) {
+    return (
+      <div
+        className="v1-card overflow-hidden rounded-[18px]"
+        style={{
+          background: "linear-gradient(135deg,#FFF7E8 0%,#FFF0C9 100%)",
+          border: "1px solid #F8D694",
+        }}
+      >
+        <div className="p-6">
+          <div className="mb-1 text-[1.05rem] font-extrabold text-[#1B4A4A]">
+            Progress this time
+          </div>
+          <div className="mb-5 text-[0.92rem] font-semibold text-[#D48600]">
+            This is the first saved attempt for this topic.
+          </div>
+          <div className="rounded-[16px] bg-white px-6 py-5 shadow-sm">
+            <div className="font-mono text-[0.75rem] font-bold uppercase tracking-widest text-[#9CA3AF]">
+              This time
+            </div>
+            <div className="mt-2 text-[2rem] font-extrabold text-[#1B4A4A]">
+              {currentCorrectCount}/{currentTotalQuestions}
+            </div>
+            <div className="mt-2">
+              <StarRating
+                filled={scoreStars(currentCorrectCount, currentTotalQuestions)}
+                size={18}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const improvedFocus = comparison.improvedLearningObjective ?? report.topic;
+  const delta = comparison.correctDelta;
+  const message =
+    delta > 0
+      ? `You got ${delta} more ${delta === 1 ? "question" : "questions"} right this time. Strong progress on ${improvedFocus}.`
+      : delta === 0
+        ? `You matched your last score. Next focus: ${improvedFocus}.`
+        : `This attempt was ${Math.abs(delta)} ${
+            Math.abs(delta) === 1 ? "question" : "questions"
+          } below last time. Review ${improvedFocus} and try again.`;
+
+  return (
+    <div
+      className="v1-card overflow-hidden rounded-[18px]"
+      style={{
+        background: "linear-gradient(135deg,#FFF7E8 0%,#FFF0C9 100%)",
+        border: "1px solid #F8D694",
+      }}
+    >
+      <div className="p-6">
+        <div className="mb-1 text-[1.05rem] font-extrabold text-[#1B4A4A]">
+          Progress this time
+        </div>
+        <div className="mb-5 text-[0.92rem] font-semibold text-[#D48600]">
+          You took this test{" "}
+          {formatRelativePastDate(comparison.previousSubmittedAt)}. Here is how
+          you have changed:
+        </div>
+
+        <div className="grid items-center gap-4 rounded-[16px] bg-white px-6 py-5 shadow-sm sm:grid-cols-[1fr_auto_1fr] sm:px-10">
+          <div className="text-center sm:text-left">
+            <div className="font-mono text-[0.75rem] font-bold uppercase tracking-widest text-[#9CA3AF]">
+              Last time
+            </div>
+            <div className="mt-2 text-[2rem] font-extrabold text-[#1B4A4A]">
+              {comparison.previousCorrectCount}/
+              {comparison.previousTotalQuestions}
+            </div>
+            <div className="mt-2 flex justify-center sm:justify-start">
+              <StarRating
+                filled={scoreStars(
+                  comparison.previousCorrectCount,
+                  comparison.previousTotalQuestions,
+                )}
+                size={18}
+              />
+            </div>
+          </div>
+
+          <div className="text-center font-mono text-[1.5rem] font-bold text-[#9CA3AF]">
+            →
+          </div>
+
+          <div className="text-center sm:text-left">
+            <div className="font-mono text-[0.75rem] font-bold uppercase tracking-widest text-[#9CA3AF]">
+              This time
+            </div>
+            <div className="mt-2 text-[2rem] font-extrabold text-[#1B4A4A]">
+              {comparison.currentCorrectCount}/
+              {comparison.currentTotalQuestions}
+            </div>
+            <div className="mt-2 flex justify-center sm:justify-start">
+              <StarRating
+                filled={scoreStars(
+                  comparison.currentCorrectCount,
+                  comparison.currentTotalQuestions,
+                )}
+                size={18}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={`mt-5 rounded-[14px] px-5 py-4 text-[0.95rem] font-extrabold ${
+            delta >= 0
+              ? "bg-[#CFF7EF] text-[#1B4A4A]"
+              : "bg-[#FFE3DA] text-[#8A2A18]"
+          }`}
+        >
+          {message}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function normalizeAnswerText(value: string) {
@@ -489,6 +798,7 @@ async function submitQuiz(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       studentId: quiz.studentId,
+      testMode: quiz.testMode,
       subject: quiz.subject,
       classLevel: quiz.classLevel,
       topic: quiz.topic,
@@ -712,7 +1022,11 @@ function SelectorScreen({
             have mastered what you just learnt.
           </p>
           <div className="mb-5 flex flex-wrap gap-2">
-            {["18 questions", "One topic", "15–20 min"].map((pill) => (
+            {[
+              `${TOPIC_TEST_QUESTION_COUNT} questions`,
+              "One topic",
+              "15–20 min",
+            ].map((pill) => (
               <span
                 key={pill}
                 className="rounded-full bg-[#F8F9FA] px-3 py-1.5 font-mono text-[12px] text-[#6B7280] border border-gray-100"
@@ -744,7 +1058,11 @@ function SelectorScreen({
             topics to focus on next.
           </p>
           <div className="mb-5 flex flex-wrap gap-2">
-            {["22 questions", "All topics", "20–30 min"].map((pill) => (
+            {[
+              `${GRADE_TEST_QUESTION_COUNT} questions`,
+              "All topics",
+              "20–30 min",
+            ].map((pill) => (
               <span
                 key={pill}
                 className="rounded-full bg-[#F8F9FA] px-3 py-1.5 font-mono text-[12px] text-[#6B7280] border border-gray-100"
@@ -807,7 +1125,7 @@ function TopicBrowseScreen({
       topic: entry.topic,
       classLevel: entry.classLevel as never,
       subject: entry.subject,
-      maxQuestions: entry.questionCount,
+      maxQuestions: TOPIC_TEST_QUESTION_COUNT,
     }));
     onSelectEntry(entry);
   };
@@ -954,7 +1272,7 @@ function TopicStartScreen({
 
         <div className="mb-7 grid gap-3 sm:grid-cols-3">
           {[
-            { label: "Questions", value: String(form.maxQuestions) },
+            { label: "Questions", value: String(TOPIC_TEST_QUESTION_COUNT) },
             { label: "Estimated time", value: estimatedTime },
             { label: "Grade", value: classLabel(form.classLevel) },
           ].map((item) => (
@@ -1116,7 +1434,7 @@ function GradeStartScreen({
 
         <div className="mb-7 grid gap-3 sm:grid-cols-3">
           {[
-            { label: "Questions", value: "22" },
+            { label: "Questions", value: String(GRADE_TEST_QUESTION_COUNT) },
             { label: "Estimated time", value: "20 min" },
             { label: "Grade", value: `Grade ${classNum(classLevel)}` },
           ].map((item) => (
@@ -1174,6 +1492,70 @@ function QuestionInput({
     const payload = question.payload as
       | { options?: Array<{ svg?: string | null }> }
       | undefined;
+    const hasOptionSvg = question.options.some((_, index) =>
+      Boolean(payload?.options?.[index]?.svg),
+    );
+
+    if (hasOptionSvg) {
+      return (
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          {question.options.map((option, index) => {
+            const label = OPTION_LABELS[index] ?? "";
+            const selected = answer === label;
+            const optionSvg = payload?.options?.[index]?.svg;
+            return (
+              <button
+                key={`${question.id}-${label}`}
+                type="button"
+                onClick={() => setAnswer(label)}
+                className={`group flex min-h-[190px] flex-col rounded-[18px] border-2 bg-white p-3 text-left transition-all duration-200 sm:min-h-[220px] sm:p-4 ${
+                  selected
+                    ? "border-[#F5A623] shadow-[0_10px_28px_rgba(245,166,35,0.18)]"
+                    : "border-gray-100 hover:-translate-y-0.5 hover:border-[#2EC4B6]/60 hover:shadow-sm"
+                }`}
+              >
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <span
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 font-mono text-[14px] font-extrabold transition-all ${
+                      selected
+                        ? "border-[#F5A623] bg-[#F5A623] text-white"
+                        : "border-gray-200 bg-[#F8F9FA] text-[#6B7280] group-hover:border-[#F5A623] group-hover:text-[#F5A623]"
+                    }`}
+                  >
+                    {label}
+                  </span>
+                  {selected ? (
+                    <span className="rounded-full bg-[#FFF8E7] px-2.5 py-1 font-mono text-[10px] font-bold text-[#B77400]">
+                      Selected
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="flex flex-1 items-center justify-center rounded-[14px] border border-gray-100 bg-[#F8F9FA] p-3 sm:p-4 [&_svg]:h-full [&_svg]:max-h-[116px] [&_svg]:w-full [&_svg]:max-w-[180px]">
+                  {optionSvg ? (
+                    <span
+                      className="flex h-[112px] w-full items-center justify-center sm:h-[132px]"
+                      dangerouslySetInnerHTML={{ __html: optionSvg }}
+                    />
+                  ) : (
+                    <span className="text-center text-[13px] font-semibold leading-snug text-[#6B7280]">
+                      No visual
+                    </span>
+                  )}
+                </div>
+
+                {option.trim() ? (
+                  <div className="mt-3 text-[13px] font-semibold leading-snug text-[#1a1a1a] sm:text-[14px]">
+                    {option}
+                  </div>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col gap-3">
         {question.options.map((option, index) => {
@@ -2003,12 +2385,6 @@ function ReportView({
   const selectedReviewQuestionSvg = getQuestionSvg(
     selectedReviewRecord?.question as QuestionDisplayData | undefined,
   );
-  const learningObjectiveFeedback = new Map(
-    (narrative?.learningObjectiveFeedback ?? []).map((item) => [
-      item.learningObjective,
-      item.feedback,
-    ]),
-  );
   const questionReviewNotes = new Map(
     (narrative?.questionReviewNotes ?? []).map((item) => [
       item.questionId,
@@ -2039,27 +2415,6 @@ function ReportView({
     }, 500);
     return () => clearTimeout(timer);
   }, [totalFinalPoints, roundedScore]);
-
-  if (!narrative) {
-    return (
-      <div className="mx-auto max-w-xl rounded-[18px] border border-[#F46853]/20 bg-[#FFF7F5] p-6 text-center">
-        <div className="text-[1.1rem] font-extrabold text-[#D63B28]">
-          Result summary was not generated.
-        </div>
-        <div className="mt-2 text-[0.92rem] font-medium leading-relaxed text-[#5a5a72]">
-          Please submit the quiz again so the dynamic result page can be
-          generated.
-        </div>
-        <button
-          type="button"
-          onClick={onReset}
-          className="mt-5 rounded-full bg-[#F5A623] px-7 py-3 text-[0.92rem] font-bold text-white shadow-sm transition-all hover:bg-[#E0941A]"
-        >
-          Retry Quiz
-        </button>
-      </div>
-    );
-  }
 
   const getHeroContent = (pct: number) => {
     if (pct >= 90)
@@ -2097,9 +2452,13 @@ function ReportView({
 
   const hero = {
     ...getHeroContent(roundedScore),
-    greeting: narrative.heroGreeting,
-    subtitle: narrative.heroSubtitle,
   };
+  const resultCopy = buildSimpleResultCopy({
+    firstName,
+    report,
+    results,
+    roundedScore,
+  });
   const starCount = Math.min(5, Math.max(1, Math.ceil(roundedScore / 20)));
   const accentColor =
     roundedScore >= 70 ? "#22C55E" : roundedScore >= 50 ? "#F5A623" : "#f46853";
@@ -2547,15 +2906,15 @@ function ReportView({
         </div>
 
         <p className="mb-5 max-w-[980px] text-[0.95rem] font-medium leading-[1.8] text-[#111827] sm:text-[1rem]">
-          {narrative.mainSummary}
+          {resultCopy.mainSummary}
         </p>
 
         <div className="mb-4 rounded-[12px] bg-white/75 px-4 py-3 text-[0.92rem] font-semibold leading-relaxed text-[#1B4A4A]">
-          {narrative.whatWentWell}
+          {resultCopy.whatWentWell}
         </div>
 
         <p className="mb-6 max-w-[980px] text-[1rem] font-medium leading-[1.8] text-[#111827]">
-          {narrative.whatNeedsPractice}
+          {resultCopy.whatNeedsPractice}
         </p>
 
         <div className="my-6 h-px bg-[rgba(0,0,0,0.08)]" />
@@ -2565,7 +2924,7 @@ function ReportView({
         </div>
 
         <div className="flex flex-col gap-2">
-          {narrative.practiceSteps.map((item, index) => (
+          {resultCopy.practiceSteps.map((item, index) => (
             <div
               key={item}
               className="flex items-start gap-3 rounded-[10px] bg-white/75 px-4 py-3 text-[0.92rem] leading-relaxed text-[#111827]"
@@ -2577,30 +2936,6 @@ function ReportView({
             </div>
           ))}
         </div>
-
-        {sortedLearningObjectives.length > 0 && (
-          <div className="mt-6 grid gap-2 md:grid-cols-2">
-            {sortedLearningObjectives.slice(0, 6).map((lo) => (
-              <div
-                key={lo.learningObjective}
-                className="rounded-[12px] bg-white/75 px-4 py-3"
-              >
-                <div className="mb-1 flex items-center justify-between gap-3">
-                  <span className="text-[0.82rem] font-extrabold text-[#111827]">
-                    {formatLearningObjectiveLabel(lo.learningObjective)}
-                  </span>
-                  <span className="font-mono text-[0.72rem] font-bold text-[#F5A623]">
-                    {Math.round(lo.score)}%
-                  </span>
-                </div>
-                <div className="text-[0.82rem] font-medium leading-relaxed text-[#4B5563]">
-                  {learningObjectiveFeedback.get(lo.learningObjective) ??
-                    lo.diagnosticSummary}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
 
         <div className="hidden">
           <div>
@@ -2811,9 +3146,15 @@ function ReportView({
         </div>
       </div>
 
+      <ProgressComparisonCard
+        report={report}
+        currentCorrectCount={correctCount}
+        currentTotalQuestions={totalQuestions}
+      />
+
       {/* Parent notes */}
       <div
-        className="v1-card rounded-[18px] overflow-hidden"
+        className="hidden"
         style={{
           background: "linear-gradient(135deg,#F6F8FB 0%,#EEF3FA 100%)",
           border: "1px solid #E2E8F0",
@@ -2828,7 +3169,7 @@ function ReportView({
           </div>
 
           <div className="flex flex-col gap-2">
-            {narrative.parentNotes.map((note) => (
+            {resultCopy.parentNotes.map((note) => (
               <div
                 key={note}
                 className="flex items-start gap-3 rounded-[12px] bg-white/80 px-4 py-3 text-[0.88rem] font-medium leading-relaxed text-[#334155]"
@@ -2841,7 +3182,7 @@ function ReportView({
 
           <div className="mt-4 rounded-[12px] bg-white/75 px-4 py-3 text-[0.88rem] font-semibold text-[#1B4A4A]">
             {correctCount}/{totalQuestions} correct this time. Next focus:{" "}
-            {narrative.practiceSteps[0] ??
+            {resultCopy.practiceSteps[0] ??
               "review the recommended practice steps."}
           </div>
         </div>
@@ -3214,7 +3555,7 @@ export function DiagnosticDemo({
         subject: topicEntry.subject,
         classLevel: topicEntry.classLevel,
         topic: topicEntry.topic,
-        maxQuestions: topicEntry.questionCount,
+        maxQuestions: TOPIC_TEST_QUESTION_COUNT,
       });
     }
     setTestMode("topic");
@@ -3236,7 +3577,7 @@ export function DiagnosticDemo({
         subject: gradeEntry.subject,
         classLevel: gradeClass,
         topic: gradeEntry.topic,
-        maxQuestions: gradeEntry.questionCount,
+        maxQuestions: GRADE_TEST_QUESTION_COUNT,
       });
     }
     setTestMode("grade");
@@ -3254,7 +3595,7 @@ export function DiagnosticDemo({
         subject: firstEntry.subject,
         testMode: "grade",
         topic: firstEntry.topic,
-        maxQuestions: 22,
+        maxQuestions: GRADE_TEST_QUESTION_COUNT,
       }));
     }
     setAppScreen("grade-start");

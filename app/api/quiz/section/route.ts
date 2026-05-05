@@ -1,79 +1,77 @@
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/server";
 
 import {
   getDiagnosticQuizCatalog,
   getGradeQuizForClient,
   getTopicQuizForClient,
-} from "@/agents/diagnostic/tools/contentQuiz"
-import type { ClassLevel, Subject } from "@/agents/diagnostic/types/index"
+} from "@/agents/diagnostic/tools/contentQuiz";
+import type { ClassLevel, Subject } from "@/agents/diagnostic/types/index";
+import { TOPIC_TEST_QUESTION_COUNT } from "@/lib/quiz-counts";
 
-export const runtime = "nodejs"
-export const dynamic = "force-dynamic"
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
-      studentId?: string
-      subject?: string
-      classLevel?: string
-      topic?: string
-      testMode?: string
-      maxQuestions?: number
-    }
+      studentId?: string;
+      subject?: string;
+      classLevel?: string;
+      topic?: string;
+      testMode?: string;
+      maxQuestions?: number;
+    };
 
-    const studentId = body.studentId?.trim() || "Riya Sharma"
-    const testMode = body.testMode === "grade" ? "grade" : "topic"
+    const studentId = body.studentId?.trim() || "Riya Sharma";
+    const testMode = body.testMode === "grade" ? "grade" : "topic";
 
     if (testMode === "grade") {
       if (!body.subject || !body.classLevel) {
         return NextResponse.json(
           { error: "subject and classLevel are required for grade test." },
           { status: 400 },
-        )
+        );
       }
 
       const quiz = await getGradeQuizForClient({
         studentId,
         subject: body.subject as Subject,
         classLevel: body.classLevel as ClassLevel,
-      })
+      });
 
-      return NextResponse.json({ quiz })
+      return NextResponse.json({ quiz });
     }
 
-    const catalog = await getDiagnosticQuizCatalog()
+    const catalog = await getDiagnosticQuizCatalog();
     const entry = catalog.entries.find(
       (item) =>
         item.subject === body.subject &&
         item.classLevel === body.classLevel &&
         item.topic === body.topic,
-    )
+    );
 
     if (!entry) {
       return NextResponse.json(
         { error: "The selected diagnostic quiz was not found." },
         { status: 400 },
-      )
+      );
     }
-
-    const loCount = entry.learningObjectives.length
-    const maxQuestions = loCount > 0 ? loCount * 3 : 15
 
     const quiz = await getTopicQuizForClient({
       studentId,
       subject: entry.subject,
       classLevel: entry.classLevel,
       topic: entry.topic,
-      maxQuestions,
-    })
+      maxQuestions: TOPIC_TEST_QUESTION_COUNT,
+    });
 
-    return NextResponse.json({ quiz })
+    return NextResponse.json({ quiz });
   } catch (error) {
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Unable to load quiz.",
       },
       { status: 400 },
-    )
+    );
   }
 }
