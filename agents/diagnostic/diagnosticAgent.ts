@@ -284,7 +284,8 @@ function inferWhyWrong(
 function evaluateMatchingMap(
   studentAnswer: string,
   answerKey: Array<{ key: string; expected: string }>,
-  label: string
+  label: string,
+  rejectExtraPlacements = false
 ): Pick<AskedQuestionRecord, "verdict" | "feedback"> {
   const studentMap = parseAnswerMap(studentAnswer)
   const attemptedCount = Object.keys(studentMap).length
@@ -301,10 +302,21 @@ function evaluateMatchingMap(
     }
   }
 
+  const expectedKeys = new Set(answerKey.map((pair) => pair.key))
+  const expectedTargets = new Set(
+    answerKey.map((pair) => normalizeText(pair.expected))
+  )
+  const extraPlacementCount = rejectExtraPlacements
+    ? Object.entries(studentMap).filter(
+        ([key, target]) =>
+          !expectedKeys.has(key) && expectedTargets.has(normalizeText(target))
+      ).length
+    : 0
+
   const verdict =
-    correctCount === answerKey.length
+    correctCount === answerKey.length && extraPlacementCount === 0
       ? "correct"
-      : correctCount > 0
+      : correctCount > 0 || extraPlacementCount > 0
         ? "partial"
         : "incorrect"
 
@@ -403,7 +415,7 @@ function evaluateQuestion(
       key: pair.item,
       expected: pair.target,
     }))
-    return evaluateMatchingMap(studentAnswer, answerKey, "Placement score")
+    return evaluateMatchingMap(studentAnswer, answerKey, "Placement score", true)
   }
 
   const expected =

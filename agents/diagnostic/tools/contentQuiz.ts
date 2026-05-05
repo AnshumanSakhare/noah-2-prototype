@@ -60,6 +60,8 @@ const GRADE_TEST_TARGETS: Record<ClassLevel, Record<DifficultyBand, number>> = {
   class8: { easy: 5, medium: 7, hard: 10 },
 };
 
+const INTERACTIVE_QUESTION_TYPES = ["fitb", "drag_drop"] as const;
+
 declare global {
   // eslint-disable-next-line no-var
   var __diagnosticQuizCatalogPromise__: Promise<DemoQuizCatalog> | undefined;
@@ -67,6 +69,13 @@ declare global {
 
 function normalizeText(value: string): string {
   return value.trim().replace(/\s+/g, " ");
+}
+
+function normalizeQuestionText(value: string): string {
+  return normalizeText(value).replace(
+    /^(Fill in the blank with the correct answer:|Drag each choice into the correct group:)\s*/i,
+    "",
+  );
 }
 
 function normalizeKey(value: string): string {
@@ -121,6 +130,9 @@ function toQuestionType(value: string): QuestionType {
     case "matching":
       return "matching";
     case "drag_drop":
+    case "drag n drop":
+    case "drag_n_drop":
+    case "drag-and-drop":
       return "drag_drop";
     case "short_answer":
       return "short_answer";
@@ -184,6 +196,10 @@ function toSvg(value: unknown) {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed.startsWith("<svg") ? trimmed : undefined;
+}
+
+function isNotCorrectDropZone(value: string) {
+  return normalizeKey(value).replace(/[^a-z0-9]+/g, " ") === "not correct";
 }
 
 function toMcqOptions(value: unknown): McqQuestionPayload["options"] {
@@ -289,14 +305,22 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
     };
   } else if (questionType === "drag_drop") {
     const dragDropPayload = payload as unknown as DragDropQuestionPayload;
+    const dropZones = dragDropPayload.dropZones ?? [];
+    const answerKey = dragDropPayload.answerKey ?? [];
+    const visibleDropZones = dropZones.filter(
+      (dropZone) => !isNotCorrectDropZone(dropZone),
+    );
+    const visibleAnswerKey = answerKey.filter(
+      (pair) => !isNotCorrectDropZone(pair.target),
+    );
     explanation =
       normalizeText(dragDropPayload.scoringGuidance ?? "") ||
       explanationFromColumn;
     typedPayload = {
       ...dragDropPayload,
       draggableItems: dragDropPayload.draggableItems ?? [],
-      dropZones: dragDropPayload.dropZones ?? [],
-      answerKey: dragDropPayload.answerKey ?? [],
+      dropZones: visibleDropZones,
+      answerKey: visibleAnswerKey,
       ...(questionSvg ? { questionSvg } : {}),
     };
   } else if (questionType === "short_answer") {
@@ -343,7 +367,7 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
     classLevel,
     bloomLevel: toBloomLevel(row.blooms_level),
     questionType,
-    question: normalizeText(row.question_text),
+    question: normalizeQuestionText(row.question_text),
     options,
     correctAnswer,
     modelAnswer,
@@ -379,7 +403,15 @@ const CONTENT_QUESTION_SELECT = `
     options,
     explanation,
     generation_metadata
-  FROM content_questions
+  FROM final_content_questions
+`;
+
+const QUESTION_VISUAL_MODE_TYPE_FILTER = `
+  AND (
+    visual_mode IS NULL
+    OR lower(btrim(visual_mode)) <> 'question_svg'
+    OR lower(btrim(question_type)) = 'mcq'
+  )
 `;
 
 function toQuestions(rows: ContentQuestionRow[]) {
@@ -398,9 +430,10 @@ async function loadDiagnosticQuizCatalog(): Promise<DemoQuizCatalog> {
         WHERE learning_objective IS NOT NULL AND btrim(learning_objective) <> ''
       ) AS learning_objectives,
       count(*)::int AS question_count
-    FROM content_questions
+    FROM final_content_questions
     WHERE question_text IS NOT NULL
       AND question_type IS NOT NULL
+      ${QUESTION_VISUAL_MODE_TYPE_FILTER}
       AND subject IS NOT NULL
       AND grade IS NOT NULL
       AND topic IS NOT NULL
@@ -458,6 +491,7 @@ async function loadTopicQuestions(input: {
         AND topic = $3
         AND question_text IS NOT NULL
         AND question_type IS NOT NULL
+        ${QUESTION_VISUAL_MODE_TYPE_FILTER}
       ORDER BY learning_objective, difficulty_level, id
     `,
     [input.subject, toDbGrade(input.classLevel), input.topic],
@@ -499,11 +533,12 @@ async function loadGradeQuestions(input: {
             PARTITION BY difficulty_level, topic
             ORDER BY learning_objective, id
           ) AS topic_difficulty_rank
-        FROM content_questions
+        FROM final_content_questions
         WHERE subject = $1
           AND grade = $2
           AND question_text IS NOT NULL
           AND question_type IS NOT NULL
+          ${QUESTION_VISUAL_MODE_TYPE_FILTER}
       )
       SELECT
         id,
@@ -625,6 +660,167 @@ function countRemainingQuestions(
   );
 }
 
+function getInteractiveQuestionTarget(totalQuestions: number) {
+  return Math.floor(totalQuestions / 3);
+}
+
+function isInteractiveQuestion(question: QuestionBankQuestion) {
+  return INTERACTIVE_QUESTION_TYPES.includes(
+    question.questionType as (typeof INTERACTIVE_QUESTION_TYPES)[number],
+  );
+}
+
+function buildInteractiveQueues(
+  questions: QuestionBankQuestion[],
+  groupKey: (question: QuestionBankQuestion) => string,
+) {
+  const queues = new Map<
+    (typeof INTERACTIVE_QUESTION_TYPES)[number],
+    Map<string, QuestionBankQuestion[]>
+  >(
+    INTERACTIVE_QUESTION_TYPES.map((questionType) => [
+      questionType,
+      new Map<string, QuestionBankQuestion[]>(),
+    ]),
+  );
+
+  for (const question of sortQuestionsForTopicQuiz(questions)) {
+    if (!isInteractiveQuestion(question)) continue;
+
+    const questionType =
+      question.questionType as (typeof INTERACTIVE_QUESTION_TYPES)[number];
+    const grouped = queues.get(questionType);
+    if (!grouped) continue;
+
+    const key = groupKey(question);
+    grouped.set(key, [...(grouped.get(key) ?? []), question]);
+  }
+
+  return queues;
+}
+
+function countQueuedQuestions(
+  grouped: Map<string, QuestionBankQuestion[]> | undefined,
+) {
+  return Array.from(grouped?.values() ?? []).reduce(
+    (sum, queue) => sum + queue.length,
+    0,
+  );
+}
+
+function takeInteractiveQuestions(
+  questions: QuestionBankQuestion[],
+  requestedCount: number,
+  groupKey: (question: QuestionBankQuestion) => string,
+) {
+  const selected: QuestionBankQuestion[] = [];
+  const queues = buildInteractiveQueues(questions, groupKey);
+  let cursor = 0;
+
+  while (selected.length < requestedCount) {
+    const availableTypes = INTERACTIVE_QUESTION_TYPES.filter(
+      (questionType) => countQueuedQuestions(queues.get(questionType)) > 0,
+    );
+    if (availableTypes.length === 0) break;
+
+    const questionType = availableTypes[cursor % availableTypes.length];
+    const picked = takeRoundRobin(queues.get(questionType) ?? new Map(), 1);
+    if (picked.length > 0) {
+      selected.push(...picked);
+      cursor += 1;
+      continue;
+    }
+
+    cursor += 1;
+  }
+
+  return selected;
+}
+
+function getFillQuestionsAfterInteractiveQuota(
+  questions: QuestionBankQuestion[],
+  selectedIds: Set<string>,
+  remainingSlots: number,
+) {
+  const remaining = questions.filter(
+    (question) => !selectedIds.has(question.id),
+  );
+  const nonInteractive = remaining.filter(
+    (question) => !isInteractiveQuestion(question),
+  );
+
+  return nonInteractive.length >= remainingSlots ? nonInteractive : remaining;
+}
+
+function hashString(value: string) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(index);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function mixQuestionTypes(questions: QuestionBankQuestion[]) {
+  const seed = questions
+    .map((question) => question.id)
+    .sort((left, right) => left.localeCompare(right))
+    .join("|");
+  const buckets = new Map<QuestionType, QuestionBankQuestion[]>();
+
+  for (const question of questions) {
+    const bucket = buckets.get(question.questionType) ?? [];
+    bucket.push(question);
+    buckets.set(question.questionType, bucket);
+  }
+
+  for (const [questionType, bucket] of buckets) {
+    buckets.set(
+      questionType,
+      [...bucket].sort(
+        (left, right) =>
+          hashString(`${seed}:${questionType}:${left.id}`) -
+          hashString(`${seed}:${questionType}:${right.id}`),
+      ),
+    );
+  }
+
+  const mixed: QuestionBankQuestion[] = [];
+  let lastType: QuestionType | null = null;
+
+  while (mixed.length < questions.length) {
+    const availableTypes = Array.from(buckets.entries())
+      .filter(([, bucket]) => bucket.length > 0)
+      .map(([questionType, bucket]) => ({
+        questionType,
+        remaining: bucket.length,
+      }));
+    if (availableTypes.length === 0) break;
+
+    const candidates =
+      availableTypes.length > 1
+        ? availableTypes.filter((item) => item.questionType !== lastType)
+        : availableTypes;
+    const nextType = candidates.sort((left, right) => {
+      const byRemaining = right.remaining - left.remaining;
+      if (byRemaining !== 0) return byRemaining;
+      return (
+        hashString(`${seed}:${mixed.length}:${left.questionType}`) -
+        hashString(`${seed}:${mixed.length}:${right.questionType}`)
+      );
+    })[0]?.questionType;
+    if (!nextType) break;
+
+    const nextQuestion = buckets.get(nextType)?.shift();
+    if (!nextQuestion) break;
+
+    mixed.push(nextQuestion);
+    lastType = nextType;
+  }
+
+  return mixed;
+}
+
 function seedQuestionsAcrossObjectives(
   questions: QuestionBankQuestion[],
   count: number,
@@ -658,11 +854,40 @@ function selectQuestionsAcrossLearningObjectives(
   const selected: QuestionBankQuestion[] = [];
   const warnings: string[] = [];
   const requestedTotal = Math.min(maxQuestions, questions.length);
-  selected.push(...seedQuestionsAcrossObjectives(questions, requestedTotal));
+  const interactiveTarget = Math.min(
+    getInteractiveQuestionTarget(requestedTotal),
+    questions.filter(isInteractiveQuestion).length,
+  );
+  selected.push(
+    ...takeInteractiveQuestions(
+      questions,
+      interactiveTarget,
+      (question) => question.learningObjective || "Untitled learning objective",
+    ),
+  );
+
+  if (selected.length < getInteractiveQuestionTarget(requestedTotal)) {
+    warnings.push(
+      `Requested ${getInteractiveQuestionTarget(requestedTotal)} fitb/drag_drop questions but only found ${selected.length}.`,
+    );
+  }
 
   const selectedIds = new Set(selected.map((question) => question.id));
-  const remainingQuestions = questions.filter(
-    (question) => !selectedIds.has(question.id),
+  const seedQuestions = getFillQuestionsAfterInteractiveQuota(
+    questions,
+    selectedIds,
+    requestedTotal - selected.length,
+  );
+  selected.push(
+    ...seedQuestionsAcrossObjectives(
+      seedQuestions,
+      requestedTotal - selected.length,
+    ),
+  );
+
+  const usedIds = new Set(selected.map((question) => question.id));
+  const remainingQuestions = seedQuestions.filter(
+    (question) => !usedIds.has(question.id),
   );
   const grouped = buildBandQueues(remainingQuestions);
 
@@ -713,7 +938,7 @@ function selectQuestionsAcrossLearningObjectives(
   }
 
   return {
-    questions: selected,
+    questions: mixQuestionTypes(selected),
     coverageWarnings: warnings.length > 0 ? warnings : undefined,
   };
 }
@@ -747,24 +972,48 @@ function selectQuestionsForGradeTest(
   classLevel: ClassLevel,
 ) {
   const targets = GRADE_TEST_TARGETS[classLevel];
-  const grouped = buildBandQueuesByTopic(questions);
   const selected: QuestionBankQuestion[] = [];
   const warnings: string[] = [];
+  const total = Math.min(GRADE_TEST_QUESTION_COUNT, questions.length);
+  const interactiveTarget = Math.min(
+    getInteractiveQuestionTarget(total),
+    questions.filter(isInteractiveQuestion).length,
+  );
+  selected.push(
+    ...takeInteractiveQuestions(
+      questions,
+      interactiveTarget,
+      (question) => question.topic || "Untitled",
+    ),
+  );
+
+  if (selected.length < getInteractiveQuestionTarget(total)) {
+    warnings.push(
+      `Requested ${getInteractiveQuestionTarget(total)} fitb/drag_drop questions but only found ${selected.length}.`,
+    );
+  }
+
+  const selectedIds = new Set(selected.map((question) => question.id));
+  const fillQuestions = getFillQuestionsAfterInteractiveQuota(
+    questions,
+    selectedIds,
+    total - selected.length,
+  );
+  const grouped = buildBandQueuesByTopic(fillQuestions);
 
   for (const band of ["easy", "medium", "hard"] as const) {
-    const picked = takeRoundRobin(
-      grouped.get(band) ?? new Map(),
-      targets[band],
-    );
+    const requested = Math.min(targets[band], total - selected.length);
+    if (requested <= 0) continue;
+
+    const picked = takeRoundRobin(grouped.get(band) ?? new Map(), requested);
     selected.push(...picked);
-    if (picked.length < targets[band]) {
+    if (picked.length < requested) {
       warnings.push(
-        `Requested ${targets[band]} ${band} questions but only found ${picked.length}.`,
+        `Requested ${requested} ${band} questions but only found ${picked.length}.`,
       );
     }
   }
 
-  const total = GRADE_TEST_QUESTION_COUNT;
   while (selected.length < total) {
     const donor = (["easy", "medium", "hard"] as const)
       .map((b) => ({ b, n: countRemainingQuestions(grouped, b) }))
@@ -782,7 +1031,7 @@ function selectQuestionsForGradeTest(
   }
 
   return {
-    questions: selected,
+    questions: mixQuestionTypes(selected),
     coverageWarnings: warnings.length ? warnings : undefined,
   };
 }

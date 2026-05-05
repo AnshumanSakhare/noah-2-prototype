@@ -89,7 +89,7 @@ CREATE INDEX IF NOT EXISTS diagnostic_assessments_test_mode_submitted_idx
 CREATE TABLE IF NOT EXISTS public.diagnostic_question_results (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   assessment_id uuid NOT NULL REFERENCES public.diagnostic_assessments (id) ON DELETE CASCADE,
-  question_id uuid NOT NULL REFERENCES public.content_questions (id),
+  question_id uuid NOT NULL,
   question_order integer NOT NULL,
   question_text text NOT NULL,
   question_type text NOT NULL,

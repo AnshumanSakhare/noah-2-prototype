@@ -717,8 +717,25 @@ function _getMapAnswerState(
         normalizeAnswerText(expected)
       );
     }).length;
-    if (correctCount === answerKey.length) return "correct";
-    if (correctCount > 0) return "partial";
+    const expectedKeys = new Set(
+      answerKey.map((pair) => pair.prompt ?? pair.item ?? ""),
+    );
+    const expectedTargets = new Set(
+      answerKey.map((pair) =>
+        normalizeAnswerText(pair.match ?? pair.target ?? ""),
+      ),
+    );
+    const extraPlacementCount =
+      question.questionType === "drag_drop"
+        ? Object.entries(answerMap).filter(
+            ([key, target]) =>
+              !expectedKeys.has(key) &&
+              expectedTargets.has(normalizeAnswerText(target)),
+          ).length
+        : 0;
+    if (correctCount === answerKey.length && extraPlacementCount === 0)
+      return "correct";
+    if (correctCount > 0 || extraPlacementCount > 0) return "partial";
     return "incorrect";
   }
 
@@ -1234,17 +1251,24 @@ function TopicBrowseScreen({
 // ─── Topic Start Screen ────────────────────────────────────────────────────────
 function TopicStartScreen({
   form,
+  topicEntries,
+  onSelectTopic,
   onBegin,
   onBack,
   isBusy,
 }: {
   form: CreateSessionInput;
   learningObjectives: string[];
+  topicEntries: DemoQuizCatalogEntry[];
+  onSelectTopic: (entry: DemoQuizCatalogEntry) => void;
   onBegin: () => void;
   onBack: () => void;
   isBusy: boolean;
 }) {
   const estimatedTime = getEstimatedTestTimeLabel();
+  const selectedTopic = topicEntries.some((entry) => entry.topic === form.topic)
+    ? form.topic
+    : (topicEntries[0]?.topic ?? "");
 
   return (
     <div className="mx-auto max-w-[680px] animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1269,6 +1293,29 @@ function TopicStartScreen({
           Answer each question carefully. The test is designed to quickly check
           your current understanding.
         </p>
+
+        <label className="mb-6 block">
+          <span className="mb-2 block font-mono text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">
+            Topic
+          </span>
+          <select
+            value={selectedTopic}
+            onChange={(event) => {
+              const nextEntry = topicEntries.find(
+                (entry) => entry.topic === event.target.value,
+              );
+              if (nextEntry) onSelectTopic(nextEntry);
+            }}
+            disabled={topicEntries.length === 0 || isBusy}
+            className="h-12 w-full appearance-none rounded-[14px] border border-gray-200 bg-[#F8F9FA] px-4 text-[15px] font-semibold text-[#1a1a1a] outline-none transition-all focus:border-[#2EC4B6] focus:bg-white focus:ring-4 focus:ring-[#2EC4B6]/10 disabled:opacity-60"
+          >
+            {topicEntries.map((entry) => (
+              <option key={entry.topic} value={entry.topic}>
+                {entry.topic}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <div className="mb-7 grid gap-3 sm:grid-cols-3">
           {[
@@ -3539,6 +3586,30 @@ export function DiagnosticDemo({
     );
   }, [quizCatalog.entries, selectedGradeClass]);
 
+  const topicEntriesForFormGrade = useMemo(
+    () =>
+      quizCatalog.entries.filter(
+        (entry) => entry.classLevel === form.classLevel,
+      ),
+    [form.classLevel, quizCatalog.entries],
+  );
+
+  const selectTopicEntryForTest = (
+    topicEntry: DemoQuizCatalogEntry,
+    studentId = studentSetup.studentId.trim() || "Student",
+  ) => {
+    setSelectedTopicEntry(topicEntry);
+    setSelectedGradeClass(topicEntry.classLevel);
+    setForm({
+      studentId,
+      testMode: "topic",
+      subject: topicEntry.subject,
+      classLevel: topicEntry.classLevel,
+      topic: topicEntry.topic,
+      maxQuestions: TOPIC_TEST_QUESTION_COUNT,
+    });
+  };
+
   const selectFixedTopicTest = () => {
     const studentId = studentSetup.studentId.trim() || "Student";
     const topicEntry = getCatalogEntryForClass(
@@ -3547,16 +3618,7 @@ export function DiagnosticDemo({
     );
 
     if (topicEntry) {
-      setSelectedTopicEntry(topicEntry);
-      setSelectedGradeClass(topicEntry.classLevel);
-      setForm({
-        studentId,
-        testMode: "topic",
-        subject: topicEntry.subject,
-        classLevel: topicEntry.classLevel,
-        topic: topicEntry.topic,
-        maxQuestions: TOPIC_TEST_QUESTION_COUNT,
-      });
+      selectTopicEntryForTest(topicEntry, studentId);
     }
     setTestMode("topic");
     setAppScreen("topic-start");
@@ -3711,6 +3773,10 @@ export function DiagnosticDemo({
                 selectedTopicEntry?.learningObjectives ??
                 defaultTopicLearningObjectives
               }
+              topicEntries={topicEntriesForFormGrade}
+              onSelectTopic={(entry) => {
+                selectTopicEntryForTest(entry);
+              }}
               onBegin={() => {
                 startQuizRun();
               }}
