@@ -6,6 +6,7 @@ import {
   ChevronRight,
   GraduationCap,
   RotateCcw,
+  Sparkles,
   Star,
   UserRound,
 } from "lucide-react";
@@ -3932,12 +3933,28 @@ export function DiagnosticDemo({
                     disabled={!canSubmitCurrent || isBusy}
                     className="flex items-center gap-2 rounded-full bg-[#F5A623] px-7 py-3 font-bold text-[15px] text-white shadow-sm transition-all hover:bg-[#E0941A] hover:-translate-y-0.5 disabled:opacity-50"
                   >
-                    {isBusy
-                      ? "Saving…"
-                      : currentIndex === quiz.questions.length - 1
-                        ? "Finish Test"
-                        : "Next Question"}
-                    {!isBusy && <ChevronRight className="h-4 w-4" />}
+                    {isBusy ? (
+                      <span className="flex items-center gap-2.5">
+                        <span className="relative flex h-4 w-4 items-center justify-center">
+                          <Sparkles className="h-4 w-4 animate-[ai-pulse_1.4s_ease-in-out_infinite]" />
+                        </span>
+                        <span className="bg-[linear-gradient(90deg,rgba(255,255,255,0.55)_0%,#fff_50%,rgba(255,255,255,0.55)_100%)] bg-[length:200%_100%] bg-clip-text text-transparent animate-[ai-shimmer_1.8s_linear_infinite]">
+                          Analyzing
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="h-1 w-1 rounded-full bg-white animate-[ai-dot_1.2s_ease-in-out_infinite]" />
+                          <span className="h-1 w-1 rounded-full bg-white animate-[ai-dot_1.2s_ease-in-out_0.2s_infinite]" />
+                          <span className="h-1 w-1 rounded-full bg-white animate-[ai-dot_1.2s_ease-in-out_0.4s_infinite]" />
+                        </span>
+                      </span>
+                    ) : (
+                      <>
+                        {currentIndex === quiz.questions.length - 1
+                          ? "Finish Test"
+                          : "Next Question"}
+                        <ChevronRight className="h-4 w-4" />
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
