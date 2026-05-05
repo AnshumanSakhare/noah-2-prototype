@@ -128,6 +128,7 @@ export type QuestionPayload =
 
 export interface QuestionBankQuestion {
   id: string;
+  subject?: Subject;
   slot?: number;
   topic: string;
   subtopic?: string;

@@ -4,8 +4,10 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  GraduationCap,
   RotateCcw,
   Star,
+  UserRound,
 } from "lucide-react";
 import Link from "next/link";
 import type React from "react";
@@ -38,11 +40,17 @@ const OPTION_LABELS = ["A", "B", "C", "D"] as const;
 
 // ─── App navigation ───────────────────────────────────────────────────────────
 type AppScreen =
+  | "student-info"
   | "selector"
   | "topic-browse"
   | "topic-start"
   | "grade-browse"
   | "grade-start";
+
+type StudentSetup = {
+  studentId: string;
+  classLevel: CreateSessionInput["classLevel"];
+};
 
 // ─── Star Rating ──────────────────────────────────────────────────────────────
 function StarRating({
@@ -157,12 +165,23 @@ function getDefaultCatalogEntry(catalog: DemoQuizCatalog) {
   );
 }
 
+function getCatalogEntryForClass(
+  catalog: DemoQuizCatalog,
+  classLevel: CreateSessionInput["classLevel"],
+) {
+  return (
+    catalog.entries.find((entry) => entry.classLevel === classLevel) ??
+    getDefaultCatalogEntry(catalog)
+  );
+}
+
 function buildDefaultForm(
   entry: DemoQuizCatalogEntry | null,
+  studentId = "Riya Sharma",
 ): CreateSessionInput {
   return entry
     ? {
-        studentId: "Riya Sharma",
+        studentId,
         testMode: "topic",
         subject: entry.subject,
         classLevel: entry.classLevel,
@@ -170,7 +189,7 @@ function buildDefaultForm(
         maxQuestions: entry.questionCount,
       }
     : {
-        studentId: "Riya Sharma",
+        studentId,
         testMode: "topic",
         subject: DIAGNOSTIC_CONTENT_DEFAULTS.subject,
         classLevel: DIAGNOSTIC_CONTENT_DEFAULTS.classLevel,
@@ -569,12 +588,99 @@ function AIChatBubble({
 }
 
 // ─── Selector Screen ───────────────────────────────────────────────────────────
+function StudentInfoScreen({
+  setup,
+  classLevels,
+  onChange,
+  onContinue,
+}: {
+  setup: StudentSetup;
+  classLevels: CreateSessionInput["classLevel"][];
+  onChange: (setup: StudentSetup) => void;
+  onContinue: () => void;
+}) {
+  const studentName = setup.studentId.trim();
+
+  return (
+    <div className="mx-auto max-w-[760px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="mb-8 text-center">
+        <h2 className="text-[24px] font-extrabold tracking-tight text-[#1B4A4A] sm:text-[32px]">
+          Student details
+        </h2>
+        <p className="mx-auto mt-2 max-w-[520px] text-[15px] leading-relaxed text-[#6B7280] sm:text-[16px]">
+          Add the student name and grade before choosing the diagnostic test.
+        </p>
+      </div>
+
+      <div className="rounded-[20px] border border-gray-100 bg-white p-5 shadow-sm sm:p-8">
+        <div className="grid gap-5">
+          <label className="block">
+            <span className="mb-2 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-widest text-[#6B7280]">
+              <UserRound className="h-4 w-4 text-[#2EC4B6]" />
+              Student name
+            </span>
+            <input
+              type="text"
+              value={setup.studentId}
+              onChange={(event) =>
+                onChange({ ...setup, studentId: event.target.value })
+              }
+              placeholder="Enter student name"
+              className="h-12 w-full rounded-[14px] border border-gray-200 bg-[#F8F9FA] px-4 text-[16px] font-semibold text-[#1a1a1a] outline-none transition-all placeholder:text-[#9CA3AF] focus:border-[#2EC4B6] focus:bg-white focus:ring-4 focus:ring-[#2EC4B6]/10"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-widest text-[#6B7280]">
+              <GraduationCap className="h-4 w-4 text-[#F5A623]" />
+              Grade
+            </span>
+            <select
+              value={setup.classLevel}
+              onChange={(event) =>
+                onChange({
+                  ...setup,
+                  classLevel: event.target
+                    .value as CreateSessionInput["classLevel"],
+                })
+              }
+              className="h-12 w-full appearance-none rounded-[14px] border border-gray-200 bg-[#F8F9FA] px-4 text-[16px] font-semibold text-[#1a1a1a] outline-none transition-all focus:border-[#F5A623] focus:bg-white focus:ring-4 focus:ring-[#F5A623]/10"
+            >
+              {classLevels.map((classLevel) => {
+                return (
+                  <option key={classLevel} value={classLevel}>
+                    {classLabel(classLevel)}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+        </div>
+
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={studentName.length === 0}
+          className="mt-8 flex w-full items-center justify-center gap-2 rounded-full bg-[#F5A623] py-4 font-bold text-[16px] text-white shadow-[0_6px_20px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50"
+        >
+          Choose your test
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SelectorScreen({
   onSelectTopic,
   onSelectGrade,
+  studentName,
+  classLevel,
 }: {
   onSelectTopic: () => void;
   onSelectGrade: () => void;
+  studentName: string;
+  classLevel: string;
 }) {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -583,8 +689,8 @@ function SelectorScreen({
           Choose your test
         </h2>
         <p className="mx-auto mt-2 max-w-[520px] text-[15px] leading-relaxed text-[#6B7280] sm:text-[16px]">
-          Ready to see how you are doing? Pick the test that fits what you want
-          to check.
+          Ready for {studentName}? Pick a {classLabel(classLevel)} test that
+          fits what you want to check.
         </p>
       </div>
 
@@ -2844,11 +2950,16 @@ export function DiagnosticDemo({
   defaultTopicEntry: DemoQuizCatalogEntry | null;
   defaultTopicLearningObjectives: string[];
 }) {
-  const [appScreen, setAppScreen] = useState<AppScreen>("selector");
+  const initialClassLevel =
+    defaultTopicEntry?.classLevel ?? DIAGNOSTIC_CONTENT_DEFAULTS.classLevel;
+  const [appScreen, setAppScreen] = useState<AppScreen>("student-info");
+  const [studentSetup, setStudentSetup] = useState<StudentSetup>({
+    studentId: "Riya Sharma",
+    classLevel: initialClassLevel,
+  });
   const [testMode, setTestMode] = useState<"topic" | "grade">("topic");
-  const [selectedGradeClass, setSelectedGradeClass] = useState<string>(
-    defaultTopicEntry?.classLevel ?? DIAGNOSTIC_CONTENT_DEFAULTS.classLevel,
-  );
+  const [selectedGradeClass, setSelectedGradeClass] =
+    useState<string>(initialClassLevel);
   const [selectedTopicEntry, setSelectedTopicEntry] =
     useState<DemoQuizCatalogEntry | null>(() => defaultTopicEntry);
   const [toast, setToast] = useState<{
@@ -2858,7 +2969,7 @@ export function DiagnosticDemo({
   } | null>(null);
 
   const [form, setForm] = useState<CreateSessionInput>(() =>
-    buildDefaultForm(defaultTopicEntry),
+    buildDefaultForm(defaultTopicEntry, "Riya Sharma"),
   );
   const [quiz, setQuiz] = useState<DemoLoadedQuiz | null>(null);
   const [report, setReport] = useState<DiagnosticReport | null>(null);
@@ -2880,6 +2991,14 @@ export function DiagnosticDemo({
 
   const currentQuestion = quiz?.questions[currentIndex] ?? null;
   const isBusy = isPending || pendingAction !== null;
+  const classLevels = useMemo(() => {
+    const availableClassLevels = Array.from(
+      new Set(quizCatalog.entries.map((entry) => entry.classLevel)),
+    ).sort();
+    return availableClassLevels.length > 0
+      ? availableClassLevels
+      : [initialClassLevel];
+  }, [initialClassLevel, quizCatalog.entries]);
 
   const quizRef = useRef<DemoLoadedQuiz | null>(quiz);
   const currentIndexRef = useRef(currentIndex);
@@ -3025,6 +3144,18 @@ export function DiagnosticDemo({
     });
   }, [form]);
 
+  const continueFromStudentInfo = () => {
+    const studentId = studentSetup.studentId.trim();
+    if (!studentId) return;
+
+    const entry = getCatalogEntryForClass(quizCatalog, studentSetup.classLevel);
+    setSelectedGradeClass(studentSetup.classLevel);
+    setSelectedTopicEntry(entry);
+    setForm(buildDefaultForm(entry, studentId));
+    setError(null);
+    setAppScreen("selector");
+  };
+
   const resetQuiz = () => {
     setQuiz(null);
     setReport(null);
@@ -3035,12 +3166,10 @@ export function DiagnosticDemo({
     setResponseMeta({});
     setError(null);
     setPendingAction(null);
-    setAppScreen("selector");
+    setAppScreen("student-info");
     setSelectedTopicEntry(defaultTopicEntry);
-    setSelectedGradeClass(
-      defaultTopicEntry?.classLevel ?? DIAGNOSTIC_CONTENT_DEFAULTS.classLevel,
-    );
-    setForm(buildDefaultForm(defaultTopicEntry));
+    setSelectedGradeClass(studentSetup.classLevel);
+    setForm(buildDefaultForm(defaultTopicEntry, studentSetup.studentId.trim()));
   };
 
   const canSubmitCurrent =
@@ -3070,12 +3199,17 @@ export function DiagnosticDemo({
   }, [quizCatalog.entries, selectedGradeClass]);
 
   const selectFixedTopicTest = () => {
-    const topicEntry = defaultTopicEntry ?? getDefaultCatalogEntry(quizCatalog);
+    const studentId = studentSetup.studentId.trim() || "Student";
+    const topicEntry = getCatalogEntryForClass(
+      quizCatalog,
+      studentSetup.classLevel,
+    );
 
     if (topicEntry) {
       setSelectedTopicEntry(topicEntry);
+      setSelectedGradeClass(topicEntry.classLevel);
       setForm({
-        studentId: "Riya Sharma",
+        studentId,
         testMode: "topic",
         subject: topicEntry.subject,
         classLevel: topicEntry.classLevel,
@@ -3088,19 +3222,19 @@ export function DiagnosticDemo({
   };
 
   const selectFixedGradeTest = () => {
-    const gradeClass =
-      defaultTopicEntry?.classLevel ?? DIAGNOSTIC_CONTENT_DEFAULTS.classLevel;
+    const studentId = studentSetup.studentId.trim() || "Student";
+    const gradeClass = studentSetup.classLevel;
     const gradeEntry =
       quizCatalog.entries.find((entry) => entry.classLevel === gradeClass) ??
-      defaultTopicEntry;
+      getDefaultCatalogEntry(quizCatalog);
 
     setSelectedGradeClass(gradeClass);
     if (gradeEntry) {
       setForm({
-        studentId: "Riya Sharma",
+        studentId,
         testMode: "grade",
         subject: gradeEntry.subject,
-        classLevel: gradeEntry.classLevel,
+        classLevel: gradeClass,
         topic: gradeEntry.topic,
         maxQuestions: gradeEntry.questionCount,
       });
@@ -3115,6 +3249,7 @@ export function DiagnosticDemo({
     if (firstEntry) {
       setForm((prev) => ({
         ...prev,
+        studentId: studentSetup.studentId.trim() || prev.studentId,
         classLevel: cl as never,
         subject: firstEntry.subject,
         testMode: "grade",
@@ -3151,7 +3286,14 @@ export function DiagnosticDemo({
             >
               ‹ Back
             </button>
-          ) : appScreen !== "selector" ? (
+          ) : appScreen === "selector" ? (
+            <button
+              onClick={() => setAppScreen("student-info")}
+              className="flex items-center gap-1 text-[14px] text-[#6B7280] transition-colors hover:text-[#1a1a1a]"
+            >
+              â€¹ Back
+            </button>
+          ) : appScreen !== "student-info" ? (
             <button
               onClick={() => setAppScreen("selector")}
               className="flex items-center gap-1 text-[14px] text-[#6B7280] transition-colors hover:text-[#1a1a1a]"
@@ -3175,6 +3317,19 @@ export function DiagnosticDemo({
           </div>
         )}
 
+        {/* Student Info */}
+        {!isQuizActive &&
+          !isSubmitting &&
+          !showResult &&
+          appScreen === "student-info" && (
+            <StudentInfoScreen
+              setup={studentSetup}
+              classLevels={classLevels}
+              onChange={setStudentSetup}
+              onContinue={continueFromStudentInfo}
+            />
+          )}
+
         {/* Selector */}
         {!isQuizActive &&
           !isSubmitting &&
@@ -3183,6 +3338,8 @@ export function DiagnosticDemo({
             <SelectorScreen
               onSelectTopic={selectFixedTopicTest}
               onSelectGrade={selectFixedGradeTest}
+              studentName={studentSetup.studentId.trim() || "Student"}
+              classLevel={studentSetup.classLevel}
             />
           )}
 
