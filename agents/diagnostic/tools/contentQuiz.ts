@@ -6,10 +6,7 @@ import type {
   DemoQuizCatalogEntry,
   DemoQuizQuestion,
 } from "@/lib/demo-types";
-import {
-  getGradeTestPlan,
-  getTopicTestQuestionCount,
-} from "@/lib/quiz-counts";
+import { getGradeTestPlan, getTopicTestQuestionCount } from "@/lib/quiz-counts";
 import type {
   BloomLevel,
   ClassLevel,
@@ -405,6 +402,30 @@ function toQuestions(rows: ContentQuestionRow[]) {
     .map(buildQuestion);
 }
 
+function normalizeStudentName(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function shuffleItems<T>(items: T[]) {
+  const shuffled = [...items];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [
+      shuffled[swapIndex],
+      shuffled[index],
+    ];
+  }
+
+  return shuffled;
+}
+
+function shuffleQuestionQueues(grouped: Map<string, QuestionBankQuestion[]>) {
+  for (const [key, queue] of grouped) {
+    grouped.set(key, shuffleItems(queue));
+  }
+}
+
 async function loadDiagnosticQuizCatalog(): Promise<DemoQuizCatalog> {
   const result = await query(`
     SELECT
@@ -516,7 +537,7 @@ async function loadGradeQuestions(input: {
           generation_metadata,
           row_number() OVER (
             PARTITION BY difficulty_level, topic
-            ORDER BY learning_objective, id
+            ORDER BY random()
           ) AS topic_difficulty_rank
         FROM final_content_questions
         WHERE subject = $1
@@ -549,6 +570,95 @@ async function loadGradeQuestions(input: {
   );
 
   return toQuestions(result.rows as ContentQuestionRow[]);
+}
+
+async function getPreviouslyAnsweredQuestionIds(input: {
+  studentId: string;
+  testMode: "topic" | "grade";
+  subject: Subject;
+  classLevel: ClassLevel;
+  topic?: string | null;
+}) {
+  const normalizedStudentName = normalizeStudentName(input.studentId);
+  if (!normalizedStudentName) return new Set<string>();
+
+  try {
+    const result = await query(
+      `
+        SELECT DISTINCT qr.question_id::text AS question_id
+        FROM public.diagnostic_students s
+        INNER JOIN public.diagnostic_assessments a
+          ON a.student_id = s.id
+        INNER JOIN public.diagnostic_question_results qr
+          ON qr.assessment_id = a.id
+        WHERE s.normalized_name = $1
+          AND s.current_class_level = $2
+          AND a.test_mode = $3
+          AND a.subject = $4
+          AND a.class_level = $2
+          AND ($5::text IS NULL OR a.topic = $5)
+        LIMIT 1000
+      `,
+      [
+        normalizedStudentName,
+        toDbGrade(input.classLevel),
+        input.testMode,
+        input.subject,
+        input.testMode === "topic" && input.topic
+          ? normalizeText(input.topic)
+          : null,
+      ],
+    );
+
+    return new Set(
+      (result.rows as Array<{ question_id: string }>).map(
+        (row) => row.question_id,
+      ),
+    );
+  } catch (error) {
+    console.warn(
+      `[diagnostic] Could not load previous question history: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return new Set<string>();
+  }
+}
+
+function getTopicRequestedQuestionCount(input: {
+  questions: QuestionBankQuestion[];
+  maxQuestions: number;
+}) {
+  const distinctLearningObjectiveCount = new Set(
+    input.questions
+      .map((question) => question.learningObjective)
+      .filter(Boolean),
+  ).size;
+  const learningObjectiveCount =
+    distinctLearningObjectiveCount > 0 ? distinctLearningObjectiveCount : 1;
+  return Math.min(
+    input.maxQuestions > 0
+      ? input.maxQuestions
+      : getTopicTestQuestionCount(learningObjectiveCount),
+    getTopicTestQuestionCount(learningObjectiveCount),
+    input.questions.length,
+  );
+}
+
+function preferUnseenQuestions(input: {
+  questions: QuestionBankQuestion[];
+  seenQuestionIds: Set<string>;
+  requestedCount: number;
+}) {
+  if (input.seenQuestionIds.size === 0) return input.questions;
+
+  const unseenQuestions = input.questions.filter(
+    (question) => !input.seenQuestionIds.has(question.id),
+  );
+
+  return unseenQuestions.length >= input.requestedCount
+    ? unseenQuestions
+    : input.questions;
 }
 
 function sortQuestionsForTopicQuiz(questions: QuestionBankQuestion[]) {
@@ -600,6 +710,10 @@ function buildBandQueues(questions: QuestionBankQuestion[]) {
     objectives.set(objective, queue);
   }
 
+  for (const objectives of grouped.values()) {
+    shuffleQuestionQueues(objectives);
+  }
+
   return grouped;
 }
 
@@ -608,8 +722,10 @@ function takeRoundRobin(
   count: number,
 ) {
   const selected: QuestionBankQuestion[] = [];
-  const objectiveOrder = Array.from(queuesByObjective.keys()).sort(
-    (left, right) => left.localeCompare(right),
+  const objectiveOrder = shuffleItems(
+    Array.from(queuesByObjective.keys()).sort((left, right) =>
+      left.localeCompare(right),
+    ),
   );
   let cursor = 0;
 
@@ -690,6 +806,10 @@ function buildInteractiveQueues(
     grouped.set(key, [...(grouped.get(key) ?? []), question]);
   }
 
+  for (const groupedQuestions of queues.values()) {
+    shuffleQuestionQueues(groupedQuestions);
+  }
+
   return queues;
 }
 
@@ -753,6 +873,24 @@ function hashString(value: string) {
     hash |= 0;
   }
   return Math.abs(hash);
+}
+
+function orderByDifficultyAscending(questions: QuestionBankQuestion[]) {
+  const bandOrder: Record<DifficultyBand, number> = {
+    easy: 0,
+    medium: 1,
+    hard: 2,
+  };
+  return questions
+    .map((question, index) => ({ question, index }))
+    .sort((left, right) => {
+      const bandDiff =
+        bandOrder[normalizeDifficultyBand(left.question.difficultyLevel)] -
+        bandOrder[normalizeDifficultyBand(right.question.difficultyLevel)];
+      if (bandDiff !== 0) return bandDiff;
+      return left.index - right.index;
+    })
+    .map((entry) => entry.question);
 }
 
 function mixQuestionTypes(questions: QuestionBankQuestion[]) {
@@ -830,8 +968,10 @@ function seedQuestionsAcrossObjectives(
     queuesByObjective.set(objective, queue);
   }
 
-  for (const objective of Array.from(queuesByObjective.keys()).sort((a, b) =>
-    a.localeCompare(b),
+  shuffleQuestionQueues(queuesByObjective);
+
+  for (const objective of shuffleItems(
+    Array.from(queuesByObjective.keys()).sort((a, b) => a.localeCompare(b)),
   )) {
     if (selected.length >= count) break;
     const nextQuestion = queuesByObjective.get(objective)?.shift();
@@ -853,8 +993,9 @@ function selectQuestionsAcrossLearningObjectives(
   const learningObjectiveCount =
     distinctLearningObjectiveCount > 0 ? distinctLearningObjectiveCount : 1;
   const targetByBand = learningObjectiveCount;
-  const requestedByLearningObjectives =
-    getTopicTestQuestionCount(learningObjectiveCount);
+  const requestedByLearningObjectives = getTopicTestQuestionCount(
+    learningObjectiveCount,
+  );
   const requestedTotal = Math.min(
     maxQuestions > 0 ? maxQuestions : requestedByLearningObjectives,
     requestedByLearningObjectives,
@@ -888,10 +1029,7 @@ function selectQuestionsAcrossLearningObjectives(
 
   for (const band of ["easy", "medium", "hard"] as const) {
     const requested = Math.min(
-      Math.max(
-        0,
-        targetByBand - countSelectedQuestionsByBand(selected, band),
-      ),
+      Math.max(0, targetByBand - countSelectedQuestionsByBand(selected, band)),
       requestedTotal - selected.length,
     );
     if (requested <= 0) continue;
@@ -949,7 +1087,7 @@ function selectQuestionsAcrossLearningObjectives(
   }
 
   return {
-    questions: mixQuestionTypes(selected),
+    questions: orderByDifficultyAscending(mixQuestionTypes(selected)),
     coverageWarnings: warnings.length > 0 ? warnings : undefined,
   };
 }
@@ -973,6 +1111,10 @@ function buildBandQueuesByTopic(questions: QuestionBankQuestion[]) {
     const topicMap = grouped.get(band);
     if (!topicMap) continue;
     topicMap.set(topic, [...(topicMap.get(topic) ?? []), q]);
+  }
+
+  for (const topicMap of grouped.values()) {
+    shuffleQuestionQueues(topicMap);
   }
 
   return grouped;
@@ -1046,7 +1188,7 @@ function selectQuestionsForGradeTest(
   }
 
   return {
-    questions: mixQuestionTypes(selected),
+    questions: orderByDifficultyAscending(mixQuestionTypes(selected)),
     coverageWarnings: warnings.length ? warnings : undefined,
   };
 }
@@ -1155,13 +1297,84 @@ export async function getDiagnosticQuizCatalog(): Promise<DemoQuizCatalog> {
   return getCatalog();
 }
 
+export async function getQuizQuestionsByIds(input: {
+  questionIds: string[];
+  subject: Subject;
+  classLevel: ClassLevel;
+  topic?: string | null;
+}) {
+  const questionIds = Array.from(new Set(input.questionIds.filter(Boolean)));
+
+  if (questionIds.length === 0) {
+    return {
+      subject: input.subject,
+      classLevel: input.classLevel,
+      topic: input.topic ? normalizeText(input.topic) : null,
+      expectedLearningObjectives: [] as string[],
+      questions: [] as QuestionBankQuestion[],
+      coverageWarnings: ["No submitted question ids were provided."],
+    };
+  }
+
+  const result = await query(
+    `
+      ${CONTENT_QUESTION_SELECT}
+      WHERE id = ANY($1::uuid[])
+        AND subject = $2
+        AND grade = $3
+        AND ($4::text IS NULL OR topic = $4)
+        AND question_text IS NOT NULL
+        AND question_type IS NOT NULL
+        ${QUESTION_VISUAL_MODE_TYPE_FILTER}
+      ORDER BY array_position($1::uuid[], id)
+    `,
+    [
+      questionIds,
+      input.subject,
+      toDbGrade(input.classLevel),
+      input.topic ? normalizeText(input.topic) : null,
+    ],
+  );
+
+  const questionsById = new Map(
+    toQuestions(result.rows as ContentQuestionRow[]).map((question) => [
+      question.id,
+      question,
+    ]),
+  );
+  const questions = questionIds.flatMap((id) => {
+    const question = questionsById.get(id);
+    return question ? [question] : [];
+  });
+  const expectedLearningObjectives = Array.from(
+    new Set(
+      questions.map((question) => question.learningObjective).filter(Boolean),
+    ),
+  ) as string[];
+  const missingCount = questionIds.length - questions.length;
+
+  return {
+    subject: input.subject,
+    classLevel: input.classLevel,
+    topic: input.topic ? normalizeText(input.topic) : null,
+    expectedLearningObjectives,
+    questions,
+    coverageWarnings:
+      missingCount > 0
+        ? [`${missingCount} submitted questions could not be found.`]
+        : undefined,
+  };
+}
+
 export async function getTopicQuizQuestions(input: {
   subject: Subject;
   classLevel: ClassLevel;
   topic: string;
   maxQuestions: number;
+  questions?: QuestionBankQuestion[];
 }) {
-  const matchingQuestions = await loadTopicQuestions(input);
+  const matchingQuestions =
+    input.questions ?? (await loadTopicQuestions(input));
 
   const { questions, coverageWarnings } =
     selectQuestionsAcrossLearningObjectives(
@@ -1200,8 +1413,9 @@ export async function getTopicQuizQuestions(input: {
 export async function getGradeQuizQuestions(input: {
   subject: Subject;
   classLevel: ClassLevel;
+  questions?: QuestionBankQuestion[];
 }) {
-  const gradeQuestions = await loadGradeQuestions(input);
+  const gradeQuestions = input.questions ?? (await loadGradeQuestions(input));
   const { questions, coverageWarnings } = selectQuestionsForGradeTest(
     gradeQuestions,
     input.classLevel,
@@ -1233,7 +1447,25 @@ export async function getTopicQuizForClient(input: {
   topic: string;
   maxQuestions: number;
 }) {
-  const quiz = await getTopicQuizQuestions(input);
+  const matchingQuestions = await loadTopicQuestions(input);
+  const seenQuestionIds = await getPreviouslyAnsweredQuestionIds({
+    studentId: input.studentId,
+    testMode: "topic",
+    subject: input.subject,
+    classLevel: input.classLevel,
+    topic: input.topic,
+  });
+  const quiz = await getTopicQuizQuestions({
+    ...input,
+    questions: preferUnseenQuestions({
+      questions: matchingQuestions,
+      seenQuestionIds,
+      requestedCount: getTopicRequestedQuestionCount({
+        questions: matchingQuestions,
+        maxQuestions: input.maxQuestions,
+      }),
+    }),
+  });
 
   return {
     studentId: input.studentId,
@@ -1252,7 +1484,24 @@ export async function getGradeQuizForClient(input: {
   subject: Subject;
   classLevel: ClassLevel;
 }) {
-  const quiz = await getGradeQuizQuestions(input);
+  const gradeQuestions = await loadGradeQuestions(input);
+  const seenQuestionIds = await getPreviouslyAnsweredQuestionIds({
+    studentId: input.studentId,
+    testMode: "grade",
+    subject: input.subject,
+    classLevel: input.classLevel,
+  });
+  const quiz = await getGradeQuizQuestions({
+    ...input,
+    questions: preferUnseenQuestions({
+      questions: gradeQuestions,
+      seenQuestionIds,
+      requestedCount: Math.min(
+        getGradeTestPlan(input.classLevel).total,
+        gradeQuestions.length,
+      ),
+    }),
+  });
   const targets = getGradeTestPlan(input.classLevel).difficultyTargets;
   const topicsInGrade = Array.from(
     new Set(quiz.questions.map((q) => q.topic).filter(Boolean)),

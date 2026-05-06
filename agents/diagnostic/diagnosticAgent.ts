@@ -2,6 +2,7 @@ import { buildLessonPlan, colorForStatus } from "./core/diagnosticEngine"
 import { getCorrectQuestionPoints } from "./timeScoring"
 import {
   getGradeQuizQuestions,
+  getQuizQuestionsByIds,
   getTopicQuizQuestions,
 } from "./tools/contentQuiz"
 import type {
@@ -1191,17 +1192,24 @@ export async function runDiagnostic(
   const mode = config.testMode === "grade" ? "grade" : "topic"
   const reportTopic = mode === "grade" ? "Grade Test" : config.topic
   const questionBank =
-    mode === "grade"
-      ? await getGradeQuizQuestions({
+    config.questionIds && config.questionIds.length > 0
+      ? await getQuizQuestionsByIds({
+          questionIds: config.questionIds,
           subject: config.subject,
           classLevel: config.classLevel,
+          topic: mode === "topic" ? config.topic : null,
         })
-      : await getTopicQuizQuestions({
-          subject: config.subject,
-          classLevel: config.classLevel,
-          topic: config.topic,
-          maxQuestions: config.maxQuestions,
-        })
+      : mode === "grade"
+        ? await getGradeQuizQuestions({
+            subject: config.subject,
+            classLevel: config.classLevel,
+          })
+        : await getTopicQuizQuestions({
+            subject: config.subject,
+            classLevel: config.classLevel,
+            topic: config.topic,
+            maxQuestions: config.maxQuestions,
+          })
 
   if (questionBank.questions.length === 0) {
     throw new Error(`No quiz questions found for ${reportTopic}.`)

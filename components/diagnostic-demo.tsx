@@ -2,6 +2,7 @@
 
 import {
   AlertCircle,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   GraduationCap,
@@ -1329,23 +1330,29 @@ function TopicStartScreen({
           <span className="mb-2 block font-mono text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">
             Topic
           </span>
-          <select
-            value={selectedTopic}
-            onChange={(event) => {
-              const nextEntry = topicEntries.find(
-                (entry) => entry.topic === event.target.value,
-              );
-              if (nextEntry) onSelectTopic(nextEntry);
-            }}
-            disabled={topicEntries.length === 0 || isBusy}
-            className="h-12 w-full appearance-none rounded-[14px] border border-gray-200 bg-[#F8F9FA] px-4 text-[15px] font-semibold text-[#1a1a1a] outline-none transition-all focus:border-[#2EC4B6] focus:bg-white focus:ring-4 focus:ring-[#2EC4B6]/10 disabled:opacity-60"
-          >
-            {topicEntries.map((entry) => (
-              <option key={entry.topic} value={entry.topic}>
-                {entry.topic}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={selectedTopic}
+              onChange={(event) => {
+                const nextEntry = topicEntries.find(
+                  (entry) => entry.topic === event.target.value,
+                );
+                if (nextEntry) onSelectTopic(nextEntry);
+              }}
+              disabled={topicEntries.length === 0 || isBusy}
+              className="h-12 w-full appearance-none rounded-[14px] border border-gray-200 bg-[#F8F9FA] px-4 pr-11 text-[15px] font-semibold text-[#1a1a1a] outline-none transition-all focus:border-[#2EC4B6] focus:bg-white focus:ring-4 focus:ring-[#2EC4B6]/10 disabled:opacity-60"
+            >
+              {topicEntries.map((entry) => (
+                <option key={entry.topic} value={entry.topic}>
+                  {entry.topic}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]"
+              aria-hidden="true"
+            />
+          </div>
         </label>
 
         <div className="mb-7 grid gap-3 sm:grid-cols-3">

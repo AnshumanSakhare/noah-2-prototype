@@ -45,6 +45,9 @@ export async function POST(request: Request) {
       classLevel: body.classLevel as never,
       topic: body.topic ?? "",
       maxQuestions: Number(body.maxQuestions) || 1,
+      questionIds: (body.answers ?? [])
+        .map((item) => String(item.questionId ?? ""))
+        .filter(Boolean),
       onQuestion: async (question) =>
         answerMap.get(question.id) ?? {
           answer: "",

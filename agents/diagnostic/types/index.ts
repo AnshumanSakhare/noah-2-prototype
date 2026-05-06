@@ -353,6 +353,7 @@ export interface DiagnosticConfig {
   classLevel: ClassLevel;
   topic: string;
   maxQuestions: number;
+  questionIds?: string[];
   onQuestion: (
     question: QuestionBankQuestion,
     questionNumber: number,
