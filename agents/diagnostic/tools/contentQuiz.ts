@@ -43,6 +43,13 @@ type ContentQuestionRow = {
 };
 
 const INTERACTIVE_QUESTION_TYPES = ["fitb", "drag_drop"] as const;
+const MIN_INTERACTIVE_QUESTION_COUNTS: Record<
+  (typeof INTERACTIVE_QUESTION_TYPES)[number],
+  number
+> = {
+  fitb: 2,
+  drag_drop: 1,
+};
 
 declare global {
   // eslint-disable-next-line no-var
@@ -661,6 +668,42 @@ function preferUnseenQuestions(input: {
     : input.questions;
 }
 
+async function loadRecurringTestQuestions(input: {
+  subject: Subject;
+  classLevel: ClassLevel;
+  failedTopics: string[];
+  failedLOs: string[];
+  excludedQuestionIds: string[];
+}) {
+  if (input.failedTopics.length === 0 && input.failedLOs.length === 0) return [];
+
+  const result = await query(
+    `
+      ${CONTENT_QUESTION_SELECT}
+      WHERE subject = $1
+        AND grade = $2
+        AND (
+          topic = ANY($3::text[])
+          OR learning_objective = ANY($5::text[])
+        )
+        AND id::text != ALL($4::text[])
+        AND question_text IS NOT NULL
+        AND question_type IS NOT NULL
+        ${QUESTION_VISUAL_MODE_TYPE_FILTER}
+      ORDER BY topic, learning_objective, difficulty_level, id
+    `,
+    [
+      input.subject,
+      toDbGrade(input.classLevel),
+      input.failedTopics,
+      input.excludedQuestionIds,
+      input.failedLOs,
+    ],
+  );
+
+  return toQuestions(result.rows as ContentQuestionRow[]);
+}
+
 function sortQuestionsForTopicQuiz(questions: QuestionBankQuestion[]) {
   const difficultyOrder: Record<DifficultyBand, number> = {
     easy: 0,
@@ -771,7 +814,13 @@ function countSelectedQuestionsByBand(
 }
 
 function getInteractiveQuestionTarget(totalQuestions: number) {
-  return Math.floor(totalQuestions / 3);
+  const minimumInteractiveQuestions = Object.values(
+    MIN_INTERACTIVE_QUESTION_COUNTS,
+  ).reduce((sum, count) => sum + count, 0);
+  return Math.min(
+    totalQuestions,
+    Math.max(minimumInteractiveQuestions, Math.floor(totalQuestions / 3)),
+  );
 }
 
 function isInteractiveQuestion(question: QuestionBankQuestion) {
@@ -829,6 +878,19 @@ function takeInteractiveQuestions(
 ) {
   const selected: QuestionBankQuestion[] = [];
   const queues = buildInteractiveQueues(questions, groupKey);
+
+  for (const questionType of INTERACTIVE_QUESTION_TYPES) {
+    const requestedForType = Math.min(
+      MIN_INTERACTIVE_QUESTION_COUNTS[questionType],
+      requestedCount - selected.length,
+    );
+    if (requestedForType <= 0) break;
+
+    selected.push(
+      ...takeRoundRobin(queues.get(questionType) ?? new Map(), requestedForType),
+    );
+  }
+
   let cursor = 0;
 
   while (selected.length < requestedCount) {
@@ -849,6 +911,35 @@ function takeInteractiveQuestions(
   }
 
   return selected;
+}
+
+function countQuestionsByType(
+  questions: QuestionBankQuestion[],
+  questionType: (typeof INTERACTIVE_QUESTION_TYPES)[number],
+) {
+  return questions.filter((question) => question.questionType === questionType)
+    .length;
+}
+
+function addInteractiveQuestionCoverageWarnings(input: {
+  selected: QuestionBankQuestion[];
+  available: QuestionBankQuestion[];
+  warnings: string[];
+}) {
+  for (const questionType of INTERACTIVE_QUESTION_TYPES) {
+    const availableCount = countQuestionsByType(input.available, questionType);
+    const selectedCount = countQuestionsByType(input.selected, questionType);
+    const requestedCount = Math.min(
+      MIN_INTERACTIVE_QUESTION_COUNTS[questionType],
+      availableCount,
+    );
+
+    if (selectedCount < requestedCount) {
+      input.warnings.push(
+        `Requested ${requestedCount} ${questionType} questions but only selected ${selectedCount}.`,
+      );
+    }
+  }
 }
 
 function getFillQuestionsAfterInteractiveQuota(
@@ -1013,12 +1104,11 @@ function selectQuestionsAcrossLearningObjectives(
     ),
   );
 
-  if (selected.length < getInteractiveQuestionTarget(requestedTotal)) {
+  if (selected.length < interactiveTarget) {
     warnings.push(
-      `Requested ${getInteractiveQuestionTarget(requestedTotal)} fitb/drag_drop questions but only found ${selected.length}.`,
+      `Requested ${interactiveTarget} fitb/drag_drop questions but only found ${selected.length}.`,
     );
   }
-
   const selectedIds = new Set(selected.map((question) => question.id));
   const fillQuestions = getFillQuestionsAfterInteractiveQuota(
     questions,
@@ -1085,6 +1175,11 @@ function selectQuestionsAcrossLearningObjectives(
       `Only ${selected.length} questions were available for the topic after balancing difficulty and learning objective coverage.`,
     );
   }
+  addInteractiveQuestionCoverageWarnings({
+    selected,
+    available: questions,
+    warnings,
+  });
 
   return {
     questions: orderByDifficultyAscending(mixQuestionTypes(selected)),
@@ -1141,12 +1236,11 @@ function selectQuestionsForGradeTest(
     ),
   );
 
-  if (selected.length < getInteractiveQuestionTarget(total)) {
+  if (selected.length < interactiveTarget) {
     warnings.push(
-      `Requested ${getInteractiveQuestionTarget(total)} fitb/drag_drop questions but only found ${selected.length}.`,
+      `Requested ${interactiveTarget} fitb/drag_drop questions but only found ${selected.length}.`,
     );
   }
-
   const selectedIds = new Set(selected.map((question) => question.id));
   const fillQuestions = getFillQuestionsAfterInteractiveQuota(
     questions,
@@ -1186,6 +1280,11 @@ function selectQuestionsForGradeTest(
       `Only ${selected.length} of ${total} grade test questions available.`,
     );
   }
+  addInteractiveQuestionCoverageWarnings({
+    selected,
+    available: questions,
+    warnings,
+  });
 
   return {
     questions: orderByDifficultyAscending(mixQuestionTypes(selected)),
@@ -1519,5 +1618,72 @@ export async function getGradeQuizForClient(input: {
     gradeTargets: targets,
     questions: quiz.questions.map(toClientQuizQuestion),
     coverageWarnings: quiz.coverageWarnings,
+  };
+}
+
+/** Scale target question count based on number of failed topics (8–16). */
+function recurringTestQuestionCount(failedTopicCount: number): number {
+  if (failedTopicCount <= 1) return 8;
+  if (failedTopicCount === 2) return 10;
+  if (failedTopicCount === 3) return 12;
+  if (failedTopicCount === 4) return 14;
+  return 16;
+}
+
+function selectQuestionsForRecurringTest(
+  questions: QuestionBankQuestion[],
+  targetCount: number,
+) {
+  const selected = takeInteractiveQuestions(
+    questions,
+    Math.min(getInteractiveQuestionTarget(targetCount), questions.length),
+    (question) => question.topic || "Untitled",
+  );
+  const selectedIds = new Set(selected.map((question) => question.id));
+  const byTopic = new Map<string, QuestionBankQuestion[]>();
+
+  for (const question of sortQuestionsForTopicQuiz(questions)) {
+    if (selectedIds.has(question.id)) continue;
+
+    const key = question.topic || "Untitled";
+    byTopic.set(key, [...(byTopic.get(key) ?? []), question]);
+  }
+
+  selected.push(...takeRoundRobin(byTopic, targetCount - selected.length));
+
+  return selected;
+}
+
+export async function getRecurringTestForClient(input: {
+  studentId: string;
+  subject: Subject;
+  classLevel: ClassLevel;
+  failedTopics: string[];
+  failedLOs: string[];
+  excludedQuestionIds: string[];
+}) {
+  const targetCount = recurringTestQuestionCount(input.failedTopics.length);
+
+  // Load fresh candidate questions from failed topics only, excluding seen IDs
+  const candidates = await loadRecurringTestQuestions({
+    subject: input.subject,
+    classLevel: input.classLevel,
+    failedTopics: input.failedTopics,
+    failedLOs: input.failedLOs,
+    excludedQuestionIds: input.excludedQuestionIds,
+  });
+
+  const selected = selectQuestionsForRecurringTest(candidates, targetCount);
+  const mixed = mixQuestionTypes(selected);
+
+  return {
+    studentId: input.studentId,
+    testMode: "recurring" as const,
+    subject: input.subject,
+    classLevel: input.classLevel,
+    failedTopics: input.failedTopics,
+    targetQuestionCount: targetCount,
+    maxQuestions: mixed.length,
+    questions: mixed.map(toClientQuizQuestion),
   };
 }

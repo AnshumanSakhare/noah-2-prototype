@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type React from "react";
+import { MultiStageLoadingScreen } from "./loading-screen";
 import {
   useCallback,
   useEffect,
@@ -830,6 +831,26 @@ async function loadQuiz(input: CreateSessionInput) {
   return data.quiz;
 }
 
+async function loadRecurringQuiz(assessmentId: string, studentId: string) {
+  const response = await fetch("/api/quiz/recurring", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ assessmentId, studentId }),
+  });
+  const data = (await response.json()) as {
+    quiz: DemoLoadedQuiz;
+    parentAssessmentId: string;
+    error?: string;
+  };
+  if (!response.ok || !data.quiz)
+    throw new Error(data.error ?? "Unable to load recurring test.");
+
+  return {
+    ...data.quiz,
+    parentAssessmentId: data.parentAssessmentId,
+  };
+}
+
 async function submitQuiz(
   quiz: DemoLoadedQuiz,
   answers: Record<string, string>,
@@ -848,6 +869,8 @@ async function submitQuiz(
       classLevel: quiz.classLevel,
       topic: quiz.topic,
       maxQuestions: quiz.maxQuestions,
+      parentAssessmentId: quiz.parentAssessmentId,
+      questions: quiz.questions, // Send full questions for re-evaluation
       answers: quiz.questions.map((question) => ({
         questionId: question.id,
         answer: answers[question.id] ?? "",
@@ -862,7 +885,12 @@ async function submitQuiz(
   };
   if (!response.ok || !("report" in data))
     throw new Error(data.error ?? "Unable to submit quiz.");
-  return data.report;
+  
+  // Attach the server-generated assessmentId to the report so UI can use it
+  return {
+    ...data.report,
+    assessmentId: data.assessmentId
+  };
 }
 
 // ─── AI Tutor Chat Bubble ─────────────────────────────────────────────────────
@@ -1965,9 +1993,13 @@ function QuestionInput({
 function MascotReportV2({
   report,
   onReset,
+  onRecurring,
+  isBusy = false,
 }: {
   report: DiagnosticReport;
   onReset: () => void;
+  onRecurring: (assessmentId: string) => void;
+  isBusy?: boolean;
 }) {
   const studentName = getStudentDisplayName(report.studentId);
   const firstName = studentName.split(" ")[0];
@@ -2125,11 +2157,17 @@ function MascotReportV2({
       <div className="mb-2 flex flex-wrap items-center justify-between gap-1 px-1 text-[11px] text-[#888]">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-[#555] truncate max-w-[180px] sm:max-w-none">
-            {report.topic} · {classLabel(report.classLevel ?? "class6")}
+            {report.mode === "recurring" ? "Recurring Test" : report.topic} ·{" "}
+            {classLabel(report.classLevel ?? "class6")}
           </span>
           <span className="rounded-full bg-[#F5A623] px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-white shrink-0">
-            Diagnostic
+            {report.mode === "recurring" ? "Remediation" : "Diagnostic"}
           </span>
+          {report.mode === "recurring" && (
+            <span className="rounded-full bg-[#2EC4B6] px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-white shrink-0">
+              Recurring Test Result
+            </span>
+          )}
         </div>
         <span>{firstName} · Today</span>
       </div>
@@ -2405,13 +2443,44 @@ function MascotReportV2({
         </div>
       </div>
 
-      <div className="mt-8 flex justify-center">
-        <button
-          onClick={onReset}
-          className="flex items-center gap-2 rounded-full bg-[#F5A623] px-10 py-4 text-[16px] font-bold text-white shadow-[0_8px_24px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-1 hover:shadow-[0_12px_36px_rgba(245,166,35,0.40)]"
-        >
-          <RotateCcw className="h-4 w-4" /> Take Another Test
-        </button>
+      <div className="mt-8 flex flex-col items-center gap-4">
+        {roundedScore < 60 && (
+          <div className="w-full max-w-[480px] rounded-[22px] bg-[#FFF8E7] p-5 border border-[#F5A623]/20 shadow-sm">
+            {weakLOs.length > 0 && (
+              <div className="mb-4 text-center">
+                <div className="mb-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#D48600]">
+                  Focus Areas for Practice
+                </div>
+                <div className="flex flex-wrap justify-center gap-1.5">
+                  {weakLOs.slice(0, 6).map((lo) => (
+                    <span
+                      key={lo.learningObjective}
+                      className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-[#1B4A4A] shadow-sm ring-1 ring-[#F5A623]/10"
+                    >
+                      {formatLearningObjectiveLabel(lo.learningObjective)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex justify-center">
+              <button
+                onClick={() => {
+                  const assessmentId =
+                    (report as any).id || (report as any).assessmentId;
+                  if (assessmentId) onRecurring(assessmentId);
+                }}
+                disabled={isBusy}
+                className="z-999 flex items-center justify-center gap-2 rounded-full border-2 border-[#F5A623] px-6 py-2.5 text-[13px] font-bold text-[#F5A623] transition-all hover:bg-[#F5A623]/5 hover:-translate-y-0.5 disabled:opacity-50"
+              >
+                {isBusy ? "Preparing..." : "🔁 Start Recurring Test"}
+              </button>
+            </div>
+          </div>
+        )}
+      <div className="mt-8 flex flex-col items-center gap-4">
+        {/* Removed Take Another Test button from here */}
+      </div>
       </div>
     </div>
   );
@@ -2421,9 +2490,13 @@ function MascotReportV2({
 function ReportView({
   report,
   onReset,
+  onRecurring,
+  isBusy = false,
 }: {
   report: DiagnosticReport;
   onReset: () => void;
+  onRecurring: (assessmentId: string) => void;
+  isBusy?: boolean;
 }) {
   const [showMethodology, setShowMethodology] = useState(false);
   const [selectedReviewQuestionId, setSelectedReviewQuestionId] = useState<
@@ -2645,110 +2718,121 @@ function ReportView({
           {hero.greeting}
         </div>
         <div className="hero-subtitle text-[1.05rem] font-semibold text-[#5a5a72] mb-6 max-w-[600px] mx-auto leading-relaxed">
-          {hero.subtitle}
+          {report.mode === "recurring" ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="rounded-full bg-[#2EC4B6]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-widest text-[#2EC4B6] ring-1 ring-[#2EC4B6]/20">
+                Recurring Test Result
+              </span>
+            </span>
+          ) : (
+            hero.subtitle
+          )}
         </div>
 
-        <div className="flex items-center justify-center gap-6 mb-5 flex-wrap sm:gap-11">
-          <div className="v1-rocket-launchpad">
-            <div className="v1-rocket-track">
-              {[25, 50, 75, 100].map((m) => (
+        <div className="flex flex-col items-center justify-center p-8 sm:p-12 mb-6">
+          {/* Left Column: Rocket + Score */}
+          <div className="flex items-center justify-center gap-6 sm:gap-11 w-full">
+            <div className="v1-rocket-launchpad">
+              <div className="v1-rocket-track">
+                {[25, 50, 75, 100].map((m) => (
+                  <div
+                    key={m}
+                    className="v1-rocket-marker"
+                    style={{ bottom: `${m}%` }}
+                  >
+                    <span className="v1-rocket-marker-label">
+                      {m}
+                      {m === 100 ? "" : "%"}
+                    </span>
+                  </div>
+                ))}
                 <div
-                  key={m}
-                  className="v1-rocket-marker"
-                  style={{ bottom: `${m}%` }}
-                >
-                  <span className="v1-rocket-marker-label">
-                    {m}
-                    {m === 100 ? "" : "%"}
-                  </span>
-                </div>
-              ))}
-              <div
-                className="v1-rocket-track-fill"
-                style={{
-                  height: `${rocketBottom}%`,
-                  background: `linear-gradient(to top, ${accentColor}, ${accentColor}44)`,
-                }}
-              />
-            </div>
-            <svg
-              className="v1-rocket-ship"
-              style={{ bottom: `${(rocketBottom / 100) * 200}px` }}
-              width="40"
-              height="56"
-              viewBox="0 0 40 56"
-            >
-              <defs>
-                <linearGradient id="bodyGradV1" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#e8e4dc" />
-                  <stop offset="100%" stopColor="#d4d0c8" />
-                </linearGradient>
-              </defs>
-              <path d="M8,40 L4,52 L14,44 Z" fill={accentColor} opacity=".8" />
-              <path
-                d="M32,40 L36,52 L26,44 Z"
-                fill={accentColor}
-                opacity=".8"
-              />
-              <rect
-                x="12"
-                y="14"
-                width="16"
-                height="32"
-                rx="3"
-                fill="url(#bodyGradV1)"
-                stroke="#c4bfb4"
-                strokeWidth="1"
-              />
-              <path d="M12,14 Q12,2 20,0 Q28,2 28,14 Z" fill={accentColor} />
-              <circle
-                cx="20"
-                cy="24"
-                r="4.5"
-                fill="#F5A623"
-                stroke="#E0941A"
-                strokeWidth="1"
-              />
-              <circle
-                cx="18.5"
-                cy="22.5"
-                r="1.2"
-                fill="rgba(255,255,255,0.5)"
-              />
-            </svg>
-            <div className="absolute inset-0 pointer-events-none overflow-hidden">
-              {Array.from({
-                length: Math.max(3, Math.floor(roundedScore / 10)),
-              }).map((_, i) => (
-                <div
-                  key={i}
-                  className="absolute rounded-full bg-[#ffc53d] opacity-0"
+                  className="v1-rocket-track-fill"
                   style={{
-                    width: `${Math.random() * 3 + 2}px`,
-                    height: `${Math.random() * 3 + 2}px`,
-                    left: `${Math.random() * 100}%`,
-                    top: `${Math.random() * 70}%`,
-                    animation: `starTwinkle 1.5s ease both ${Math.random() * 1.2 + 0.6}s`,
+                    height: `${rocketBottom}%`,
+                    background: `linear-gradient(to top, ${accentColor}, ${accentColor}44)`,
                   }}
                 />
-              ))}
+              </div>
+              <svg
+                className="v1-rocket-ship"
+                style={{ bottom: `${(rocketBottom / 100) * 200}px` }}
+                width="40"
+                height="56"
+                viewBox="0 0 40 56"
+              >
+                <defs>
+                  <linearGradient id="bodyGradV1" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#e8e4dc" />
+                    <stop offset="100%" stopColor="#d4d0c8" />
+                  </linearGradient>
+                </defs>
+                <path d="M8,40 L4,52 L14,44 Z" fill={accentColor} opacity=".8" />
+                <path
+                  d="M32,40 L36,52 L26,44 Z"
+                  fill={accentColor}
+                  opacity=".8"
+                />
+                <rect
+                  x="12"
+                  y="14"
+                  width="16"
+                  height="32"
+                  rx="3"
+                  fill="url(#bodyGradV1)"
+                  stroke="#c4bfb4"
+                  strokeWidth="1"
+                />
+                <path d="M12,14 Q12,2 20,0 Q28,2 28,14 Z" fill={accentColor} />
+                <circle
+                  cx="20"
+                  cy="24"
+                  r="4.5"
+                  fill="#F5A623"
+                  stroke="#E0941A"
+                  strokeWidth="1"
+                />
+                <circle
+                  cx="18.5"
+                  cy="22.5"
+                  r="1.2"
+                  fill="rgba(255,255,255,0.5)"
+                />
+              </svg>
+              <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                {Array.from({
+                  length: Math.max(3, Math.floor(roundedScore / 10)),
+                }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="absolute rounded-full bg-[#ffc53d] opacity-0"
+                    style={{
+                      width: `${Math.random() * 3 + 2}px`,
+                      height: `${Math.random() * 3 + 2}px`,
+                      left: `${Math.random() * 100}%`,
+                      top: `${Math.random() * 70}%`,
+                      animation: `starTwinkle 1.5s ease both ${Math.random() * 1.2 + 0.6}s`,
+                    }}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-          <div className="text-left">
-            <div
-              className="font-extrabold text-[4rem] leading-none tracking-tighter"
-              style={{ color: accentColor }}
-            >
-              {countPct}
-            </div>
-            <div className="font-mono text-[1.1rem] text-[#9a9ab0] font-bold mt-1">
-              / 100
-            </div>
-            <div className="mt-2">
-              <StarRating filled={starCount} size={20} />
-            </div>
-            <div className="text-[0.72rem] text-[#9a9ab0] font-semibold mt-2">
-              {hero.altitude}
+            <div className="text-left">
+              <div
+                className="font-extrabold text-[4.5rem] leading-none tracking-tighter"
+                style={{ color: accentColor }}
+              >
+                {countPct}
+              </div>
+              <div className="font-mono text-[1.2rem] text-[#9a9ab0] font-bold mt-1">
+                / 100
+              </div>
+              <div className="mt-3">
+                <StarRating filled={starCount} size={24} />
+              </div>
+              <div className="text-[0.75rem] text-[#9a9ab0] font-semibold mt-3">
+                {hero.altitude}
+              </div>
             </div>
           </div>
         </div>
@@ -2768,6 +2852,10 @@ function ReportView({
             </span>
           ))}
         </div>
+      </div>
+
+      <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+        {/* Removed Run New Diagnostic button from here */}
       </div>
 
       <div className="v1-kpi-strip">
@@ -2993,6 +3081,62 @@ function ReportView({
       )}
 
       <div className="rounded-[18px] border border-[#F5DDD0] bg-[linear-gradient(135deg,#FFF8F2_0%,#FDF0E8_100%)] p-5 shadow-[0_2px_20px_rgba(26,26,46,0.04)] sm:p-8">
+        {/* Needs Practice + Recurring Button Section */}
+        {roundedScore < 60 && (
+          <div className="mb-10 w-full rounded-[24px] bg-white/70 p-7 border-2 border-[#F5A623]/20 shadow-sm transition-all">
+            <div className="flex flex-col items-center text-center">
+              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#f46853]/10 text-[#f46853]">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <h3 className="text-[1.1rem] font-extrabold text-[#1B4A4A]">
+                Focus Area: Improving your score
+              </h3>
+              <p className="mt-2 max-w-[500px] text-[0.92rem] font-medium leading-relaxed text-[#111827]">
+                Based on your results, you can significantly boost your performance by focusing on these specific topics:
+              </p>
+            </div>
+
+            {sortedLearningObjectives.filter((lo) => lo.score < 60).length > 0 && (
+              <div className="my-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {sortedLearningObjectives
+                  .filter((lo) => lo.score < 60)
+                  .slice(0, 6)
+                  .map((lo) => (
+                    <div
+                      key={lo.learningObjective}
+                      className="flex items-center gap-3 rounded-[14px] bg-white p-3.5 border border-[#F5A623]/20 shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all hover:border-[#F5A623]/40"
+                    >
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F5A623]/10 text-[#F5A623]">
+                        <span className="text-[10px] font-bold">🎯</span>
+                      </div>
+                      <span className="text-[14px] font-bold text-[#1B4A4A] leading-tight text-left">
+                        {formatLearningObjectiveLabel(lo.learningObjective)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            <div className="mt-8 flex flex-col items-center border-t border-dashed border-[#F5A623]/20 pt-8">
+              <p className="mb-5 text-center text-[0.92rem] font-bold text-[#111827]">
+                Ready to improve? Take a targeted practice test on these topics.
+              </p>
+              <button
+                onClick={() => {
+                  const assessmentId = (report as any).id || (report as any).assessmentId;
+                  if (assessmentId) onRecurring(assessmentId);
+                }}
+                disabled={isBusy}
+                className="group relative flex min-w-[280px] items-center justify-center gap-3 rounded-full bg-[#F5A623] px-10 py-4 text-[16px] font-bold text-white shadow-[0_8px_24px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-1 hover:shadow-[0_12px_36px_rgba(245,166,35,0.40)] disabled:opacity-50"
+              >
+                <RotateCcw className="h-5 w-5 transition-transform group-hover:rotate-45" />
+                {isBusy ? "Preparing..." : "Start Improvement Test"}
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="mb-5 text-[1.1rem] font-extrabold text-[#1B4A4A] sm:text-[1.2rem]">
           What went well &amp; what to work on next
         </div>
@@ -3280,10 +3424,10 @@ function ReportView({
         </div>
       </div>
 
-      <div className="mt-6 flex justify-center">
+      <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
         <button
           onClick={onReset}
-          className="flex items-center gap-2 rounded-full bg-[#F5A623] px-10 py-4 text-[16px] font-bold text-white shadow-[0_8px_24px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-1 hover:shadow-[0_12px_36px_rgba(245,166,35,0.40)]"
+          className="flex min-w-[240px] items-center justify-center gap-2 rounded-full bg-[#F5A623] px-10 py-4 text-[16px] font-bold text-white shadow-[0_8px_24px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-1 hover:shadow-[0_12px_36px_rgba(245,166,35,0.40)]"
         >
           <RotateCcw className="h-4 w-4" /> Run New Diagnostic
         </button>
@@ -3366,11 +3510,22 @@ function ReportView({
 function ResultTabs({
   report,
   onReset,
+  onRecurring,
+  isBusy = false,
 }: {
   report: DiagnosticReport;
   onReset: () => void;
+  onRecurring: (assessmentId: string) => void;
+  isBusy?: boolean;
 }) {
-  return <ReportView report={report} onReset={onReset} />;
+  return (
+    <ReportView
+      report={report}
+      onReset={onReset}
+      onRecurring={onRecurring}
+      isBusy={isBusy}
+    />
+  );
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
@@ -3424,6 +3579,7 @@ export function DiagnosticDemo({
 
   const currentQuestion = quiz?.questions[currentIndex] ?? null;
   const isBusy = isPending || pendingAction !== null;
+  const isSubmitting = pendingAction === "submit";
   const classLevels = useMemo(() => {
     const availableClassLevels = Array.from(
       new Set(quizCatalog.entries.map((entry) => entry.classLevel)),
@@ -3478,9 +3634,9 @@ export function DiagnosticDemo({
           );
           setReport(finalReport);
           setQuiz(null);
+          setPendingAction(null);
         } catch (err) {
           setError(toErrorMessage(err));
-        } finally {
           setPendingAction(null);
         }
       })();
@@ -3576,6 +3732,37 @@ export function DiagnosticDemo({
       })();
     });
   }, [form]);
+
+  const startRecurringTest = useCallback(
+    (assessmentId: string) => {
+      setPendingAction("load");
+      startTransition(() => {
+        void (async () => {
+          try {
+            setError(null);
+            const studentId = studentSetup.studentId.trim() || "Student";
+            const recurringQuiz = await loadRecurringQuiz(
+              assessmentId,
+              studentId,
+            );
+            setQuiz(recurringQuiz);
+            setTestMode("recurring" as any);
+            setReport(null);
+            setCurrentIndex(0);
+            setAnswers({});
+            setQuestionElapsedMs(0);
+            setResponseMeta({});
+            setCurrentAnswer("");
+          } catch (err) {
+            setError(toErrorMessage(err));
+          } finally {
+            setPendingAction(null);
+          }
+        })();
+      });
+    },
+    [studentSetup.studentId],
+  );
 
   const continueFromStudentInfo = () => {
     const studentId = studentSetup.studentId.trim();
@@ -3711,7 +3898,6 @@ export function DiagnosticDemo({
   };
 
   const isQuizActive = !!quiz && !!currentQuestion;
-  const isSubmitting = pendingAction === "submit";
   const showResult = !!report;
 
   return (
@@ -3960,7 +4146,7 @@ export function DiagnosticDemo({
                     </div>
                   )}
 
-                  <h3 className="text-[17px] font-semibold leading-[1.5] text-[#1a1a1a]">
+                  <h3 className="text-[17px] font-semibold leading-normal text-[#1a1a1a]">
                     {currentQuestion.question}
                   </h3>
                   </div>
@@ -4010,7 +4196,7 @@ export function DiagnosticDemo({
 
               {/* Sidebar */}
               <aside>
-                <div className="rounded-[16px] border border-[rgba(0,0,0,0.08)] bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-[rgba(0,0,0,0.08)] bg-white p-5 shadow-sm">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <h4 className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#6B7280]">
                       Question Map
@@ -4036,7 +4222,7 @@ export function DiagnosticDemo({
                       return (
                         <div
                           key={q.id}
-                          className={`flex aspect-square items-center justify-center rounded-[8px] border-2 font-mono text-[11px] font-bold transition-all ${
+                          className={`flex aspect-square items-center justify-center rounded-xl border-2 font-mono text-[11px] font-bold transition-all ${
                             isActive
                               ? `${isAnswered ? mapTileClass : "border-[#F5A623] bg-white text-[#1B4A4A]"} shadow-[0_0_0_3px_rgba(245,166,35,0.20)]`
                               : mapTileClass
@@ -4068,21 +4254,16 @@ export function DiagnosticDemo({
         )}
 
         {/* Submitting */}
-        {isSubmitting && (
-          <div className="flex flex-col items-center justify-center py-32 text-center">
-            <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[#FFF8E7] border-t-[#F5A623]" />
-            <div className="font-bold text-[18px] text-[#1a1a1a]">
-              Analysing your results…
-            </div>
-            <div className="mt-1 text-[14px] text-[#6B7280]">
-              This will only take a moment
-            </div>
-          </div>
-        )}
+        {isSubmitting && <MultiStageLoadingScreen onBack={resetQuiz} />}
 
         {/* Result */}
         {showResult && report && (
-          <ResultTabs report={report} onReset={resetQuiz} />
+          <ResultTabs
+            report={report}
+            onReset={resetQuiz}
+            onRecurring={startRecurringTest}
+            isBusy={isBusy}
+          />
         )}
       </div>
 
