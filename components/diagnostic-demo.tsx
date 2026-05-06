@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type React from "react";
+import { MultiStageLoadingScreen } from "./loading-screen";
 import {
   useCallback,
   useEffect,
@@ -2684,9 +2685,9 @@ function ReportView({
           )}
         </div>
 
-        <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 mb-8">
+        <div className="flex flex-col items-center justify-center p-8 sm:p-12 mb-6">
           {/* Left Column: Rocket + Score */}
-          <div className="flex items-center justify-center gap-6 sm:gap-11">
+          <div className="flex items-center justify-center gap-6 sm:gap-11 w-full">
             <div className="v1-rocket-launchpad">
               <div className="v1-rocket-track">
                 {[25, 50, 75, 100].map((m) => (
@@ -2790,44 +2791,6 @@ function ReportView({
               </div>
             </div>
           </div>
-
-          {/* Right Column: Needs Practice + Recurring Button */}
-          {roundedScore < 60 && (
-            <div className="w-full max-w-[420px] rounded-[22px] bg-[#FFF8E7] p-6 border border-[#F5A623]/20 shadow-sm transition-all animate-in fade-in slide-in-from-right-4 duration-700">
-              {sortedLearningObjectives.filter((lo) => lo.score < 60).length > 0 && (
-                <div className="mb-5 text-center">
-                  <div className="mb-4 font-mono text-[10px] font-bold uppercase tracking-widest text-[#D48600]">
-                    Needs Practice
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {sortedLearningObjectives
-                      .filter((lo) => lo.score < 60)
-                      .slice(0, 6)
-                      .map((lo) => (
-                        <span
-                          key={lo.learningObjective}
-                          className="rounded-full bg-white px-3.5 py-1.5 text-[11px] font-bold text-[#1B4A4A] shadow-sm ring-1 ring-[#F5A623]/10"
-                        >
-                          {formatLearningObjectiveLabel(lo.learningObjective)}
-                        </span>
-                      ))}
-                  </div>
-                </div>
-              )}
-              <div className="flex justify-center">
-                <button
-                  onClick={() => {
-                    const assessmentId = report.id || (report as any).assessmentId;
-                    if (assessmentId) onRecurring(assessmentId);
-                  }}
-                  disabled={isBusy}
-                  className="z-999 flex items-center justify-center gap-2 rounded-full border-2 border-[#F5A623] px-8 py-3 text-[14px] font-bold text-[#F5A623] transition-all hover:bg-[#F5A623]/5 hover:-translate-y-1 disabled:opacity-50"
-                >
-                  {isBusy ? "Preparing..." : "🔁 Start Recurring Test"}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="flex justify-center gap-3 flex-wrap">
@@ -3074,6 +3037,62 @@ function ReportView({
       )}
 
       <div className="rounded-[18px] border border-[#F5DDD0] bg-[linear-gradient(135deg,#FFF8F2_0%,#FDF0E8_100%)] p-5 shadow-[0_2px_20px_rgba(26,26,46,0.04)] sm:p-8">
+        {/* Needs Practice + Recurring Button Section */}
+        {roundedScore < 60 && (
+          <div className="mb-10 w-full rounded-[24px] bg-white/70 p-7 border-2 border-[#F5A623]/20 shadow-sm transition-all">
+            <div className="flex flex-col items-center text-center">
+              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#f46853]/10 text-[#f46853]">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <h3 className="text-[1.1rem] font-extrabold text-[#1B4A4A]">
+                Focus Area: Improving your score
+              </h3>
+              <p className="mt-2 max-w-[500px] text-[0.92rem] font-medium leading-relaxed text-[#111827]">
+                Based on your results, you can significantly boost your performance by focusing on these specific topics:
+              </p>
+            </div>
+
+            {sortedLearningObjectives.filter((lo) => lo.score < 60).length > 0 && (
+              <div className="my-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {sortedLearningObjectives
+                  .filter((lo) => lo.score < 60)
+                  .slice(0, 6)
+                  .map((lo) => (
+                    <div
+                      key={lo.learningObjective}
+                      className="flex items-center gap-3 rounded-[14px] bg-white p-3.5 border border-[#F5A623]/20 shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all hover:border-[#F5A623]/40"
+                    >
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F5A623]/10 text-[#F5A623]">
+                        <span className="text-[10px] font-bold">🎯</span>
+                      </div>
+                      <span className="text-[14px] font-bold text-[#1B4A4A] leading-tight text-left">
+                        {formatLearningObjectiveLabel(lo.learningObjective)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            <div className="mt-8 flex flex-col items-center border-t border-dashed border-[#F5A623]/20 pt-8">
+              <p className="mb-5 text-center text-[0.92rem] font-bold text-[#111827]">
+                Ready to improve? Take a targeted practice test on these topics.
+              </p>
+              <button
+                onClick={() => {
+                  const assessmentId = (report as any).id || (report as any).assessmentId;
+                  if (assessmentId) onRecurring(assessmentId);
+                }}
+                disabled={isBusy}
+                className="group relative flex min-w-[280px] items-center justify-center gap-3 rounded-full bg-[#F5A623] px-10 py-4 text-[16px] font-bold text-white shadow-[0_8px_24px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-1 hover:shadow-[0_12px_36px_rgba(245,166,35,0.40)] disabled:opacity-50"
+              >
+                <RotateCcw className="h-5 w-5 transition-transform group-hover:rotate-45" />
+                {isBusy ? "Preparing..." : "Start Improvement Test"}
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="mb-5 text-[1.1rem] font-extrabold text-[#1B4A4A] sm:text-[1.2rem]">
           What went well &amp; what to work on next
         </div>
@@ -3362,18 +3381,6 @@ function ReportView({
       </div>
 
       <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-        {roundedScore < 60 && (
-          <button
-            onClick={() => {
-              const assessmentId = (report as any).id || (report as any).assessmentId;
-              if (assessmentId) onRecurring(assessmentId);
-            }}
-            disabled={isBusy}
-            className="z-999 flex min-w-[240px] items-center justify-center gap-2 rounded-full border-2 border-[#F5A623] px-10 py-4 text-[16px] font-bold text-[#F5A623] transition-all hover:bg-[#F5A623]/5 hover:-translate-y-1 disabled:opacity-50"
-          >
-            {isBusy ? "Preparing..." : "🔁 Start Recurring Test"}
-          </button>
-        )}
         <button
           onClick={onReset}
           className="flex min-w-[240px] items-center justify-center gap-2 rounded-full bg-[#F5A623] px-10 py-4 text-[16px] font-bold text-white shadow-[0_8px_24px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-1 hover:shadow-[0_12px_36px_rgba(245,166,35,0.40)]"
@@ -3528,6 +3535,7 @@ export function DiagnosticDemo({
 
   const currentQuestion = quiz?.questions[currentIndex] ?? null;
   const isBusy = isPending || pendingAction !== null;
+  const isSubmitting = pendingAction === "submit";
   const classLevels = useMemo(() => {
     const availableClassLevels = Array.from(
       new Set(quizCatalog.entries.map((entry) => entry.classLevel)),
@@ -3582,9 +3590,9 @@ export function DiagnosticDemo({
           );
           setReport(finalReport);
           setQuiz(null);
+          setPendingAction(null);
         } catch (err) {
           setError(toErrorMessage(err));
-        } finally {
           setPendingAction(null);
         }
       })();
@@ -3844,7 +3852,6 @@ export function DiagnosticDemo({
   };
 
   const isQuizActive = !!quiz && !!currentQuestion;
-  const isSubmitting = pendingAction === "submit";
   const showResult = !!report;
 
   return (
@@ -4091,7 +4098,7 @@ export function DiagnosticDemo({
                     </div>
                   )}
 
-                  <h3 className="text-[17px] font-semibold leading-[1.5] text-[#1a1a1a]">
+                  <h3 className="text-[17px] font-semibold leading-normal text-[#1a1a1a]">
                     {currentQuestion.question}
                   </h3>
                 </div>
@@ -4140,7 +4147,7 @@ export function DiagnosticDemo({
 
               {/* Sidebar */}
               <aside>
-                <div className="rounded-[16px] border border-[rgba(0,0,0,0.08)] bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-[rgba(0,0,0,0.08)] bg-white p-5 shadow-sm">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <h4 className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#6B7280]">
                       Question Map
@@ -4166,7 +4173,7 @@ export function DiagnosticDemo({
                       return (
                         <div
                           key={q.id}
-                          className={`flex aspect-square items-center justify-center rounded-[8px] border-2 font-mono text-[11px] font-bold transition-all ${
+                          className={`flex aspect-square items-center justify-center rounded-xl border-2 font-mono text-[11px] font-bold transition-all ${
                             isActive
                               ? `${isAnswered ? mapTileClass : "border-[#F5A623] bg-white text-[#1B4A4A]"} shadow-[0_0_0_3px_rgba(245,166,35,0.20)]`
                               : mapTileClass
@@ -4198,17 +4205,7 @@ export function DiagnosticDemo({
         )}
 
         {/* Submitting */}
-        {isSubmitting && (
-          <div className="flex flex-col items-center justify-center py-32 text-center">
-            <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[#FFF8E7] border-t-[#F5A623]" />
-            <div className="font-bold text-[18px] text-[#1a1a1a]">
-              Analysing your results…
-            </div>
-            <div className="mt-1 text-[14px] text-[#6B7280]">
-              This will only take a moment
-            </div>
-          </div>
-        )}
+        {isSubmitting && <MultiStageLoadingScreen onBack={resetQuiz} />}
 
         {/* Result */}
         {showResult && report && (
