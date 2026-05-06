@@ -16,6 +16,8 @@ export async function POST(request: Request) {
       classLevel?: string;
       topic?: string | null;
       maxQuestions?: number;
+      parentAssessmentId?: string;
+      questions?: any[];
       answers?: Array<{
         questionId?: string;
         answer?: string;
@@ -37,14 +39,24 @@ export async function POST(request: Request) {
       ]),
     );
 
-    const testMode = body.testMode === "grade" ? "grade" : "topic";
+    const testMode =
+      body.testMode === "grade"
+        ? "grade"
+        : body.testMode === "recurring"
+          ? "recurring"
+          : "topic";
+
+    // The diagnostic engine only supports "topic" | "grade" internally
+    const engineMode = testMode === "recurring" ? "topic" : testMode;
+
     const diagnosticReport = await runDiagnostic({
       studentId: body.studentId?.trim() || "Riya Sharma",
-      testMode,
+      testMode: testMode as any,
       subject: body.subject as never,
       classLevel: body.classLevel as never,
       topic: body.topic ?? "",
       maxQuestions: Number(body.maxQuestions) || 1,
+      preloadedQuestions: body.questions,
       onQuestion: async (question) =>
         answerMap.get(question.id) ?? {
           answer: "",
@@ -53,10 +65,19 @@ export async function POST(request: Request) {
           wasAutoSkipped: false,
         },
     });
+
+    // Override mode to 'recurring' so it's stored correctly in the DB
+    const reportToSave =
+      testMode === "recurring"
+        ? { ...diagnosticReport, mode: "recurring" as never }
+        : diagnosticReport;
+
     const resultNarrative = await generateResultNarrative(diagnosticReport);
-    const report = { ...diagnosticReport, resultNarrative };
-    const { progressComparison, ...storedResult } =
-      await saveDiagnosticResult(report);
+    const report = { ...reportToSave, resultNarrative };
+    const { progressComparison, ...storedResult } = await saveDiagnosticResult(
+      report,
+      { parentAssessmentId: body.parentAssessmentId },
+    );
 
     return NextResponse.json({
       report: { ...report, progressComparison },

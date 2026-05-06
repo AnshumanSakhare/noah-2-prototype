@@ -1188,23 +1188,33 @@ async function askQuestion(
 export async function runDiagnostic(
   config: DiagnosticConfig
 ): Promise<DiagnosticReport> {
-  const mode = config.testMode === "grade" ? "grade" : "topic"
-  const reportTopic = mode === "grade" ? "Grade Test" : config.topic
-  const questionBank =
-    mode === "grade"
-      ? await getGradeQuizQuestions({
-          subject: config.subject,
-          classLevel: config.classLevel,
-        })
-      : await getTopicQuizQuestions({
-          subject: config.subject,
-          classLevel: config.classLevel,
-          topic: config.topic,
-          maxQuestions: config.maxQuestions,
-        })
+  const mode = config.testMode === "grade" ? "grade" : config.testMode === "recurring" ? "recurring" : "topic"
+  const reportTopic = mode === "grade" ? "Grade Test" : mode === "recurring" ? "Recurring Test" : config.topic
+  
+  let questionBank: { questions: QuestionBankQuestion[]; expectedLearningObjectives: string[] };
+
+  if (config.preloadedQuestions && config.preloadedQuestions.length > 0) {
+    questionBank = {
+      questions: config.preloadedQuestions,
+      expectedLearningObjectives: Array.from(new Set(config.preloadedQuestions.map(q => q.learningObjective).filter(Boolean))) as string[]
+    };
+  } else {
+    questionBank =
+      mode === "grade"
+        ? await getGradeQuizQuestions({
+            subject: config.subject,
+            classLevel: config.classLevel,
+          })
+        : await getTopicQuizQuestions({
+            subject: config.subject,
+            classLevel: config.classLevel,
+            topic: config.topic,
+            maxQuestions: config.maxQuestions,
+          })
+  }
 
   if (questionBank.questions.length === 0) {
-    throw new Error(`No quiz questions found for ${reportTopic}.`)
+    throw new Error(`No quiz questions found for ${reportTopic || "this test"}.`)
   }
 
   const results: AskedQuestionRecord[] = []

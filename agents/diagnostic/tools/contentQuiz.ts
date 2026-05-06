@@ -566,6 +566,42 @@ async function loadGradeQuestions(input: {
   return toQuestions(result.rows as ContentQuestionRow[]);
 }
 
+async function loadRecurringTestQuestions(input: {
+  subject: Subject;
+  classLevel: ClassLevel;
+  failedTopics: string[];
+  failedLOs: string[];
+  excludedQuestionIds: string[];
+}) {
+  if (input.failedTopics.length === 0 && input.failedLOs.length === 0) return [];
+
+  const result = await query(
+    `
+      ${CONTENT_QUESTION_SELECT}
+      WHERE subject = $1
+        AND grade = $2
+        AND (
+          topic = ANY($3::text[])
+          OR learning_objective = ANY($5::text[])
+        )
+        AND id::text != ALL($4::text[])
+        AND question_text IS NOT NULL
+        AND question_type IS NOT NULL
+        ${QUESTION_VISUAL_MODE_TYPE_FILTER}
+      ORDER BY topic, learning_objective, difficulty_level, id
+    `,
+    [
+      input.subject,
+      toDbGrade(input.classLevel),
+      input.failedTopics,
+      input.excludedQuestionIds,
+      input.failedLOs,
+    ],
+  );
+
+  return toQuestions(result.rows as ContentQuestionRow[]);
+}
+
 function sortQuestionsForTopicQuiz(questions: QuestionBankQuestion[]) {
   const difficultyOrder: Record<DifficultyBand, number> = {
     easy: 0,
@@ -1272,5 +1308,55 @@ export async function getGradeQuizForClient(input: {
     gradeTargets: targets,
     questions: quiz.questions.map(toClientQuizQuestion),
     coverageWarnings: quiz.coverageWarnings,
+  };
+}
+
+/** Scale target question count based on number of failed topics (8–16). */
+function recurringTestQuestionCount(failedTopicCount: number): number {
+  if (failedTopicCount <= 1) return 8;
+  if (failedTopicCount === 2) return 10;
+  if (failedTopicCount === 3) return 12;
+  if (failedTopicCount === 4) return 14;
+  return 16;
+}
+
+export async function getRecurringTestForClient(input: {
+  studentId: string;
+  subject: Subject;
+  classLevel: ClassLevel;
+  failedTopics: string[];
+  failedLOs: string[];
+  excludedQuestionIds: string[];
+}) {
+  const targetCount = recurringTestQuestionCount(input.failedTopics.length);
+
+  // Load fresh candidate questions from failed topics only, excluding seen IDs
+  const candidates = await loadRecurringTestQuestions({
+    subject: input.subject,
+    classLevel: input.classLevel,
+    failedTopics: input.failedTopics,
+    failedLOs: input.failedLOs,
+    excludedQuestionIds: input.excludedQuestionIds,
+  });
+
+  // Distribute evenly across failed topics using round-robin
+  const byTopic = new Map<string, QuestionBankQuestion[]>();
+  for (const q of sortQuestionsForTopicQuiz(candidates)) {
+    const key = q.topic || "Untitled";
+    byTopic.set(key, [...(byTopic.get(key) ?? []), q]);
+  }
+
+  const selected = takeRoundRobin(byTopic, targetCount);
+  const mixed = mixQuestionTypes(selected);
+
+  return {
+    studentId: input.studentId,
+    testMode: "recurring" as const,
+    subject: input.subject,
+    classLevel: input.classLevel,
+    failedTopics: input.failedTopics,
+    targetQuestionCount: targetCount,
+    maxQuestions: mixed.length,
+    questions: mixed.map(toClientQuizQuestion),
   };
 }

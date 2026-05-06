@@ -50,6 +50,7 @@ export interface DemoLoadedQuiz {
   maxQuestions: number
   gradeTargets?: Record<string, number>
   questions: DemoQuizQuestion[]
+  parentAssessmentId?: string
 }
 
 export interface DemoQuizAnswerSubmission {

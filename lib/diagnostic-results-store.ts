@@ -14,6 +14,7 @@ export interface StoredDiagnosticResult {
   assessmentId: string;
   studentDbId: string;
   progressComparison?: ProgressComparison;
+  parentAssessmentId?: string;
 }
 
 function normalizeStudentName(value: string) {
@@ -128,6 +129,7 @@ async function getPreviousProgressComparison(input: {
 
 export async function saveDiagnosticResult(
   report: DiagnosticReport,
+  options?: { parentAssessmentId?: string },
 ): Promise<StoredDiagnosticResult> {
   const client = await pool.connect();
   const studentDisplayName = displayStudentName(report.studentId);
@@ -190,13 +192,14 @@ export async function saveDiagnosticResult(
           behavioral_patterns,
           result_narrative,
           report_json,
-          ai_summary
+          ai_summary,
+          parent_assessment_id
         )
         VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
           $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb,
           $18::jsonb, $19::jsonb, $20::jsonb, $21::jsonb, $22::jsonb,
-          $23::jsonb, $24::jsonb, $25::jsonb, $26::jsonb, $27
+          $23::jsonb, $24::jsonb, $25::jsonb, $26::jsonb, $27, $28
         )
         RETURNING id
       `,
@@ -228,6 +231,7 @@ export async function saveDiagnosticResult(
         report.resultNarrative ? JSON.stringify(report.resultNarrative) : null,
         JSON.stringify(report),
         report.aiSummary,
+        options?.parentAssessmentId ?? null,
       ],
     );
     const assessmentId = assessmentResult.rows[0].id;
@@ -291,7 +295,7 @@ export async function saveDiagnosticResult(
     }
 
     await client.query("COMMIT");
-    return { assessmentId, studentDbId, progressComparison };
+    return { assessmentId, studentDbId, progressComparison, parentAssessmentId: options?.parentAssessmentId };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

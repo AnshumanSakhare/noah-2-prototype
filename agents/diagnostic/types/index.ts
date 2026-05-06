@@ -9,7 +9,7 @@ export type ClassLevel =
   | "class6"
   | "class7"
   | "class8";
-export type TestMode = "topic" | "grade";
+export type TestMode = "topic" | "grade" | "recurring";
 
 export type BloomLevel = "remember" | "understand" | "apply";
 export type ReachedBloomLevel = BloomLevel | "not_attempted";
@@ -358,11 +358,12 @@ export interface DiagnosticConfig {
     questionNumber: number,
     maxQuestions: number,
   ) => Promise<DiagnosticQuestionResponse>;
+  preloadedQuestions?: QuestionBankQuestion[];
 }
 
 export interface DiagnosticReport {
   studentId: string;
-  mode: "topic" | "grade";
+  mode: "topic" | "grade" | "recurring";
   subject: Subject;
   classLevel: ClassLevel;
   topic: string;
