@@ -37,8 +37,8 @@ import type {
 } from "../lib/demo-types";
 import { DIAGNOSTIC_CONTENT_DEFAULTS } from "../lib/diagnostic-content-defaults";
 import {
-  GRADE_TEST_QUESTION_COUNT,
-  TOPIC_TEST_QUESTION_COUNT,
+  getGradeTestPlan,
+  getTopicTestQuestionCount,
 } from "../lib/quiz-counts";
 
 const OPTION_LABELS = ["A", "B", "C", "D"] as const;
@@ -166,7 +166,16 @@ function getDefaultCatalogEntry(catalog: DemoQuizCatalog) {
         entry.subject === DIAGNOSTIC_CONTENT_DEFAULTS.subject &&
         entry.classLevel === DIAGNOSTIC_CONTENT_DEFAULTS.classLevel &&
         entry.topic === DIAGNOSTIC_CONTENT_DEFAULTS.topic,
-    ) ?? catalog.entries[0]
+    ) ??
+    catalog.entries.find(
+      (entry) =>
+        entry.subject === DIAGNOSTIC_CONTENT_DEFAULTS.subject &&
+        entry.classLevel === DIAGNOSTIC_CONTENT_DEFAULTS.classLevel,
+    ) ??
+    catalog.entries.find(
+      (entry) => entry.classLevel === DIAGNOSTIC_CONTENT_DEFAULTS.classLevel,
+    ) ??
+    catalog.entries[0]
   );
 }
 
@@ -184,6 +193,10 @@ function buildDefaultForm(
   entry: DemoQuizCatalogEntry | null,
   studentId = "Riya Sharma",
 ): CreateSessionInput {
+  const topicQuestionCount = entry
+    ? getTopicTestQuestionCount(entry.learningObjectives.length)
+    : 0;
+
   return entry
     ? {
         studentId,
@@ -191,7 +204,7 @@ function buildDefaultForm(
         subject: entry.subject,
         classLevel: entry.classLevel,
         topic: entry.topic,
-        maxQuestions: TOPIC_TEST_QUESTION_COUNT,
+        maxQuestions: topicQuestionCount,
       }
     : {
         studentId,
@@ -199,8 +212,18 @@ function buildDefaultForm(
         subject: DIAGNOSTIC_CONTENT_DEFAULTS.subject,
         classLevel: DIAGNOSTIC_CONTENT_DEFAULTS.classLevel,
         topic: DIAGNOSTIC_CONTENT_DEFAULTS.topic,
-        maxQuestions: TOPIC_TEST_QUESTION_COUNT,
+        maxQuestions: 0,
       };
+}
+
+function getTopicQuestionCountForEntry(entry?: DemoQuizCatalogEntry | null) {
+  return getTopicTestQuestionCount(entry?.learningObjectives.length ?? 0);
+}
+
+function getGradeQuestionCountForClass(
+  classLevel: CreateSessionInput["classLevel"],
+) {
+  return getGradeTestPlan(classLevel).total;
 }
 
 function getAnswerMap(answer: string) {
@@ -246,8 +269,11 @@ function scoreStars(correct: number, total: number) {
   return Math.min(5, Math.max(1, Math.ceil((correct / total) * 5)));
 }
 
-function getEstimatedTestTimeLabel() {
-  return "15 min";
+function getEstimatedTestTimeLabel(questionCount: number) {
+  if (questionCount <= 15) return "15 min";
+  if (questionCount <= 22) return "20 min";
+  if (questionCount <= 25) return "25 min";
+  return "30 min";
 }
 
 function _clamp(value: number, min: number, max: number) {
@@ -1041,7 +1067,7 @@ function SelectorScreen({
           </p>
           <div className="mb-5 flex flex-wrap gap-2">
             {[
-              `${TOPIC_TEST_QUESTION_COUNT} questions`,
+              "3 per learning objective",
               "One topic",
               "15–20 min",
             ].map((pill) => (
@@ -1077,7 +1103,7 @@ function SelectorScreen({
           </p>
           <div className="mb-5 flex flex-wrap gap-2">
             {[
-              `${GRADE_TEST_QUESTION_COUNT} questions`,
+              "15-30 questions",
               "All topics",
               "20–30 min",
             ].map((pill) => (
@@ -1143,7 +1169,7 @@ function TopicBrowseScreen({
       topic: entry.topic,
       classLevel: entry.classLevel as never,
       subject: entry.subject,
-      maxQuestions: TOPIC_TEST_QUESTION_COUNT,
+      maxQuestions: getTopicQuestionCountForEntry(entry),
     }));
     onSelectEntry(entry);
   };
@@ -1266,10 +1292,14 @@ function TopicStartScreen({
   onBack: () => void;
   isBusy: boolean;
 }) {
-  const estimatedTime = getEstimatedTestTimeLabel();
   const selectedTopic = topicEntries.some((entry) => entry.topic === form.topic)
     ? form.topic
     : (topicEntries[0]?.topic ?? "");
+  const selectedEntry =
+    topicEntries.find((entry) => entry.topic === selectedTopic) ??
+    topicEntries[0];
+  const questionCount = getTopicQuestionCountForEntry(selectedEntry);
+  const estimatedTime = getEstimatedTestTimeLabel(questionCount);
 
   return (
     <div className="mx-auto max-w-[680px] animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1320,7 +1350,7 @@ function TopicStartScreen({
 
         <div className="mb-7 grid gap-3 sm:grid-cols-3">
           {[
-            { label: "Questions", value: String(TOPIC_TEST_QUESTION_COUNT) },
+            { label: "Questions", value: String(questionCount) },
             { label: "Estimated time", value: estimatedTime },
             { label: "Grade", value: classLabel(form.classLevel) },
           ].map((item) => (
@@ -1456,6 +1486,10 @@ function GradeStartScreen({
   onBack: () => void;
   isBusy: boolean;
 }) {
+  const questionCount = getGradeQuestionCountForClass(
+    classLevel as CreateSessionInput["classLevel"],
+  );
+
   return (
     <div className="mx-auto max-w-[680px] animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="mb-4 flex items-center gap-3">
@@ -1482,8 +1516,11 @@ function GradeStartScreen({
 
         <div className="mb-7 grid gap-3 sm:grid-cols-3">
           {[
-            { label: "Questions", value: String(GRADE_TEST_QUESTION_COUNT) },
-            { label: "Estimated time", value: "20 min" },
+            { label: "Questions", value: String(questionCount) },
+            {
+              label: "Estimated time",
+              value: getEstimatedTestTimeLabel(questionCount),
+            },
             { label: "Grade", value: `Grade ${classNum(classLevel)}` },
           ].map((item) => (
             <div
@@ -3607,7 +3644,7 @@ export function DiagnosticDemo({
       subject: topicEntry.subject,
       classLevel: topicEntry.classLevel,
       topic: topicEntry.topic,
-      maxQuestions: TOPIC_TEST_QUESTION_COUNT,
+      maxQuestions: getTopicQuestionCountForEntry(topicEntry),
     });
   };
 
@@ -3640,7 +3677,7 @@ export function DiagnosticDemo({
         subject: gradeEntry.subject,
         classLevel: gradeClass,
         topic: gradeEntry.topic,
-        maxQuestions: GRADE_TEST_QUESTION_COUNT,
+        maxQuestions: getGradeQuestionCountForClass(gradeClass),
       });
     }
     setTestMode("grade");
@@ -3658,7 +3695,9 @@ export function DiagnosticDemo({
         subject: firstEntry.subject,
         testMode: "grade",
         topic: firstEntry.topic,
-        maxQuestions: GRADE_TEST_QUESTION_COUNT,
+        maxQuestions: getGradeQuestionCountForClass(
+          cl as CreateSessionInput["classLevel"],
+        ),
       }));
     }
     setAppScreen("grade-start");
@@ -3873,9 +3912,11 @@ export function DiagnosticDemo({
               <div className="overflow-hidden rounded-[16px] border border-[rgba(0,0,0,0.08)] bg-white">
                 {/* Question top */}
                 <div className="relative border-b border-[rgba(0,0,0,0.08)] px-4 pb-5 pt-6 sm:px-7">
-                  <div className="absolute right-5 top-4 hidden font-mono text-[36px] font-extrabold leading-none text-[#E5E3DB] select-none sm:block">
+                  <div className="pointer-events-none absolute right-3 top-1 z-0 hidden font-mono text-[80px] font-extrabold leading-none text-[#1a1a1a] opacity-[0.06] select-none sm:block">
                     {String(currentIndex + 1).padStart(2, "0")}
                   </div>
+
+                  <div className="relative z-10">
 
                   {"scenario" in (currentQuestion.payload ?? {}) && (
                     <div className="mb-4 rounded-[12px] border border-[#F5A623]/10 bg-[#FFF8E7] p-4">
@@ -3915,6 +3956,7 @@ export function DiagnosticDemo({
                   <h3 className="text-[17px] font-semibold leading-[1.5] text-[#1a1a1a]">
                     {currentQuestion.question}
                   </h3>
+                  </div>
                 </div>
 
                 {/* Answer area */}

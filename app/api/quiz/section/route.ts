@@ -6,7 +6,7 @@ import {
   getTopicQuizForClient,
 } from "@/agents/diagnostic/tools/contentQuiz";
 import type { ClassLevel, Subject } from "@/agents/diagnostic/types/index";
-import { TOPIC_TEST_QUESTION_COUNT } from "@/lib/quiz-counts";
+import { getTopicTestQuestionCount } from "@/lib/quiz-counts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       subject: entry.subject,
       classLevel: entry.classLevel,
       topic: entry.topic,
-      maxQuestions: TOPIC_TEST_QUESTION_COUNT,
+      maxQuestions: getTopicTestQuestionCount(entry.learningObjectives.length),
     });
 
     return NextResponse.json({ quiz });

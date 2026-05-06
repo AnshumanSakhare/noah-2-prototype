@@ -6,7 +6,10 @@ import type {
   DemoQuizCatalogEntry,
   DemoQuizQuestion,
 } from "@/lib/demo-types";
-import { GRADE_TEST_QUESTION_COUNT } from "@/lib/quiz-counts";
+import {
+  getGradeTestPlan,
+  getTopicTestQuestionCount,
+} from "@/lib/quiz-counts";
 import type {
   BloomLevel,
   ClassLevel,
@@ -40,24 +43,6 @@ type ContentQuestionRow = {
   options: unknown;
   explanation: string;
   generation_metadata: unknown;
-};
-
-const QUESTION_TARGETS: Record<DifficultyBand, number> = {
-  easy: 6,
-  medium: 6,
-  hard: 6,
-};
-
-const GRADE_TEST_TARGETS: Record<ClassLevel, Record<DifficultyBand, number>> = {
-  classKG: { easy: 5, medium: 7, hard: 10 },
-  class1: { easy: 5, medium: 7, hard: 10 },
-  class2: { easy: 5, medium: 7, hard: 10 },
-  class3: { easy: 5, medium: 7, hard: 10 },
-  class4: { easy: 5, medium: 7, hard: 10 },
-  class5: { easy: 5, medium: 7, hard: 10 },
-  class6: { easy: 5, medium: 7, hard: 10 },
-  class7: { easy: 5, medium: 7, hard: 10 },
-  class8: { easy: 5, medium: 7, hard: 10 },
 };
 
 const INTERACTIVE_QUESTION_TYPES = ["fitb", "drag_drop"] as const;
@@ -504,7 +489,7 @@ async function loadGradeQuestions(input: {
   subject: Subject;
   classLevel: ClassLevel;
 }) {
-  const targets = GRADE_TEST_TARGETS[input.classLevel];
+  const targets = getGradeTestPlan(input.classLevel).difficultyTargets;
   const perTopicCandidateLimit = Math.max(
     targets.easy,
     targets.medium,
@@ -862,7 +847,19 @@ function selectQuestionsAcrossLearningObjectives(
 ) {
   const selected: QuestionBankQuestion[] = [];
   const warnings: string[] = [];
-  const requestedTotal = Math.min(maxQuestions, questions.length);
+  const distinctLearningObjectiveCount = new Set(
+    questions.map((question) => question.learningObjective).filter(Boolean),
+  ).size;
+  const learningObjectiveCount =
+    distinctLearningObjectiveCount > 0 ? distinctLearningObjectiveCount : 1;
+  const targetByBand = learningObjectiveCount;
+  const requestedByLearningObjectives =
+    getTopicTestQuestionCount(learningObjectiveCount);
+  const requestedTotal = Math.min(
+    maxQuestions > 0 ? maxQuestions : requestedByLearningObjectives,
+    requestedByLearningObjectives,
+    questions.length,
+  );
   const interactiveTarget = Math.min(
     getInteractiveQuestionTarget(requestedTotal),
     questions.filter(isInteractiveQuestion).length,
@@ -893,7 +890,7 @@ function selectQuestionsAcrossLearningObjectives(
     const requested = Math.min(
       Math.max(
         0,
-        QUESTION_TARGETS[band] - countSelectedQuestionsByBand(selected, band),
+        targetByBand - countSelectedQuestionsByBand(selected, band),
       ),
       requestedTotal - selected.length,
     );
@@ -985,10 +982,11 @@ function selectQuestionsForGradeTest(
   questions: QuestionBankQuestion[],
   classLevel: ClassLevel,
 ) {
-  const targets = GRADE_TEST_TARGETS[classLevel];
+  const plan = getGradeTestPlan(classLevel);
+  const targets = plan.difficultyTargets;
   const selected: QuestionBankQuestion[] = [];
   const warnings: string[] = [];
-  const total = Math.min(GRADE_TEST_QUESTION_COUNT, questions.length);
+  const total = Math.min(plan.total, questions.length);
   const interactiveTarget = Math.min(
     getInteractiveQuestionTarget(total),
     questions.filter(isInteractiveQuestion).length,
@@ -1255,7 +1253,7 @@ export async function getGradeQuizForClient(input: {
   classLevel: ClassLevel;
 }) {
   const quiz = await getGradeQuizQuestions(input);
-  const targets = GRADE_TEST_TARGETS[input.classLevel];
+  const targets = getGradeTestPlan(input.classLevel).difficultyTargets;
   const topicsInGrade = Array.from(
     new Set(quiz.questions.map((q) => q.topic).filter(Boolean)),
   ).sort();

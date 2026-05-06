@@ -1,0 +1,61 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0 Aptos;}{\f1 Aptos Display;}}
+{\colortbl;\red31\green78\blue121;\red47\green111\blue115;\red217\green234\blue247;}
+\margl1224\margr1224\margt1037\margb936
+\pard\qc\sb380\sa110\cf1\fs44 Question Serving Logic\cf0\par
+\pard\qc\sb0\sa360\fs22 Diagnostic App - Simple Explanation\cf0\par
+\pard\sb220\sa80\cf1\b\fs30 Short Answer\b0\cf0\par
+\pard\sb0\sa120\fs21 The app does not randomly pick questions one by one. It first finds all questions that match the selected subject, class, and topic. Then it builds a balanced test using learning objective coverage, difficulty balance, question type variety, and the questions available in the database.\cf0\par
+\pard\sb0\sa120\fs21 If the perfect balance is not possible because there are not enough questions, the app fills the remaining slots with the best available questions.\cf0\par
+\pard\sb140\sa70\b\fs21 Test Type        Total Questions        Difficulty Target\b0\cf0\par
+\pard\sb0\sa40\fs21 Topic Test      18                     6 easy, 6 medium, 6 hard\cf0\par
+\pard\sb0\sa160\fs21 Grade Test      22                     5 easy, 7 medium, 10 hard\cf0\par
+\pard\sb220\sa80\cf1\b\fs30 Topic Test\b0\cf0\par
+\pard\sb0\sa120\fs21 A topic test serves up to 18 questions. The intended difficulty ratio is equal across all three levels:\cf0\par
+\pard\sb0\sa55\fs21 - 6 easy questions\cf0\par
+\pard\sb0\sa55\fs21 - 6 medium questions\cf0\par
+\pard\sb0\sa55\fs21 - 6 hard questions\cf0\par
+\pard\sb0\sa120\fs21 In simple terms: Easy : Medium : Hard = 1 : 1 : 1.\cf0\par
+\pard\sb180\sa70\cf2\b\fs24 How Learning Objectives Are Selected\b0\cf0\par
+\pard\sb0\sa120\fs21 The learning objectives are not separately selected by the user. They come from the questions available for the selected topic.\cf0\par
+\pard\sb0\sa120\fs21 For example, if a topic has questions from 5 learning objectives, the app tries to spread the test across those objectives.\cf0\par
+\pard\sb0\sa120\fs21 It uses a round-robin style:\cf0\par
+\pard\sb0\sa55\fs21 1. Pick one question from learning objective A.\cf0\par
+\pard\sb0\sa55\fs21 2. Pick one question from learning objective B.\cf0\par
+\pard\sb0\sa55\fs21 3. Pick one question from learning objective C.\cf0\par
+\pard\sb0\sa55\fs21 4. Continue cycling through the learning objectives.\cf0\par
+\pard\sb0\sa120\fs21 This prevents the test from asking too many questions from only one learning objective.\cf0\par
+\pard\sb180\sa70\cf2\b\fs24 Interactive Question Target\b0\cf0\par
+\pard\sb0\sa120\fs21 The app tries to include interactive question types such as fill in the blank and drag and drop.\cf0\par
+\pard\sb0\sa120\fs21 The target is around one-third of the test. For an 18-question topic test, that means around 6 interactive questions, if enough are available.\cf0\par
+\page
+\pard\sb180\sa70\cf2\b\fs24 What Happens If Questions Are Missing\b0\cf0\par
+\pard\sb0\sa120\fs21 If the app cannot find enough questions for a difficulty level or learning objective, it does not fail immediately. It fills the remaining slots using available questions from other difficulty levels or objectives.\cf0\par
+\pard\sb0\sa120\fs21 Example: if the app wants 6 hard questions but only 4 hard questions exist, it uses those 4 and fills the remaining 2 slots from other available questions.\cf0\par
+\pard\sb220\sa80\cf1\b\fs30 Grade Test\b0\cf0\par
+\pard\sb0\sa120\fs21 A grade test serves up to 22 questions. The target difficulty split is:\cf0\par
+\pard\sb0\sa55\fs21 - 5 easy questions\cf0\par
+\pard\sb0\sa55\fs21 - 7 medium questions\cf0\par
+\pard\sb0\sa55\fs21 - 10 hard questions\cf0\par
+\pard\sb0\sa120\fs21 So the grade test is slightly more challenge-heavy than the topic test.\cf0\par
+\pard\sb0\sa120\fs21 Instead of balancing mainly by learning objective, the grade test balances more by topic, because it checks the broader class-level syllabus.\cf0\par
+\pard\sb220\sa80\cf1\b\fs30 Final Question Order\b0\cf0\par
+\pard\sb0\sa120\fs21 After the questions are selected, the app mixes question types so the student does not see too many questions of the same format back-to-back.\cf0\par
+\pard\sb0\sa120\fs21 For example, instead of showing MCQ, MCQ, MCQ, MCQ, it tries to mix formats like MCQ, fill in the blank, drag and drop, MCQ, and short answer.\cf0\par
+\pard\sb220\sa80\cf1\b\fs30 In Plain Language\b0\cf0\par
+\pard\sb0\sa120\fs21 The app is trying to create a fair diagnostic test.\cf0\par
+\pard\sb180\sa70\cf2\b\fs24 For a topic test, it wants:\b0\cf0\par
+\pard\sb0\sa55\fs21 - 18 questions\cf0\par
+\pard\sb0\sa55\fs21 - equal easy, medium, and hard coverage\cf0\par
+\pard\sb0\sa55\fs21 - questions spread across learning objectives\cf0\par
+\pard\sb0\sa55\fs21 - some interactive questions\cf0\par
+\pard\sb0\sa55\fs21 - mixed question formats\cf0\par
+\pard\sb180\sa70\cf2\b\fs24 For a grade test, it wants:\b0\cf0\par
+\pard\sb0\sa55\fs21 - 22 questions\cf0\par
+\pard\sb0\sa55\fs21 - more hard questions than easy questions\cf0\par
+\pard\sb0\sa55\fs21 - questions spread across topics\cf0\par
+\pard\sb0\sa55\fs21 - some interactive questions\cf0\par
+\pard\sb0\sa55\fs21 - mixed question formats\cf0\par
+\pard\sb0\sa120\fs21 The final test depends on what questions actually exist in the database.\cf0\par
+\pard\sb160\sa120\cf1\fs18 Code references: lib/quiz-counts.ts; agents/diagnostic/tools/contentQuiz.ts for difficulty targets, round-robin selection, and question type mixing.\cf0\par
+}

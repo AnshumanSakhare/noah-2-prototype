@@ -11,6 +11,14 @@ export default async function Home() {
         entry.classLevel === DIAGNOSTIC_CONTENT_DEFAULTS.classLevel &&
         entry.topic === DIAGNOSTIC_CONTENT_DEFAULTS.topic,
     ) ??
+    quizCatalog.entries.find(
+      (entry) =>
+        entry.subject === DIAGNOSTIC_CONTENT_DEFAULTS.subject &&
+        entry.classLevel === DIAGNOSTIC_CONTENT_DEFAULTS.classLevel,
+    ) ??
+    quizCatalog.entries.find(
+      (entry) => entry.classLevel === DIAGNOSTIC_CONTENT_DEFAULTS.classLevel,
+    ) ??
     quizCatalog.entries[0] ??
     null;
   const defaultTopicLearningObjectives =
