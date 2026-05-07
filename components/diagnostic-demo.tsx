@@ -4254,7 +4254,12 @@ export function DiagnosticDemo({
         )}
 
         {/* Submitting */}
-        {isSubmitting && <MultiStageLoadingScreen onBack={resetQuiz} />}
+        {isSubmitting && (
+          <MultiStageLoadingScreen
+            onBack={resetQuiz}
+            studentName={studentSetup.studentId}
+          />
+        )}
 
         {/* Result */}
         {showResult && report && (
