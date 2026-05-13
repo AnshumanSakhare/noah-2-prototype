@@ -45,6 +45,15 @@ import {
 
 const OPTION_LABELS = ["A", "B", "C", "D"] as const;
 
+function seededNumber(seed: number) {
+  const value = Math.sin(seed * 12.9898) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function seededRange(seed: number, min: number, max: number) {
+  return min + seededNumber(seed) * (max - min);
+}
+
 // ─── App navigation ───────────────────────────────────────────────────────────
 type AppScreen =
   | "student-info"
@@ -2783,18 +2792,18 @@ function ReportView({
               key={i}
               className="v1-particle"
               style={{
-                width: `${Math.random() * 4 + 2}px`,
-                height: `${Math.random() * 4 + 2}px`,
-                left: `${Math.random() * 100}%`,
+                width: `${seededRange(i + 1, 2, 6)}px`,
+                height: `${seededRange(i + 17, 2, 6)}px`,
+                left: `${seededRange(i + 31, 0, 100)}%`,
                 background: [
                   "#F5A623",
                   "#f46853",
                   "#2EC4B6",
                   "#ffc53d",
                   "#22C55E",
-                ][Math.floor(Math.random() * 5)],
-                animationDuration: `${Math.random() * 14 + 12}s`,
-                animationDelay: `${Math.random() * 10}s`,
+                ][Math.floor(seededRange(i + 47, 0, 5))],
+                animationDuration: `${seededRange(i + 61, 12, 26)}s`,
+                animationDelay: `${seededRange(i + 79, 0, 10)}s`,
               }}
             />
           ))}
@@ -2895,11 +2904,11 @@ function ReportView({
                     key={i}
                     className="absolute rounded-full bg-[#ffc53d] opacity-0"
                     style={{
-                      width: `${Math.random() * 3 + 2}px`,
-                      height: `${Math.random() * 3 + 2}px`,
-                      left: `${Math.random() * 100}%`,
-                      top: `${Math.random() * 70}%`,
-                      animation: `starTwinkle 1.5s ease both ${Math.random() * 1.2 + 0.6}s`,
+                      width: `${seededRange(i + 101, 2, 5)}px`,
+                      height: `${seededRange(i + 127, 2, 5)}px`,
+                      left: `${seededRange(i + 149, 0, 100)}%`,
+                      top: `${seededRange(i + 173, 0, 70)}%`,
+                      animation: `starTwinkle 1.5s ease both ${seededRange(i + 197, 0.6, 1.8)}s`,
                     }}
                   />
                 ))}

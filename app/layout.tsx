@@ -19,6 +19,9 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: "Diagnostic Agent",
   description: "Interactive diagnostic agent app for quiz-based assessment.",
+  other: {
+    "darkreader-lock": "",
+  },
 };
 
 export default function RootLayout({
@@ -29,6 +32,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
+      style={{ colorScheme: "light" }}
       className={cn(
         "min-h-full antialiased",
         figtree.variable,
