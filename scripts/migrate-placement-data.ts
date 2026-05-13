@@ -143,6 +143,22 @@ async function migrate() {
         }
       }
 
+      // Transform Drag and Drop payload to compatible format if needed
+      if (questionType === "drag_drop" && metadataJson && metadataJson.payload) {
+        const p = metadataJson.payload;
+        if (p.items && p.targets && !p.draggableItems) {
+          const itemMap = new Map(p.items.map((i: any) => [i.id, i.label]));
+          const targetMap = new Map(p.targets.map((t: any) => [t.id, t.label]));
+
+          p.draggableItems = p.items.map((i: any) => i.label);
+          p.dropZones = p.targets.map((t: any) => t.label);
+          p.answerKey = (p.answerKey || []).map((a: any) => ({
+            item: itemMap.get(a.itemId) || a.item,
+            target: targetMap.get(a.targetId) || a.target,
+          }));
+        }
+      }
+
       const queryText = `
         INSERT INTO placement_test_questions (
           question_number, question_type, question_text, subject, 
