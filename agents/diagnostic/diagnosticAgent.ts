@@ -1,5 +1,4 @@
 import { buildLessonPlan, colorForStatus } from "./core/diagnosticEngine"
-import { getCorrectQuestionPoints } from "./timeScoring"
 import {
   getGradeQuizQuestions,
   getPlacementQuestionsByIds,
@@ -47,16 +46,7 @@ function verdictScore(verdict: QuestionVerdict): number {
 }
 
 function scoreRecord(record: AskedQuestionRecord): number {
-  const baseScore = verdictScore(record.verdict)
-
-  if (record.verdict === "correct") {
-    return getCorrectQuestionPoints(
-      record.timeTakenMs,
-      record.question.difficultyLevel
-    )
-  }
-
-  return baseScore
+  return verdictScore(record.verdict)
 }
 
 function normalizeText(value: string): string {

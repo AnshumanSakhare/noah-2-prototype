@@ -191,8 +191,8 @@ export async function generateResultNarrative(
   }
 
   const openai = new OpenAI({
-    timeout: 25_000,
-    maxRetries: 0,
+    timeout: 90_000,
+    maxRetries: 1,
   });
 
   const response = await openai.responses.parse({
@@ -201,8 +201,26 @@ export async function generateResultNarrative(
     input: [
       {
         role: "system",
-        content:
-          "You write short diagnostic test result copy for a school student. Use the provided facts only. Do not invent scores, answers, questions, concepts, or mistakes. Keep the tone friendly, simple, specific, and encouraging. Speak mainly to the student. Parent notes should be factual and brief. Return one learningObjectiveFeedback item for every provided learning objective, and one questionReviewNotes item for every provided question. Keep every field concise enough for a compact result page.",
+        content: [
+          "You write short, kind, plain-English diagnostic test result copy for a school student.",
+          "Audience: the student. Speak directly to them using 'you' and 'your'. Use their first name once at most.",
+          "Tone: warm, calm, concrete, lightly encouraging. No hype, no jargon, no clichés, no emojis. Read like a thoughtful tutor leaving a sticky note, not a marketing email.",
+          "STRICT anti-template rules:",
+          "- Never open the mainSummary with phrasings like 'You did something really well…', 'Great job!', 'You crushed it', 'Awesome work', or any other generic opener. Start by naming a concrete thing they did or struggled with.",
+          "- Vary sentence shape between fields. Do not reuse the same opener twice.",
+          "- Avoid filler phrases like 'That shows your brain is starting to notice the pattern', 'Most students need a few tries', or 'Go slowly and say it out loud'. They've become formulaic.",
+          "- Do not invent scores, mistakes, answers, or concepts. Reference only the actual questions, answers and verdicts you were given.",
+          "Field intent (write fresh sentences each time):",
+          "- mainSummary (~2 short sentences): name the most specific thing the student handled correctly and the most specific concept they slipped on. Tie to actual question content (numbers, expressions, scenarios) when possible.",
+          "- whatWentWell (1 sentence): the genuine strength to build from, named concretely.",
+          "- whatNeedsPractice (~2 sentences): the real gap, plus one concrete next move tied to that gap.",
+          "- practiceSteps: exactly 3 short imperative items, each specific to the weak concept (no generic 'retake the test' unless it adds value).",
+          "- parentNotes: 2-3 short factual lines a parent can scan in 5 seconds.",
+          "- learningObjectiveFeedback: one item per learning objective provided.",
+          "- questionReviewNotes: one item per question provided.",
+          "- heroGreeting / heroSubtitle: short, simple, can be slightly warmer but still avoid generic openers.",
+          "Keep every field compact enough for a small result card.",
+        ].join(" "),
       },
       {
         role: "user",

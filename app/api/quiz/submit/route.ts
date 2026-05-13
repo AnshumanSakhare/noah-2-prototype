@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { runDiagnostic } from "@/agents/diagnostic/diagnosticAgent";
+import { generatePlacementTopicInsights } from "@/agents/diagnostic/placementTopicInsights";
 import { generateResultNarrative } from "@/agents/diagnostic/resultNarrative";
 import { saveDiagnosticResult } from "@/lib/diagnostic-results-store";
 
@@ -72,8 +73,23 @@ export async function POST(request: Request) {
         ? { ...diagnosticReport, mode: "recurring" as never }
         : diagnosticReport;
 
-    const resultNarrative = await generateResultNarrative(diagnosticReport);
-    const report = { ...reportToSave, resultNarrative };
+    const [resultNarrative, placementTopicInsights] = await Promise.all([
+      generateResultNarrative(diagnosticReport).catch((error) => {
+        console.error("generateResultNarrative failed", error);
+        return undefined;
+      }),
+      testMode === "placement"
+        ? generatePlacementTopicInsights(diagnosticReport).catch((error) => {
+            console.error("generatePlacementTopicInsights failed", error);
+            return [];
+          })
+        : Promise.resolve(undefined),
+    ]);
+    const report = {
+      ...reportToSave,
+      ...(resultNarrative ? { resultNarrative } : {}),
+      ...(placementTopicInsights ? { placementTopicInsights } : {}),
+    };
     const { progressComparison, ...storedResult } = await saveDiagnosticResult(
       report,
       { parentAssessmentId: body.parentAssessmentId },
