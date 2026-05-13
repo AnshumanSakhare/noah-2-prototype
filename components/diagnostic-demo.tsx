@@ -59,6 +59,72 @@ type StudentSetup = {
   classLevel: CreateSessionInput["classLevel"];
 };
 
+export type AssessmentKind = "diagnostic" | "placement";
+
+const ASSESSMENT_COPY: Record<
+  AssessmentKind,
+  {
+    brand: string;
+    shortBrand: string;
+    studentDetailsIntro: string;
+    selectorIntro: string;
+    topicBrowseIntro: string;
+    gradeBrowseIntro: string;
+    topicStartIntro: string;
+    gradeStartIntro: string;
+    resultLabel: string;
+    runNewLabel: string;
+  }
+> = {
+  diagnostic: {
+    brand: "Diagnostic Agent",
+    shortBrand: "Diagnostic",
+    studentDetailsIntro:
+      "Add the student name and grade before choosing the diagnostic test.",
+    selectorIntro: "Pick a {grade} test that fits what you want to check.",
+    topicBrowseIntro: "Select a class and topic to begin your diagnostic.",
+    gradeBrowseIntro: "Select your class to see your grade-wide diagnostic test.",
+    topicStartIntro:
+      "Answer each question carefully. The test is designed to quickly check your current understanding.",
+    gradeStartIntro:
+      "Answer each question carefully. The test is designed to quickly check your current understanding across all topics.",
+    resultLabel: "Diagnostic",
+    runNewLabel: "Run New Diagnostic",
+  },
+  placement: {
+    brand: "Placement Test",
+    shortBrand: "Placement",
+    studentDetailsIntro:
+      "Add the student name and grade before starting the placement test.",
+    selectorIntro:
+      "Pick a {grade} placement flow to understand the right starting point.",
+    topicBrowseIntro: "Select a class and topic to begin your placement check.",
+    gradeBrowseIntro: "Select your class to see your grade-wide placement test.",
+    topicStartIntro:
+      "Answer each question carefully. The test is designed to estimate the right starting level.",
+    gradeStartIntro:
+      "Answer each question carefully. The test is designed to estimate readiness across the grade.",
+    resultLabel: "Placement",
+    runNewLabel: "Run New Placement Test",
+  },
+};
+
+const PLACEMENT_EXCLUDED_CLASS_LEVELS = new Set([
+  "classKG",
+  "class1",
+  "class2",
+]);
+
+function isClassLevelAvailableForAssessment(
+  assessmentKind: AssessmentKind,
+  classLevel: string,
+) {
+  return (
+    assessmentKind !== "placement" ||
+    !PLACEMENT_EXCLUDED_CLASS_LEVELS.has(classLevel)
+  );
+}
+
 // ─── Star Rating ──────────────────────────────────────────────────────────────
 function StarRating({
   filled,
@@ -974,11 +1040,13 @@ function AIChatBubble({
 function StudentInfoScreen({
   setup,
   classLevels,
+  assessmentCopy,
   onChange,
   onContinue,
 }: {
   setup: StudentSetup;
   classLevels: CreateSessionInput["classLevel"][];
+  assessmentCopy: (typeof ASSESSMENT_COPY)[AssessmentKind];
   onChange: (setup: StudentSetup) => void;
   onContinue: () => void;
 }) {
@@ -991,7 +1059,7 @@ function StudentInfoScreen({
           Student details
         </h2>
         <p className="mx-auto mt-2 max-w-[520px] text-[15px] leading-relaxed text-[#6B7280] sm:text-[16px]">
-          Add the student name and grade before choosing the diagnostic test.
+          {assessmentCopy.studentDetailsIntro}
         </p>
       </div>
 
@@ -1059,11 +1127,13 @@ function SelectorScreen({
   onSelectGrade,
   studentName,
   classLevel,
+  assessmentCopy,
 }: {
   onSelectTopic: () => void;
   onSelectGrade: () => void;
   studentName: string;
   classLevel: string;
+  assessmentCopy: (typeof ASSESSMENT_COPY)[AssessmentKind];
 }) {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1072,8 +1142,11 @@ function SelectorScreen({
           Choose your test
         </h2>
         <p className="mx-auto mt-2 max-w-[520px] text-[15px] leading-relaxed text-[#6B7280] sm:text-[16px]">
-          Ready for {studentName}? Pick a {classLabel(classLevel)} test that
-          fits what you want to check.
+          Ready for {studentName}?{" "}
+          {assessmentCopy.selectorIntro.replace(
+            "{grade}",
+            classLabel(classLevel),
+          )}
         </p>
       </div>
 
@@ -1160,6 +1233,7 @@ function TopicBrowseScreen({
   setForm,
   quizCatalog,
   defaultTopicEntry,
+  assessmentCopy,
   onContinue,
   onBack,
   onSelectEntry,
@@ -1168,6 +1242,7 @@ function TopicBrowseScreen({
   setForm: React.Dispatch<React.SetStateAction<CreateSessionInput>>;
   quizCatalog: DemoQuizCatalog;
   defaultTopicEntry: DemoQuizCatalogEntry | null;
+  assessmentCopy: (typeof ASSESSMENT_COPY)[AssessmentKind];
   onContinue: () => void;
   onBack: () => void;
   onSelectEntry: (entry: DemoQuizCatalogEntry) => void;
@@ -1227,7 +1302,7 @@ function TopicBrowseScreen({
           Pick a topic to test
         </h2>
         <p className="mt-1 text-[14px] text-[#6B7280]">
-          Select a class and topic to begin your diagnostic
+          {assessmentCopy.topicBrowseIntro}
         </p>
       </div>
 
@@ -1308,6 +1383,7 @@ function TopicBrowseScreen({
 function TopicStartScreen({
   form,
   topicEntries,
+  assessmentCopy,
   onSelectTopic,
   onBegin,
   onBack,
@@ -1316,6 +1392,7 @@ function TopicStartScreen({
   form: CreateSessionInput;
   learningObjectives: string[];
   topicEntries: DemoQuizCatalogEntry[];
+  assessmentCopy: (typeof ASSESSMENT_COPY)[AssessmentKind];
   onSelectTopic: (entry: DemoQuizCatalogEntry) => void;
   onBegin: () => void;
   onBack: () => void;
@@ -1350,8 +1427,7 @@ function TopicStartScreen({
           {form.topic}
         </h2>
         <p className="mb-6 text-[14px] leading-relaxed text-[#6B7280]">
-          Answer each question carefully. The test is designed to quickly check
-          your current understanding.
+          {assessmentCopy.topicStartIntro}
         </p>
 
         <label className="mb-6 block">
@@ -1431,10 +1507,12 @@ function TopicStartScreen({
 // ─── Grade Browse Screen ───────────────────────────────────────────────────────
 function GradeBrowseScreen({
   quizCatalog,
+  assessmentCopy,
   onSelect,
   onBack,
 }: {
   quizCatalog: DemoQuizCatalog;
+  assessmentCopy: (typeof ASSESSMENT_COPY)[AssessmentKind];
   onSelect: (classLevel: string) => void;
   onBack: () => void;
 }) {
@@ -1471,7 +1549,7 @@ function GradeBrowseScreen({
           Choose your grade
         </h2>
         <p className="mt-1 text-[14px] text-[#6B7280]">
-          Select your class to see your grade-wide diagnostic test
+          {assessmentCopy.gradeBrowseIntro}
         </p>
       </div>
 
@@ -1511,12 +1589,14 @@ function GradeBrowseScreen({
 function GradeStartScreen({
   classLevel,
   subject,
+  assessmentCopy,
   onBegin,
   onBack,
   isBusy,
 }: {
   classLevel: string;
   subject: string;
+  assessmentCopy: (typeof ASSESSMENT_COPY)[AssessmentKind];
   onBegin: () => void;
   onBack: () => void;
   isBusy: boolean;
@@ -1545,8 +1625,7 @@ function GradeStartScreen({
           Grade {classNum(classLevel)} {subject}
         </h2>
         <p className="mb-6 text-[14px] leading-relaxed text-[#6B7280]">
-          Answer each question carefully. The test is designed to quickly check
-          your current understanding across all topics.
+          {assessmentCopy.gradeStartIntro}
         </p>
 
         <div className="mb-7 grid gap-3 sm:grid-cols-3">
@@ -3533,13 +3612,29 @@ export function DiagnosticDemo({
   quizCatalog,
   defaultTopicEntry,
   defaultTopicLearningObjectives,
+  assessmentKind = "diagnostic",
 }: {
   quizCatalog: DemoQuizCatalog;
   defaultTopicEntry: DemoQuizCatalogEntry | null;
   defaultTopicLearningObjectives: string[];
+  assessmentKind?: AssessmentKind;
 }) {
+  const assessmentCopy = ASSESSMENT_COPY[assessmentKind];
+  const visibleQuizCatalog = {
+    entries: quizCatalog.entries.filter((entry) =>
+      isClassLevelAvailableForAssessment(assessmentKind, entry.classLevel),
+    ),
+  };
+  const initialTopicEntry =
+    defaultTopicEntry &&
+    isClassLevelAvailableForAssessment(
+      assessmentKind,
+      defaultTopicEntry.classLevel,
+    )
+      ? defaultTopicEntry
+      : (visibleQuizCatalog.entries[0] ?? defaultTopicEntry);
   const initialClassLevel =
-    defaultTopicEntry?.classLevel ?? DIAGNOSTIC_CONTENT_DEFAULTS.classLevel;
+    initialTopicEntry?.classLevel ?? DIAGNOSTIC_CONTENT_DEFAULTS.classLevel;
   const [appScreen, setAppScreen] = useState<AppScreen>("student-info");
   const [studentSetup, setStudentSetup] = useState<StudentSetup>({
     studentId: "Riya Sharma",
@@ -3549,7 +3644,7 @@ export function DiagnosticDemo({
   const [selectedGradeClass, setSelectedGradeClass] =
     useState<string>(initialClassLevel);
   const [selectedTopicEntry, setSelectedTopicEntry] =
-    useState<DemoQuizCatalogEntry | null>(() => defaultTopicEntry);
+    useState<DemoQuizCatalogEntry | null>(() => initialTopicEntry);
   const [toast, setToast] = useState<{
     emoji: string;
     title: string;
@@ -3557,7 +3652,7 @@ export function DiagnosticDemo({
   } | null>(null);
 
   const [form, setForm] = useState<CreateSessionInput>(() =>
-    buildDefaultForm(defaultTopicEntry, "Riya Sharma"),
+    buildDefaultForm(initialTopicEntry, "Riya Sharma"),
   );
   const [quiz, setQuiz] = useState<DemoLoadedQuiz | null>(null);
   const [report, setReport] = useState<DiagnosticReport | null>(null);
@@ -3582,12 +3677,12 @@ export function DiagnosticDemo({
   const isSubmitting = pendingAction === "submit";
   const classLevels = useMemo(() => {
     const availableClassLevels = Array.from(
-      new Set(quizCatalog.entries.map((entry) => entry.classLevel)),
+      new Set(visibleQuizCatalog.entries.map((entry) => entry.classLevel)),
     ).sort();
     return availableClassLevels.length > 0
       ? availableClassLevels
       : [initialClassLevel];
-  }, [initialClassLevel, quizCatalog.entries]);
+  }, [initialClassLevel, visibleQuizCatalog.entries]);
 
   const quizRef = useRef<DemoLoadedQuiz | null>(quiz);
   const currentIndexRef = useRef(currentIndex);
@@ -3768,7 +3863,10 @@ export function DiagnosticDemo({
     const studentId = studentSetup.studentId.trim();
     if (!studentId) return;
 
-    const entry = getCatalogEntryForClass(quizCatalog, studentSetup.classLevel);
+    const entry = getCatalogEntryForClass(
+      visibleQuizCatalog,
+      studentSetup.classLevel,
+    );
     setSelectedGradeClass(studentSetup.classLevel);
     setSelectedTopicEntry(entry);
     setForm(buildDefaultForm(entry, studentId));
@@ -3787,9 +3885,9 @@ export function DiagnosticDemo({
     setError(null);
     setPendingAction(null);
     setAppScreen("student-info");
-    setSelectedTopicEntry(defaultTopicEntry);
+    setSelectedTopicEntry(initialTopicEntry);
     setSelectedGradeClass(studentSetup.classLevel);
-    setForm(buildDefaultForm(defaultTopicEntry, studentSetup.studentId.trim()));
+    setForm(buildDefaultForm(initialTopicEntry, studentSetup.studentId.trim()));
   };
 
   const canSubmitCurrent =
@@ -3805,25 +3903,25 @@ export function DiagnosticDemo({
   // Grade test: get topics for selected class
   const gradeTopics = useMemo(() => {
     if (!selectedGradeClass) return [];
-    return quizCatalog.entries
+    return visibleQuizCatalog.entries
       .filter((e) => e.classLevel === selectedGradeClass)
       .map((e) => e.topic);
-  }, [quizCatalog.entries, selectedGradeClass]);
+  }, [visibleQuizCatalog.entries, selectedGradeClass]);
 
   const gradeSubject = useMemo(() => {
     if (!selectedGradeClass) return "Maths";
     return (
-      quizCatalog.entries.find((e) => e.classLevel === selectedGradeClass)
+      visibleQuizCatalog.entries.find((e) => e.classLevel === selectedGradeClass)
         ?.subject ?? "Maths"
     );
-  }, [quizCatalog.entries, selectedGradeClass]);
+  }, [visibleQuizCatalog.entries, selectedGradeClass]);
 
   const topicEntriesForFormGrade = useMemo(
     () =>
-      quizCatalog.entries.filter(
+      visibleQuizCatalog.entries.filter(
         (entry) => entry.classLevel === form.classLevel,
       ),
-    [form.classLevel, quizCatalog.entries],
+    [form.classLevel, visibleQuizCatalog.entries],
   );
 
   const selectTopicEntryForTest = (
@@ -3845,7 +3943,7 @@ export function DiagnosticDemo({
   const selectFixedTopicTest = () => {
     const studentId = studentSetup.studentId.trim() || "Student";
     const topicEntry = getCatalogEntryForClass(
-      quizCatalog,
+      visibleQuizCatalog,
       studentSetup.classLevel,
     );
 
@@ -3860,8 +3958,8 @@ export function DiagnosticDemo({
     const studentId = studentSetup.studentId.trim() || "Student";
     const gradeClass = studentSetup.classLevel;
     const gradeEntry =
-      quizCatalog.entries.find((entry) => entry.classLevel === gradeClass) ??
-      getDefaultCatalogEntry(quizCatalog);
+      visibleQuizCatalog.entries.find((entry) => entry.classLevel === gradeClass) ??
+      getDefaultCatalogEntry(visibleQuizCatalog);
 
     setSelectedGradeClass(gradeClass);
     if (gradeEntry) {
@@ -3880,7 +3978,7 @@ export function DiagnosticDemo({
 
   const handleSelectGradeClass = (cl: string) => {
     setSelectedGradeClass(cl);
-    const firstEntry = quizCatalog.entries.find((e) => e.classLevel === cl);
+    const firstEntry = visibleQuizCatalog.entries.find((e) => e.classLevel === cl);
     if (firstEntry) {
       setForm((prev) => ({
         ...prev,
@@ -3910,8 +4008,8 @@ export function DiagnosticDemo({
               🔭
             </div>
             <span className="font-bold text-[15px] tracking-[0.02em] text-[#1B4A4A] uppercase sm:text-[18px]">
-              <span className="hidden sm:inline">Diagnostic Agent</span>
-              <span className="sm:hidden">Diagnostic</span>
+              <span className="hidden sm:inline">{assessmentCopy.brand}</span>
+              <span className="sm:hidden">{assessmentCopy.shortBrand}</span>
             </span>
           </div>
 
@@ -3961,6 +4059,7 @@ export function DiagnosticDemo({
             <StudentInfoScreen
               setup={studentSetup}
               classLevels={classLevels}
+              assessmentCopy={assessmentCopy}
               onChange={setStudentSetup}
               onContinue={continueFromStudentInfo}
             />
@@ -3976,6 +4075,7 @@ export function DiagnosticDemo({
               onSelectGrade={selectFixedGradeTest}
               studentName={studentSetup.studentId.trim() || "Student"}
               classLevel={studentSetup.classLevel}
+              assessmentCopy={assessmentCopy}
             />
           )}
 
@@ -3987,8 +4087,9 @@ export function DiagnosticDemo({
             <TopicBrowseScreen
               form={form}
               setForm={setForm}
-              quizCatalog={quizCatalog}
-              defaultTopicEntry={defaultTopicEntry}
+              quizCatalog={visibleQuizCatalog}
+              defaultTopicEntry={initialTopicEntry}
+              assessmentCopy={assessmentCopy}
               onContinue={() => setAppScreen("topic-start")}
               onBack={() => setAppScreen("selector")}
               onSelectEntry={(entry) => setSelectedTopicEntry(entry)}
@@ -4007,6 +4108,7 @@ export function DiagnosticDemo({
                 defaultTopicLearningObjectives
               }
               topicEntries={topicEntriesForFormGrade}
+              assessmentCopy={assessmentCopy}
               onSelectTopic={(entry) => {
                 selectTopicEntryForTest(entry);
               }}
@@ -4024,7 +4126,8 @@ export function DiagnosticDemo({
           !showResult &&
           appScreen === "grade-browse" && (
             <GradeBrowseScreen
-              quizCatalog={quizCatalog}
+              quizCatalog={visibleQuizCatalog}
+              assessmentCopy={assessmentCopy}
               onSelect={handleSelectGradeClass}
               onBack={() => setAppScreen("selector")}
             />
@@ -4038,6 +4141,7 @@ export function DiagnosticDemo({
             <GradeStartScreen
               classLevel={selectedGradeClass}
               subject={gradeSubject}
+              assessmentCopy={assessmentCopy}
               onBegin={() => {
                 startQuizRun();
               }}

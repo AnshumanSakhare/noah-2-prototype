@@ -1,5 +1,5 @@
 import { AssessmentPage } from "../assessment-page";
 
-export default function DiagnosticAgentPage() {
+export default function DiagnosticTestPage() {
   return <AssessmentPage assessmentKind="diagnostic" />;
 }
