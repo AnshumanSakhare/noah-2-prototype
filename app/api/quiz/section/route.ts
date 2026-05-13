@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
   getDiagnosticQuizCatalog,
   getGradeQuizForClient,
+  getPlacementQuizForClient,
   getTopicQuizForClient,
 } from "@/agents/diagnostic/tools/contentQuiz";
 import type { ClassLevel, Subject } from "@/agents/diagnostic/types/index";
@@ -23,7 +24,29 @@ export async function POST(request: Request) {
     };
 
     const studentId = body.studentId?.trim() || "Riya Sharma";
-    const testMode = body.testMode === "grade" ? "grade" : "topic";
+    const testMode =
+      body.testMode === "placement"
+        ? "placement"
+        : body.testMode === "grade"
+          ? "grade"
+          : "topic";
+
+    if (testMode === "placement") {
+      if (!body.subject || !body.classLevel) {
+        return NextResponse.json(
+          { error: "subject and classLevel are required for placement test." },
+          { status: 400 },
+        );
+      }
+
+      const quiz = await getPlacementQuizForClient({
+        studentId,
+        subject: body.subject as Subject,
+        classLevel: body.classLevel as ClassLevel,
+      });
+
+      return NextResponse.json({ quiz });
+    }
 
     if (testMode === "grade") {
       if (!body.subject || !body.classLevel) {

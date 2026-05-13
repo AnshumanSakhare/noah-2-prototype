@@ -9,7 +9,7 @@ export type ClassLevel =
   | "class6"
   | "class7"
   | "class8";
-export type TestMode = "topic" | "grade" | "recurring";
+export type TestMode = "topic" | "grade" | "recurring" | "placement";
 
 export type BloomLevel = "remember" | "understand" | "apply";
 export type ReachedBloomLevel = BloomLevel | "not_attempted";
@@ -153,6 +153,7 @@ export interface QuestionBankQuestion {
   explanation: string;
   focus?: string;
   keywords: string[];
+  gradeLevel?: string;
   payload?: QuestionPayload;
 }
 
@@ -364,7 +365,7 @@ export interface DiagnosticConfig {
 
 export interface DiagnosticReport {
   studentId: string;
-  mode: "topic" | "grade" | "recurring";
+  mode: "topic" | "grade" | "recurring" | "placement";
   subject: Subject;
   classLevel: ClassLevel;
   topic: string;

@@ -1041,12 +1041,14 @@ function StudentInfoScreen({
   setup,
   classLevels,
   assessmentCopy,
+  assessmentKind,
   onChange,
   onContinue,
 }: {
   setup: StudentSetup;
   classLevels: CreateSessionInput["classLevel"][];
   assessmentCopy: (typeof ASSESSMENT_COPY)[AssessmentKind];
+  assessmentKind: AssessmentKind;
   onChange: (setup: StudentSetup) => void;
   onContinue: () => void;
 }) {
@@ -1111,10 +1113,12 @@ function StudentInfoScreen({
         <button
           type="button"
           onClick={onContinue}
-          disabled={studentName.length === 0}
+          disabled={assessmentKind !== "placement" && studentName.length === 0}
           className="mt-8 flex w-full items-center justify-center gap-2 rounded-full bg-[#F5A623] py-4 font-bold text-[16px] text-white shadow-[0_6px_20px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50"
         >
-          Choose your test
+          {assessmentKind === "placement"
+            ? "Start Placement Test"
+            : "Choose your test"}
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
@@ -1593,6 +1597,7 @@ function GradeStartScreen({
   onBegin,
   onBack,
   isBusy,
+  testMode,
 }: {
   classLevel: string;
   subject: string;
@@ -1600,10 +1605,14 @@ function GradeStartScreen({
   onBegin: () => void;
   onBack: () => void;
   isBusy: boolean;
+  testMode?: string;
 }) {
-  const questionCount = getGradeQuestionCountForClass(
-    classLevel as CreateSessionInput["classLevel"],
-  );
+  const isPlacement = testMode === "placement";
+  const questionCount = isPlacement
+    ? 20
+    : getGradeQuestionCountForClass(
+        classLevel as CreateSessionInput["classLevel"],
+      );
 
   return (
     <div className="mx-auto max-w-[680px] animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1618,7 +1627,7 @@ function GradeStartScreen({
 
       <div className="rounded-[20px] border border-gray-100 bg-white p-5 shadow-sm sm:p-8">
         <div className="mb-3 inline-block rounded-full bg-[#FFF8E7] px-3 py-1 font-mono text-[11px] font-bold tracking-wider text-[#1B4A4A]">
-          GRADE TEST
+          {isPlacement ? "PLACEMENT TEST" : "GRADE TEST"}
         </div>
 
         <h2 className="mb-2 text-[24px] font-extrabold tracking-tight text-[#1B4A4A] sm:text-[30px]">
@@ -3640,7 +3649,9 @@ export function DiagnosticDemo({
     studentId: "Riya Sharma",
     classLevel: initialClassLevel,
   });
-  const [testMode, setTestMode] = useState<"topic" | "grade">("topic");
+  const [testMode, setTestMode] = useState<
+    "topic" | "grade" | "recurring" | "placement"
+  >("topic");
   const [selectedGradeClass, setSelectedGradeClass] =
     useState<string>(initialClassLevel);
   const [selectedTopicEntry, setSelectedTopicEntry] =
@@ -3860,8 +3871,8 @@ export function DiagnosticDemo({
   );
 
   const continueFromStudentInfo = () => {
-    const studentId = studentSetup.studentId.trim();
-    if (!studentId) return;
+    const studentId = studentSetup.studentId.trim() || "Placement Student";
+    if (assessmentKind !== "placement" && !studentSetup.studentId.trim()) return;
 
     const entry = getCatalogEntryForClass(
       visibleQuizCatalog,
@@ -3871,7 +3882,14 @@ export function DiagnosticDemo({
     setSelectedTopicEntry(entry);
     setForm(buildDefaultForm(entry, studentId));
     setError(null);
-    setAppScreen("selector");
+
+    if (assessmentKind === "placement") {
+      setTestMode("placement");
+      setForm((prev) => ({ ...prev, testMode: "placement" }));
+      setAppScreen("grade-start");
+    } else {
+      setAppScreen("selector");
+    }
   };
 
   const resetQuiz = () => {
@@ -4060,6 +4078,7 @@ export function DiagnosticDemo({
               setup={studentSetup}
               classLevels={classLevels}
               assessmentCopy={assessmentCopy}
+              assessmentKind={assessmentKind}
               onChange={setStudentSetup}
               onContinue={continueFromStudentInfo}
             />
@@ -4147,6 +4166,7 @@ export function DiagnosticDemo({
               }}
               onBack={() => setAppScreen("selector")}
               isBusy={isBusy}
+              testMode={testMode}
             />
           )}
 
@@ -4158,8 +4178,12 @@ export function DiagnosticDemo({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#2EC4B6]">
-                    {testMode === "grade" ? "GRADE TEST" : "TOPIC TEST"} /{" "}
-                    {classLabel(quiz.classLevel)}
+                    {testMode === "placement"
+                      ? "PLACEMENT TEST"
+                      : testMode === "grade"
+                        ? "GRADE TEST"
+                        : "TOPIC TEST"}{" "}
+                    / {classLabel(quiz.classLevel)}
                   </div>
                   <div className="mt-0.5 text-[18px] font-extrabold text-[#1a1a1a] sm:text-[20px]">
                     Question {currentIndex + 1} of {quiz.questions.length}
@@ -4252,6 +4276,12 @@ export function DiagnosticDemo({
 
                   <h3 className="text-[17px] font-semibold leading-normal text-[#1a1a1a]">
                     {currentQuestion.question}
+                    {testMode === "placement" &&
+                      (currentQuestion as any).gradeLevel && (
+                        <span className="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-400 opacity-70">
+                          {(currentQuestion as any).gradeLevel}
+                        </span>
+                      )}
                   </h3>
                   </div>
                 </div>

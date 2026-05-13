@@ -28,9 +28,10 @@ type ContentQuestionRow = {
   id: string;
   question_type: string;
   question_text: string;
-  question_svg: string | null;
+  question_svg?: string | null;
   subject: string;
   grade: string;
+  grade_level?: string;
   topic: string;
   subtopic: string;
   learning_objective: string;
@@ -38,7 +39,7 @@ type ContentQuestionRow = {
   difficulty_level: string;
   difficulty_rating: number | null;
   options: unknown;
-  explanation: string;
+  explanation: string | null;
   generation_metadata: unknown;
 };
 
@@ -56,22 +57,22 @@ declare global {
   var __diagnosticQuizCatalogPromise__: Promise<DemoQuizCatalog> | undefined;
 }
 
-function normalizeText(value: string): string {
-  return value.trim().replace(/\s+/g, " ");
+function normalizeText(value: string | null | undefined): string {
+  return (value ?? "").trim().replace(/\s+/g, " ");
 }
 
-function normalizeQuestionText(value: string): string {
+function normalizeQuestionText(value: string | null | undefined): string {
   return normalizeText(value).replace(
     /^(Fill in the blank with the correct answer:|Drag each choice into the correct group:)\s*/i,
     "",
   );
 }
 
-function normalizeKey(value: string): string {
+function normalizeKey(value: string | null | undefined): string {
   return normalizeText(value).toLowerCase();
 }
 
-function toSubject(value: string): Subject {
+function toSubject(value: string | null | undefined): Subject {
   const normalized = normalizeKey(value);
   if (normalized === "science") return "Science";
   if (normalized === "english") return "English";
@@ -79,7 +80,7 @@ function toSubject(value: string): Subject {
   return "Maths";
 }
 
-function toClassLevel(value: string): ClassLevel {
+function toClassLevel(value: string | null | undefined): ClassLevel {
   const normalized = normalizeKey(value);
   if (normalized === "kg" || normalized === "classkg") return "classKG";
   const match = normalized.match(/\d+/);
@@ -99,7 +100,7 @@ function toDbGrade(classLevel: ClassLevel) {
   return classLevel === "classKG" ? "KG" : classLevel.replace("class", "");
 }
 
-function toBloomLevel(value: string): BloomLevel {
+function toBloomLevel(value: string | null | undefined): BloomLevel {
   const normalized = normalizeKey(value);
   if (normalized === "knowing" || normalized === "remember") return "remember";
   if (normalized === "understanding" || normalized === "understand") {
@@ -108,7 +109,7 @@ function toBloomLevel(value: string): BloomLevel {
   return "apply";
 }
 
-function toQuestionType(value: string): QuestionType {
+function toQuestionType(value: string | null | undefined): QuestionType {
   switch (normalizeKey(value)) {
     case "mcq":
       return "mcq";
@@ -187,7 +188,7 @@ function toSvg(value: unknown) {
   return trimmed.startsWith("<svg") ? trimmed : undefined;
 }
 
-function isNotCorrectDropZone(value: string) {
+function isNotCorrectDropZone(value: string | null | undefined) {
   return normalizeKey(value).replace(/[^a-z0-9]+/g, " ") === "not correct";
 }
 
@@ -371,6 +372,7 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
         explanation,
       ].join(" "),
     ),
+    gradeLevel: row.grade_level ? normalizeText(row.grade_level) : undefined,
     payload: typedPayload,
   };
 }
@@ -1687,3 +1689,121 @@ export async function getRecurringTestForClient(input: {
     questions: mixed.map(toClientQuizQuestion),
   };
 }
+
+export async function loadPlacementQuestions(input: {
+  subject: Subject;
+  classLevel: ClassLevel;
+}) {
+  const result = await query(
+    `
+      SELECT
+        id::text,
+        question_type,
+        question_text,
+        subject,
+        grade,
+        grade_level,
+        topic,
+        subtopic,
+        learning_objective,
+        blooms_level,
+        difficulty_level,
+        difficulty_rating,
+        options,
+        explanation,
+        generation_metadata
+      FROM placement_test_questions
+      WHERE subject = $1
+        AND grade = $2
+        AND question_text IS NOT NULL
+        AND question_type IS NOT NULL
+      ORDER BY id
+    `,
+    [input.subject, toDbGrade(input.classLevel)],
+  );
+
+  return toQuestions(result.rows as ContentQuestionRow[]);
+}
+
+export async function getPlacementQuestionsByIds(input: {
+  questionIds: string[];
+  subject: Subject;
+  classLevel: ClassLevel;
+}) {
+  const questionIds = Array.from(new Set(input.questionIds.filter(Boolean)));
+
+  if (questionIds.length === 0) {
+    return {
+      subject: input.subject,
+      classLevel: input.classLevel,
+      topic: "Placement Test",
+      expectedLearningObjectives: [] as string[],
+      questions: [] as QuestionBankQuestion[],
+    };
+  }
+
+  const result = await query(
+    `
+      SELECT
+        id::text,
+        question_type,
+        question_text,
+        subject,
+        grade,
+        grade_level,
+        topic,
+        subtopic,
+        learning_objective,
+        blooms_level,
+        difficulty_level,
+        difficulty_rating,
+        options,
+        explanation,
+        generation_metadata
+      FROM placement_test_questions
+      WHERE id = ANY($1::uuid[])
+        AND subject = $2
+        AND grade = $3
+      ORDER BY array_position($1::uuid[], id)
+    `,
+    [questionIds, input.subject, toDbGrade(input.classLevel)],
+  );
+
+  const questions = toQuestions(result.rows as ContentQuestionRow[]);
+  const expectedLearningObjectives = Array.from(
+    new Set(questions.map((q) => q.learningObjective).filter(Boolean)),
+  ) as string[];
+
+  return {
+    subject: input.subject,
+    classLevel: input.classLevel,
+    topic: "Placement Test",
+    expectedLearningObjectives,
+    questions,
+  };
+}
+
+export async function getPlacementQuizForClient(input: {
+  studentId: string;
+  subject: Subject;
+  classLevel: ClassLevel;
+}) {
+  const allQuestions = await loadPlacementQuestions(input);
+
+  // Requirement: Easy -> Medium -> Hard
+  const sortedQuestions = orderByDifficultyAscending(allQuestions);
+
+  return {
+    studentId: input.studentId,
+    testMode: "placement" as const,
+    subject: input.subject,
+    classLevel: input.classLevel,
+    topic: "Placement Test",
+    expectedLearningObjectives: Array.from(
+      new Set(sortedQuestions.map((q) => q.learningObjective).filter(Boolean)),
+    ),
+    maxQuestions: sortedQuestions.length,
+    questions: sortedQuestions.map(toClientQuizQuestion),
+  };
+}
+

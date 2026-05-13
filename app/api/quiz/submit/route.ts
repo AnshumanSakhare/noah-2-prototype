@@ -39,11 +39,13 @@ export async function POST(request: Request) {
     );
 
     const testMode =
-      body.testMode === "grade"
-        ? "grade"
-        : body.testMode === "recurring"
-          ? "recurring"
-          : "topic";
+      body.testMode === "placement"
+        ? "placement"
+        : body.testMode === "grade"
+          ? "grade"
+          : body.testMode === "recurring"
+            ? "recurring"
+            : "topic";
 
     const diagnosticReport = await runDiagnostic({
       studentId: body.studentId?.trim() || "Riya Sharma",

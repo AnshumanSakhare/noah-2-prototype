@@ -2,6 +2,7 @@ import { buildLessonPlan, colorForStatus } from "./core/diagnosticEngine"
 import { getCorrectQuestionPoints } from "./timeScoring"
 import {
   getGradeQuizQuestions,
+  getPlacementQuestionsByIds,
   getQuizQuestionsByIds,
   getTopicQuizQuestions,
 } from "./tools/contentQuiz"
@@ -1189,17 +1190,35 @@ async function askQuestion(
 export async function runDiagnostic(
   config: DiagnosticConfig
 ): Promise<DiagnosticReport> {
-  const mode = config.testMode === "grade" ? "grade" : config.testMode === "recurring" ? "recurring" : "topic"
-  const reportTopic = mode === "grade" ? "Grade Test" : mode === "recurring" ? "Recurring Test" : config.topic
-  let questionBank: { questions: QuestionBankQuestion[]; expectedLearningObjectives: string[] }
+  const mode = config.testMode ?? "topic"
+  const reportTopic =
+    mode === "placement"
+      ? "Placement Test"
+      : mode === "grade"
+        ? "Grade Test"
+        : mode === "recurring"
+          ? "Recurring Test"
+          : config.topic
+  let questionBank: {
+    questions: QuestionBankQuestion[]
+    expectedLearningObjectives: string[]
+  }
 
   if (config.questionIds && config.questionIds.length > 0) {
-    questionBank = await getQuizQuestionsByIds({
-      questionIds: config.questionIds,
-      subject: config.subject,
-      classLevel: config.classLevel,
-      topic: mode === "topic" ? config.topic : null,
-    })
+    if (mode === "placement") {
+      questionBank = await getPlacementQuestionsByIds({
+        questionIds: config.questionIds,
+        subject: config.subject,
+        classLevel: config.classLevel,
+      })
+    } else {
+      questionBank = await getQuizQuestionsByIds({
+        questionIds: config.questionIds,
+        subject: config.subject,
+        classLevel: config.classLevel,
+        topic: mode === "topic" ? config.topic : null,
+      })
+    }
   } else if (config.preloadedQuestions && config.preloadedQuestions.length > 0) {
     questionBank = {
       questions: config.preloadedQuestions,
