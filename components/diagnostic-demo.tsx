@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import type React from "react";
 import { MultiStageLoadingScreen } from "./loading-screen";
+import { PlacementTopicInsightsSection } from "./placement-result-view";
 import {
   useCallback,
   useEffect,
@@ -44,6 +45,15 @@ import {
 } from "../lib/quiz-counts";
 
 const OPTION_LABELS = ["A", "B", "C", "D"] as const;
+
+function seededNumber(seed: number) {
+  const value = Math.sin(seed * 12.9898) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function seededRange(seed: number, min: number, max: number) {
+  return min + seededNumber(seed) * (max - min);
+}
 
 // ─── App navigation ───────────────────────────────────────────────────────────
 type AppScreen =
@@ -478,71 +488,20 @@ function getQuestionSkillText(record: DiagnosticReport["results"][number]) {
 }
 
 function buildSimpleResultCopy({
-  firstName,
   report,
-  results,
-  roundedScore,
 }: {
   firstName: string;
   report: DiagnosticReport;
   results: DiagnosticReport["results"];
   roundedScore: number;
 }) {
-  const correctRecords = results.filter(
-    (record) => record.verdict === "correct",
-  );
-  const practiceRecords = results.filter(
-    (record) => record.verdict !== "correct",
-  );
-  const strength = correctRecords[0];
-  const practice = practiceRecords[0];
-  const secondPractice = practiceRecords.find(
-    (record) =>
-      practice &&
-      getQuestionConceptText(record) !== getQuestionConceptText(practice),
-  );
-  const strengthConcept = strength
-    ? getQuestionConceptText(strength)
-    : "staying with the test and trying each question";
-  const practiceConcept = practice
-    ? getQuestionConceptText(practice)
-    : "trying a slightly harder challenge";
-  const secondPracticeConcept = secondPractice
-    ? getQuestionConceptText(secondPractice)
-    : null;
-
-  const mainSummary = strength
-    ? `You did something really well in this test. When the question was about ${strengthConcept}, ${getQuestionSkillText(strength)}. That shows your brain is starting to notice the important pattern.`
-    : `You made a start on this test, and that matters. The next step is to slow down, look for the pattern in each question, and try again with a little support.`;
-
-  const whatWentWell =
-    roundedScore >= 70
-      ? `You handled a lot of the test with confidence. Keep using that careful thinking when the question looks unfamiliar.`
-      : `You already have a starting point. Keep the questions you understood as your anchor, then build from there.`;
-
-  const trickyConcepts = secondPracticeConcept
-    ? `${practiceConcept}, and ${secondPracticeConcept}`
-    : practiceConcept;
-  const whatNeedsPractice = practice
-    ? `The tricky part was ${trickyConcepts}. Most students need a few tries before these click. Go slowly, say the pattern out loud, and the questions will start to feel easier.`
-    : `There was no big trouble spot here. To keep improving, try a harder version and explain each step before choosing an answer.`;
-
-  const practiceSteps = [
-    `Review one short example on ${practiceConcept}.`,
-    `Practise a small set on ${practiceConcept}. Aim to explain why each answer works.`,
-    "Retake the test after review. Most students improve once they can see the pattern.",
-  ];
-
+  const narrative = report.resultNarrative;
   return {
-    mainSummary,
-    whatWentWell,
-    whatNeedsPractice,
-    practiceSteps,
-    parentNotes: [
-      `${firstName} completed the ${report.topic} diagnostic.`,
-      `The main practice area is ${practiceConcept}.`,
-      "Short, focused practice followed by a retake is the best next step.",
-    ],
+    mainSummary: narrative?.mainSummary ?? "",
+    whatWentWell: narrative?.whatWentWell ?? "",
+    whatNeedsPractice: narrative?.whatNeedsPractice ?? "",
+    practiceSteps: narrative?.practiceSteps ?? [],
+    parentNotes: narrative?.parentNotes ?? [],
   };
 }
 
@@ -1695,6 +1654,7 @@ function QuestionInput({
   setAnswer: (value: string) => void;
 }) {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
 
   if (question.questionType === "mcq" && question.options) {
     const payload = question.payload as
@@ -1934,122 +1894,259 @@ function QuestionInput({
       }
     };
 
-    return (
-      <div className="rounded-[20px] bg-[#F8F9FA] p-4 sm:p-5">
-        {/* Instruction */}
-        <div className="mb-3 text-center font-mono text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">
-          {selectedItem ? (
-            <span className="text-[#F5A623]">
-              Now tap a box to place "{selectedItem}"
+    const placedCount = Object.keys(answerMap).filter((item) =>
+      leftItems.includes(item),
+    ).length;
+    const totalSlots = isSingleItemTarget ? rightItems.length : leftItems.length;
+    const unplacedItems = leftItems.filter((item) => !answerMap[item]);
+    const placedItemsLookup = leftItems.filter((item) =>
+      Boolean(answerMap[item]),
+    );
+
+    const onZoneDragOver = (
+      event: React.DragEvent<HTMLElement>,
+      target: string,
+    ) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      if (dragOverTarget !== target) setDragOverTarget(target);
+    };
+
+    const onZoneDragLeave = (target: string) => {
+      if (dragOverTarget === target) setDragOverTarget(null);
+    };
+
+    const renderPiece = (
+      item: string,
+      opts?: { compact?: boolean; inSlot?: boolean },
+    ) => {
+      const isSelected = selectedItem === item;
+      return (
+        <button
+          key={`piece-${item}`}
+          type="button"
+          draggable
+          onDragStart={(e) => handleDragStart(e, item)}
+          onDragEnd={() => setDragOverTarget(null)}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleSourceTap(item);
+          }}
+          className={`group relative select-none rounded-full border-2 font-mono font-bold transition-all duration-150 ${
+            opts?.compact
+              ? "px-3 py-1.5 text-[13px]"
+              : "px-4 py-2.5 text-[15px] sm:px-5 sm:py-3 sm:text-[16px]"
+          } ${
+            isSelected
+              ? "scale-[1.04] border-[#F5A623] bg-[#F5A623] text-white shadow-[0_0_0_4px_rgba(245,166,35,0.25)] animate-pulse"
+              : opts?.inSlot
+                ? "cursor-pointer border-[#F5A623] bg-white text-[#1B4A4A] shadow-sm hover:bg-[#FFF8E7]"
+                : "cursor-pointer border-[#F5A623] bg-white text-[#1B4A4A] shadow-sm hover:-translate-y-0.5 hover:scale-[1.02]"
+          }`}
+          title={opts?.inSlot ? "Tap to remove" : "Tap to select"}
+        >
+          {item}
+          {opts?.inSlot && (
+            <span className="ml-2 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#F8F9FA] text-[10px] font-bold text-[#9CA3AF] group-hover:bg-[#F5A623] group-hover:text-white">
+              ✕
             </span>
-          ) : (
-            "Tap a piece to select it, then tap a box"
           )}
+        </button>
+      );
+    };
+
+    return (
+      <div className="rounded-[20px] border border-[#EFEAE0] bg-[linear-gradient(180deg,#FAFAF7_0%,#F4F1EA_100%)] p-4 sm:p-5">
+        {/* Header strip */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">
+            {selectedItem ? (
+              <span className="text-[#F5A623]">
+                ✨ Selected: "{selectedItem}" — tap a slot
+              </span>
+            ) : placedCount === 0 ? (
+              <span>🧩 Pick a piece, then tap a slot</span>
+            ) : (
+              <span>Tap a piece to swap, or a slot to clear</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 rounded-full border border-[#E2DED4] bg-white px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                placedCount === totalSlots ? "bg-[#22C55E]" : "bg-[#F5A623]"
+              }`}
+            />
+            {placedCount} / {totalSlots} placed
+          </div>
         </div>
 
-        {/* Source chips */}
-        <div className="mb-4 flex min-h-[72px] flex-wrap items-center justify-center gap-2.5 rounded-[10px] bg-white p-3 sm:gap-3 sm:p-4">
-          {leftItems.map((item) => {
-            const isPlaced = Boolean(answerMap[item]);
-            const isSelected = selectedItem === item;
-            return (
-              <button
-                key={item}
-                type="button"
-                draggable={!isPlaced}
-                onDragStart={(e) => handleDragStart(e, item)}
-                onClick={() => handleSourceTap(item)}
-                className={`select-none rounded-full border-2 px-4 py-2.5 font-mono text-[15px] font-bold transition-all duration-150 sm:px-5 sm:py-3 sm:text-[16px] ${
-                  isSelected
-                    ? "scale-105 border-[#F5A623] bg-[#F5A623] text-white shadow-[0_0_0_4px_rgba(245,166,35,0.25)]"
-                    : isPlaced
-                      ? "cursor-pointer border-[#E2DED4] bg-[#F0EDE6] text-[#9CA3AF] line-through opacity-50"
-                      : "cursor-pointer border-[#F5A623] bg-white text-[#1B4A4A] shadow-sm hover:-translate-y-0.5 hover:scale-[1.03]"
-                }`}
-              >
-                {item}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Drop zones */}
-        {isOrdinalDragDrop ? (
-          <div className="flex flex-wrap items-center gap-2 rounded-[10px] sm:gap-3">
-            <div className="font-semibold text-[13px] text-[#1a1a1a]">
-              Smallest →
+        {/* Pieces bank */}
+        <div className="mb-4 rounded-[14px] border border-[rgba(0,0,0,0.06)] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] sm:p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF]">
+              Pieces
             </div>
-            {rightItems.map((target, index) => {
-              const placedItem = targetToItems[target]?.[0];
-              const isActiveTarget = Boolean(selectedItem);
-              return (
-                <button
-                  key={target}
-                  type="button"
-                  onClick={() => handleZoneTap(target)}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
-                  }}
-                  onDrop={(e) => handleDrop(e, target)}
-                  className={`min-h-[48px] min-w-[72px] flex-1 rounded-[10px] border-2 px-3 py-2.5 text-center font-mono text-[14px] font-bold transition-all sm:min-w-[92px] sm:px-4 sm:py-3 ${
-                    placedItem
-                      ? "border-[#F5A623] bg-white text-[#1B4A4A]"
-                      : isActiveTarget
-                        ? "border-[#F5A623] border-dashed bg-[#FFF8E7] text-[#F5A623]"
-                        : "border-dashed border-[#C4C0B8] bg-white text-[#9CA3AF]"
-                  }`}
-                >
-                  {placedItem ?? `${index + 1}`}
-                </button>
-              );
-            })}
-            <div className="font-semibold text-[13px] text-[#1a1a1a]">
-              ← Largest
+            {unplacedItems.length === 0 && (
+              <div className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#22C55E]">
+                ✓ all placed
+              </div>
+            )}
+          </div>
+          <div className="flex min-h-[56px] flex-wrap items-center justify-center gap-2.5 sm:gap-3">
+            {unplacedItems.length === 0 ? (
+              <div className="text-[12px] italic text-[#9CA3AF]">
+                Tap a slot below to remove a piece and place it again
+              </div>
+            ) : (
+              unplacedItems.map((item) => renderPiece(item))
+            )}
+          </div>
+        </div>
+
+        {/* Slots */}
+        {isOrdinalDragDrop ? (
+          <div className="relative rounded-[14px] border border-[rgba(0,0,0,0.06)] bg-white p-4 sm:p-5">
+            {/* Anchor labels */}
+            <div className="mb-3 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-[#9CA3AF]">
+              <span className="font-mono">↑ First</span>
+              <span className="font-mono">Last ↓</span>
+            </div>
+
+            <div className="relative space-y-2">
+              {/* Vertical guide line */}
+              <div className="pointer-events-none absolute left-[22px] top-2 bottom-2 w-px bg-[linear-gradient(180deg,#22C55E_0%,#F5A623_50%,#EF4444_100%)] opacity-30" />
+
+              {rightItems.map((target, index) => {
+                const placedItem = targetToItems[target]?.[0];
+                const isActiveTarget = Boolean(selectedItem);
+                const isDragOver = dragOverTarget === target;
+                return (
+                  <div
+                    key={target}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleZoneTap(target)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleZoneTap(target);
+                      }
+                    }}
+                    onDragOver={(e) => onZoneDragOver(e, target)}
+                    onDragLeave={() => onZoneDragLeave(target)}
+                    onDrop={(e) => {
+                      handleDrop(e, target);
+                      setDragOverTarget(null);
+                    }}
+                    className={`relative flex w-full cursor-pointer items-center gap-3 rounded-[12px] border-2 px-3 py-3 text-left transition-all sm:gap-4 sm:px-4 ${
+                      isDragOver
+                        ? "scale-[1.01] border-[#F5A623] bg-[#FFF4DD] shadow-[0_0_0_3px_rgba(245,166,35,0.2)]"
+                        : placedItem
+                          ? "border-[#22C55E]/40 bg-[#F0FDF4]"
+                          : isActiveTarget
+                            ? "animate-pulse border-dashed border-[#F5A623] bg-[#FFF8E7]"
+                            : "border-dashed border-[#D6D2C8] bg-[#FAFAF7]"
+                    }`}
+                  >
+                    <span
+                      className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-extrabold ${
+                        placedItem
+                          ? "bg-[#22C55E] text-white"
+                          : "bg-white text-[#6B7280] ring-2 ring-[#D6D2C8]"
+                      }`}
+                    >
+                      {index + 1}
+                    </span>
+                    <div className="flex flex-1 items-center justify-between gap-3">
+                      {placedItem ? (
+                        renderPiece(placedItem, { inSlot: true })
+                      ) : (
+                        <span
+                          className={`text-[13px] font-semibold ${
+                            isActiveTarget ? "text-[#F5A623]" : "text-[#9CA3AF]"
+                          }`}
+                        >
+                          {isActiveTarget
+                            ? "Tap to drop here"
+                            : "Empty — drop a piece"}
+                        </span>
+                      )}
+                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF]">
+                        {target}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-2.5">
-            {rightItems.map((target) => {
-              const placedItems = targetToItems[target] ?? [];
-              const isActiveTarget = Boolean(selectedItem);
-              return (
-                <div
-                  key={target}
-                  className="flex items-center gap-2.5 sm:gap-3"
-                >
-                  <div className="w-[80px] shrink-0 font-semibold text-[13px] text-[#1a1a1a] sm:w-[90px] sm:text-[14px]">
-                    {target}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleZoneTap(target)}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                    }}
-                    onDrop={(e) => handleDrop(e, target)}
-                    className={`min-h-[48px] flex-1 rounded-[10px] border-2 px-3 py-2.5 text-center font-mono text-[13px] font-bold transition-all sm:px-4 sm:text-[14px] ${
-                      placedItems.length > 0
-                        ? "border-[#F5A623] bg-white text-[#1B4A4A]"
-                        : isActiveTarget
-                          ? "border-[#F5A623] border-dashed bg-[#FFF8E7] text-[#F5A623]"
-                          : "border-dashed border-[#C4C0B8] bg-white text-[#9CA3AF]"
-                    }`}
+          <div className="rounded-[14px] border border-[rgba(0,0,0,0.06)] bg-white p-4 sm:p-5">
+            <div className="flex flex-col gap-2.5">
+              {rightItems.map((target) => {
+                const placedItems = targetToItems[target] ?? [];
+                const isActiveTarget = Boolean(selectedItem);
+                const isDragOver = dragOverTarget === target;
+                return (
+                  <div
+                    key={target}
+                    className="flex items-stretch gap-2.5 sm:gap-3"
                   >
-                    {placedItems.length > 0
-                      ? placedItems.join(", ")
-                      : "Tap to place"}
-                  </button>
-                </div>
-              );
-            })}
+                    <div className="flex w-[100px] shrink-0 items-center rounded-[10px] bg-[#F8F9FA] px-3 text-[13px] font-bold text-[#1B4A4A] sm:w-[120px] sm:text-[14px]">
+                      {target}
+                    </div>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleZoneTap(target)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleZoneTap(target);
+                        }
+                      }}
+                      onDragOver={(e) => onZoneDragOver(e, target)}
+                      onDragLeave={() => onZoneDragLeave(target)}
+                      onDrop={(e) => {
+                        handleDrop(e, target);
+                        setDragOverTarget(null);
+                      }}
+                      className={`flex min-h-[52px] flex-1 cursor-pointer flex-wrap items-center justify-start gap-2 rounded-[10px] border-2 px-3 py-2 text-left transition-all sm:px-4 ${
+                        isDragOver
+                          ? "scale-[1.005] border-[#F5A623] bg-[#FFF4DD] shadow-[0_0_0_3px_rgba(245,166,35,0.2)]"
+                          : placedItems.length > 0
+                            ? "border-[#22C55E]/40 bg-[#F0FDF4]"
+                            : isActiveTarget
+                              ? "animate-pulse border-dashed border-[#F5A623] bg-[#FFF8E7]"
+                              : "border-dashed border-[#D6D2C8] bg-[#FAFAF7]"
+                      }`}
+                    >
+                      {placedItems.length > 0 ? (
+                        placedItems.map((item) =>
+                          renderPiece(item, { compact: true, inSlot: true }),
+                        )
+                      ) : (
+                        <span
+                          className={`text-[13px] font-semibold ${
+                            isActiveTarget ? "text-[#F5A623]" : "text-[#9CA3AF]"
+                          }`}
+                        >
+                          {isActiveTarget
+                            ? "Tap to drop here"
+                            : "Drop a piece here"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {question.questionType === "matching" && !selectedItem && (
-          <div className="mt-3 text-center text-[11px] font-semibold text-[#9CA3AF]">
-            Tap a placed item to remove it
+        {placedItemsLookup.length > 0 && (
+          <div className="mt-3 text-center font-mono text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF]">
+            Tap a placed piece (✕) to send it back to the bank
           </div>
         )}
       </div>
@@ -2783,18 +2880,18 @@ function ReportView({
               key={i}
               className="v1-particle"
               style={{
-                width: `${Math.random() * 4 + 2}px`,
-                height: `${Math.random() * 4 + 2}px`,
-                left: `${Math.random() * 100}%`,
+                width: `${seededRange(i + 1, 2, 6)}px`,
+                height: `${seededRange(i + 17, 2, 6)}px`,
+                left: `${seededRange(i + 31, 0, 100)}%`,
                 background: [
                   "#F5A623",
                   "#f46853",
                   "#2EC4B6",
                   "#ffc53d",
                   "#22C55E",
-                ][Math.floor(Math.random() * 5)],
-                animationDuration: `${Math.random() * 14 + 12}s`,
-                animationDelay: `${Math.random() * 10}s`,
+                ][Math.floor(seededRange(i + 47, 0, 5))],
+                animationDuration: `${seededRange(i + 61, 12, 26)}s`,
+                animationDelay: `${seededRange(i + 79, 0, 10)}s`,
               }}
             />
           ))}
@@ -2895,11 +2992,11 @@ function ReportView({
                     key={i}
                     className="absolute rounded-full bg-[#ffc53d] opacity-0"
                     style={{
-                      width: `${Math.random() * 3 + 2}px`,
-                      height: `${Math.random() * 3 + 2}px`,
-                      left: `${Math.random() * 100}%`,
-                      top: `${Math.random() * 70}%`,
-                      animation: `starTwinkle 1.5s ease both ${Math.random() * 1.2 + 0.6}s`,
+                      width: `${seededRange(i + 101, 2, 5)}px`,
+                      height: `${seededRange(i + 127, 2, 5)}px`,
+                      left: `${seededRange(i + 149, 0, 100)}%`,
+                      top: `${seededRange(i + 173, 0, 70)}%`,
+                      animation: `starTwinkle 1.5s ease both ${seededRange(i + 197, 0.6, 1.8)}s`,
                     }}
                   />
                 ))}
@@ -3168,9 +3265,16 @@ function ReportView({
         </div>
       )}
 
+      {report.mode === "placement" && (
+        <PlacementTopicInsightsSection
+          report={report}
+          studentFirstName={firstName}
+        />
+      )}
+
       <div className="rounded-[18px] border border-[#F5DDD0] bg-[linear-gradient(135deg,#FFF8F2_0%,#FDF0E8_100%)] p-5 shadow-[0_2px_20px_rgba(26,26,46,0.04)] sm:p-8">
         {/* Needs Practice + Recurring Button Section */}
-        {roundedScore < 60 && (
+        {report.mode !== "placement" && roundedScore < 60 && (
           <div className="mb-10 w-full rounded-[24px] bg-white/70 p-7 border-2 border-[#F5A623]/20 shadow-sm transition-all">
             <div className="flex flex-col items-center text-center">
               <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#f46853]/10 text-[#f46853]">
@@ -3678,6 +3782,9 @@ export function DiagnosticDemo({
     >
   >({});
   const [error, setError] = useState<string | null>(null);
+  const [devCorrectAnswers, setDevCorrectAnswers] = useState<
+    Record<string, string>
+  >({});
   const [pendingAction, setPendingAction] = useState<"load" | "submit" | null>(
     null,
   );
@@ -3816,6 +3923,35 @@ export function DiagnosticDemo({
     return () => window.clearInterval(timer);
   }, [currentQuestion, quiz]);
 
+  const fetchDevAnswers = useCallback(async (loadedQuiz: DemoLoadedQuiz) => {
+    try {
+      const res = await fetch("/api/quiz/dev-answers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questionIds: loadedQuiz.questions.map((q) => q.id),
+          subject: loadedQuiz.subject,
+          classLevel: loadedQuiz.classLevel,
+          topic: loadedQuiz.topic,
+          testMode: loadedQuiz.testMode,
+        }),
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { answers?: Record<string, string> };
+      setDevCorrectAnswers(data.answers ?? {});
+    } catch {
+      setDevCorrectAnswers({});
+    }
+  }, []);
+
+  const fillCorrectAnswer = useCallback(() => {
+    const q = quizRef.current?.questions[currentIndexRef.current];
+    if (!q) return;
+    const correct = devCorrectAnswers[q.id];
+    if (correct === undefined) return;
+    setCurrentAnswer(correct);
+  }, [devCorrectAnswers]);
+
   const startQuizRun = useCallback(() => {
     setPendingAction("load");
     startTransition(() => {
@@ -3830,6 +3966,7 @@ export function DiagnosticDemo({
           setQuestionElapsedMs(0);
           setResponseMeta({});
           setCurrentAnswer("");
+          void fetchDevAnswers(loadedQuiz);
         } catch (err) {
           setError(toErrorMessage(err));
         } finally {
@@ -3859,6 +3996,7 @@ export function DiagnosticDemo({
             setQuestionElapsedMs(0);
             setResponseMeta({});
             setCurrentAnswer("");
+            void fetchDevAnswers(recurringQuiz);
           } catch (err) {
             setError(toErrorMessage(err));
           } finally {
@@ -4185,8 +4323,19 @@ export function DiagnosticDemo({
                         : "TOPIC TEST"}{" "}
                     / {classLabel(quiz.classLevel)}
                   </div>
-                  <div className="mt-0.5 text-[18px] font-extrabold text-[#1a1a1a] sm:text-[20px]">
-                    Question {currentIndex + 1} of {quiz.questions.length}
+                  <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[18px] font-extrabold text-[#1a1a1a] sm:text-[20px]">
+                    <span>
+                      Question {currentIndex + 1} of {quiz.questions.length}
+                    </span>
+                    {testMode === "placement" &&
+                      (currentQuestion as any).gradeLevel && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-[#2EC4B6]/30 bg-[#E6F8F6] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-[#1B4A4A]">
+                          <span className="text-[#2EC4B6]">●</span>
+                          {`Grade ${String(
+                            (currentQuestion as any).gradeLevel,
+                          ).replace(/^grade\s*/i, "")} question`}
+                        </span>
+                      )}
                   </div>
                   {quiz.topic && (
                     <div className="mt-1 text-[12px] font-medium text-[#6B7280]">
@@ -4199,7 +4348,13 @@ export function DiagnosticDemo({
                     Time taken
                   </div>
                   <div className="font-mono text-[20px] font-extrabold text-[#1B4A4A] sm:text-[22px]">
-                    {Math.round(questionElapsedMs / 1000)}s
+                    {(() => {
+                      const totalSeconds = Math.floor(questionElapsedMs / 1000);
+                      if (totalSeconds < 60) return `${totalSeconds}s`;
+                      const m = Math.floor(totalSeconds / 60);
+                      const s = totalSeconds % 60;
+                      return `${m}m ${String(s).padStart(2, "0")}s`;
+                    })()}
                   </div>
                   <div className="mt-0.5 font-mono text-[9px] font-bold uppercase tracking-widest text-[#9CA3AF]">
                     This question
@@ -4276,12 +4431,6 @@ export function DiagnosticDemo({
 
                   <h3 className="text-[17px] font-semibold leading-normal text-[#1a1a1a]">
                     {currentQuestion.question}
-                    {testMode === "placement" &&
-                      (currentQuestion as any).gradeLevel && (
-                        <span className="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-400 opacity-70">
-                          {(currentQuestion as any).gradeLevel}
-                        </span>
-                      )}
                   </h3>
                   </div>
                 </div>
@@ -4296,7 +4445,19 @@ export function DiagnosticDemo({
                 </div>
 
                 {/* Next button */}
-                <div className="flex justify-end border-t border-[rgba(0,0,0,0.08)] px-4 py-4 sm:px-7">
+                <div className="flex items-center justify-between gap-3 border-t border-[rgba(0,0,0,0.08)] px-4 py-4 sm:px-7">
+                  <button
+                    type="button"
+                    onClick={fillCorrectAnswer}
+                    disabled={
+                      isBusy ||
+                      devCorrectAnswers[currentQuestion.id] === undefined
+                    }
+                    title="Dev: fill the correct answer"
+                    className="rounded-full border border-dashed border-[#9333EA]/40 bg-[#F5F3FF] px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-wider text-[#7C3AED] transition hover:bg-[#EDE9FE] disabled:opacity-40"
+                  >
+                    🪄 Fill correct
+                  </button>
                   <button
                     onClick={() => advanceRef.current(currentAnswer)}
                     disabled={!canSubmitCurrent || isBusy}

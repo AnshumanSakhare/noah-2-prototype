@@ -389,6 +389,7 @@ export interface DiagnosticReport {
   nextSteps?: string[];
   aiSummary: string;
   resultNarrative?: ResultNarrative;
+  placementTopicInsights?: Array<{ topic: string; insights: string[] }>;
   progressComparison?: ProgressComparison;
   stoppedBecause: "maxQuestions" | "noEligibleQuestions";
 }
