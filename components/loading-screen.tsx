@@ -47,12 +47,18 @@ const STAGE_DURATION_MS = 2200;
 interface LoadingScreenProps {
   onBack?: () => void;
   studentName?: string;
+  assessmentKind?: "diagnostic" | "placement";
 }
 
 export function MultiStageLoadingScreen({
   onBack,
   studentName,
+  assessmentKind = "diagnostic",
 }: LoadingScreenProps) {
+  const isPlacement = assessmentKind === "placement";
+  const brandFull = isPlacement ? "Placement Test" : "Diagnostic Agent";
+  const brandShort = isPlacement ? "Placement" : "Diagnostic";
+  const brandEmoji = isPlacement ? "🎯" : "🔭";
   const [currentStage, setCurrentStage] = useState(0);
   const firstName = studentName?.trim().split(/\s+/)[0] ?? "";
   const totalStages = LOADING_STAGES.length;
@@ -77,12 +83,16 @@ export function MultiStageLoadingScreen({
       <div className="mx-auto w-full max-w-370 px-4 py-4 sm:px-6 lg:px-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[#F5A623] bg-white text-[20px]">
-              🔭
+            <div
+              className={`flex h-10 w-10 shrink-0 items-center justify-center border-2 border-[#F5A623] bg-white text-[20px] ${
+                isPlacement ? "rounded-[10px]" : "rounded-full"
+              }`}
+            >
+              {brandEmoji}
             </div>
             <span className="font-bold text-[15px] tracking-[0.02em] text-[#1B4A4A] uppercase sm:text-[18px]">
-              <span className="hidden sm:inline">Diagnostic Agent</span>
-              <span className="sm:hidden">Diagnostic</span>
+              <span className="hidden sm:inline">{brandFull}</span>
+              <span className="sm:hidden">{brandShort}</span>
             </span>
           </div>
 
