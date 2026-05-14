@@ -76,6 +76,9 @@ const ASSESSMENT_COPY: Record<
   {
     brand: string;
     shortBrand: string;
+    tagline: string;
+    headerEmoji: string;
+    headerShape: "circle" | "square";
     studentDetailsIntro: string;
     selectorIntro: string;
     topicBrowseIntro: string;
@@ -89,6 +92,9 @@ const ASSESSMENT_COPY: Record<
   diagnostic: {
     brand: "Diagnostic Agent",
     shortBrand: "Diagnostic",
+    tagline: "Spot strengths & gaps",
+    headerEmoji: "🔭",
+    headerShape: "circle",
     studentDetailsIntro:
       "Add the student name and grade before choosing the diagnostic test.",
     selectorIntro: "Pick a {grade} test that fits what you want to check.",
@@ -104,6 +110,9 @@ const ASSESSMENT_COPY: Record<
   placement: {
     brand: "Placement Test",
     shortBrand: "Placement",
+    tagline: "Find the right level",
+    headerEmoji: "🎯",
+    headerShape: "square",
     studentDetailsIntro:
       "Add the student name and grade before starting the placement test.",
     selectorIntro:
@@ -196,8 +205,8 @@ const DIFFICULTY_TIME_LIMITS_MS: Record<string, number> = {
 const RAPID_RESPONSE_THRESHOLD_MS = 2_000;
 
 // ─── Toast triggers ───────────────────────────────────────────────────────────
-const TOAST_TRIGGERS = [3, 8, 13]; // 0-based question indices after which to show toast
-const TOAST_CONFIGS = [
+export const TOAST_TRIGGERS = [3, 8, 13]; // 0-based question indices after which to show toast
+export const TOAST_CONFIGS = [
   {
     emoji: "🌟",
     title: "Great work! Keep going!",
@@ -216,7 +225,7 @@ const TOAST_CONFIGS = [
 ];
 
 // ─── Utility functions ────────────────────────────────────────────────────────
-function classLabel(value: string) {
+export function classLabel(value: string) {
   if (value === "classKG") return "KG";
   if (value === "class1") return "Grade 1";
   if (value === "class2") return "Grade 2";
@@ -229,11 +238,39 @@ function classLabel(value: string) {
   return value;
 }
 
-function classNum(value: string) {
+export function classNum(value: string) {
   return value.replace("class", "");
 }
 
-function toErrorMessage(error: unknown) {
+export function toRomanNumeral(num: number) {
+  if (num <= 0) return "";
+  const map: Array<[number, string]> = [
+    [1000, "M"],
+    [900, "CM"],
+    [500, "D"],
+    [400, "CD"],
+    [100, "C"],
+    [90, "XC"],
+    [50, "L"],
+    [40, "XL"],
+    [10, "X"],
+    [9, "IX"],
+    [5, "V"],
+    [4, "IV"],
+    [1, "I"],
+  ];
+  let n = num;
+  let result = "";
+  for (const [value, numeral] of map) {
+    while (n >= value) {
+      result += numeral;
+      n -= value;
+    }
+  }
+  return result;
+}
+
+export function toErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
 }
 
@@ -257,7 +294,7 @@ function getDefaultCatalogEntry(catalog: DemoQuizCatalog) {
   );
 }
 
-function getCatalogEntryForClass(
+export function getCatalogEntryForClass(
   catalog: DemoQuizCatalog,
   classLevel: CreateSessionInput["classLevel"],
 ) {
@@ -267,7 +304,7 @@ function getCatalogEntryForClass(
   );
 }
 
-function buildDefaultForm(
+export function buildDefaultForm(
   entry: DemoQuizCatalogEntry | null,
   studentId = "Riya Sharma",
 ): CreateSessionInput {
@@ -298,13 +335,13 @@ function getTopicQuestionCountForEntry(entry?: DemoQuizCatalogEntry | null) {
   return getTopicTestQuestionCount(entry?.learningObjectives.length ?? 0);
 }
 
-function getGradeQuestionCountForClass(
+export function getGradeQuestionCountForClass(
   classLevel: CreateSessionInput["classLevel"],
 ) {
   return getGradeTestPlan(classLevel).total;
 }
 
-function getAnswerMap(answer: string) {
+export function getAnswerMap(answer: string) {
   try {
     return JSON.parse(answer) as Record<string, string>;
   } catch {
@@ -347,7 +384,7 @@ function scoreStars(correct: number, total: number) {
   return Math.min(5, Math.max(1, Math.ceil((correct / total) * 5)));
 }
 
-function getEstimatedTestTimeLabel(questionCount: number) {
+export function getEstimatedTestTimeLabel(questionCount: number) {
   if (questionCount <= 15) return "15 min";
   if (questionCount <= 22) return "20 min";
   if (questionCount <= 25) return "25 min";
@@ -386,7 +423,7 @@ function normalizeDifficultyLevel(value?: string) {
   return "easy";
 }
 
-function getQuestionTimeLimitMs(difficultyLevel?: string) {
+export function getQuestionTimeLimitMs(difficultyLevel?: string) {
   return DIFFICULTY_TIME_LIMITS_MS[normalizeDifficultyLevel(difficultyLevel)];
 }
 
@@ -842,7 +879,7 @@ function formatLearningObjectiveLabel(learningObjective?: string) {
 }
 
 // ─── API functions ─────────────────────────────────────────────────────────────
-async function loadQuiz(input: CreateSessionInput) {
+export async function loadQuiz(input: CreateSessionInput) {
   const response = await fetch("/api/quiz/section", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -856,7 +893,10 @@ async function loadQuiz(input: CreateSessionInput) {
   return data.quiz;
 }
 
-async function loadRecurringQuiz(assessmentId: string, studentId: string) {
+export async function loadRecurringQuiz(
+  assessmentId: string,
+  studentId: string,
+) {
   const response = await fetch("/api/quiz/recurring", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -876,7 +916,7 @@ async function loadRecurringQuiz(assessmentId: string, studentId: string) {
   };
 }
 
-async function submitQuiz(
+export async function submitQuiz(
   quiz: DemoLoadedQuiz,
   answers: Record<string, string>,
   responseMeta: Record<
@@ -919,7 +959,7 @@ async function submitQuiz(
 }
 
 // ─── AI Tutor Chat Bubble ─────────────────────────────────────────────────────
-function AIChatBubble({
+export function AIChatBubble({
   config,
   onDismiss,
 }: {
@@ -1012,9 +1052,16 @@ function StudentInfoScreen({
   onContinue: () => void;
 }) {
   const studentName = setup.studentId.trim();
+  const isPlacement = assessmentKind === "placement";
 
   return (
-    <div className="mx-auto max-w-[760px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div
+      className={`mx-auto max-w-[760px] animate-in fade-in slide-in-from-bottom-4 duration-500 ${
+        isPlacement
+          ? "flex min-h-[calc(100vh-160px)] flex-col justify-center sm:block sm:min-h-0"
+          : ""
+      }`}
+    >
       <div className="mb-8 text-center">
         <h2 className="text-[24px] font-extrabold tracking-tight text-[#1B4A4A] sm:text-[32px]">
           Student details
@@ -1024,7 +1071,22 @@ function StudentInfoScreen({
         </p>
       </div>
 
-      <div className="rounded-[20px] border border-gray-100 bg-white p-5 shadow-sm sm:p-8">
+      <div
+        className={
+          isPlacement
+            ? "rounded-[20px] bg-white p-5 sm:p-8"
+            : "rounded-[20px] border border-gray-100 bg-white p-5 shadow-sm sm:p-8"
+        }
+        style={
+          isPlacement
+            ? {
+                border: "2px solid rgba(46,196,182,0.25)",
+                boxShadow:
+                  "0 6px 0 rgba(46,196,182,0.18), 0 4px 14px rgba(26,26,46,0.06)",
+              }
+            : undefined
+        }
+      >
         <div className="grid gap-5">
           <label className="block">
             <span className="mb-2 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-widest text-[#6B7280]">
@@ -1073,7 +1135,11 @@ function StudentInfoScreen({
           type="button"
           onClick={onContinue}
           disabled={assessmentKind !== "placement" && studentName.length === 0}
-          className="mt-8 flex w-full items-center justify-center gap-2 rounded-full bg-[#F5A623] py-4 font-bold text-[16px] text-white shadow-[0_6px_20px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50"
+          className={`mt-8 flex w-full items-center justify-center gap-2 rounded-full bg-[#F5A623] py-4 font-bold text-[16px] text-white transition-all hover:bg-[#E0941A] disabled:opacity-50 ${
+            isPlacement
+              ? "shadow-[0_6px_0_#C68213] hover:translate-y-0.5 hover:shadow-[0_3px_0_#C68213] active:translate-y-1 active:shadow-[0_0_0_#C68213] disabled:translate-y-0 disabled:shadow-[0_6px_0_#C68213]"
+              : "shadow-[0_6px_20px_rgba(245,166,35,0.30)] hover:-translate-y-0.5 disabled:translate-y-0"
+          }`}
         >
           {assessmentKind === "placement"
             ? "Start Placement Test"
@@ -1574,7 +1640,13 @@ function GradeStartScreen({
       );
 
   return (
-    <div className="mx-auto max-w-[680px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div
+      className={`mx-auto max-w-[680px] animate-in fade-in slide-in-from-bottom-4 duration-500 ${
+        isPlacement
+          ? "flex min-h-[calc(100vh-160px)] flex-col justify-center sm:block sm:min-h-0"
+          : ""
+      }`}
+    >
       <div className="mb-4 flex items-center gap-3">
         <button
           onClick={onBack}
@@ -1584,7 +1656,22 @@ function GradeStartScreen({
         </button>
       </div>
 
-      <div className="rounded-[20px] border border-gray-100 bg-white p-5 shadow-sm sm:p-8">
+      <div
+        className={
+          isPlacement
+            ? "rounded-[20px] bg-white p-5 sm:p-8"
+            : "rounded-[20px] border border-gray-100 bg-white p-5 shadow-sm sm:p-8"
+        }
+        style={
+          isPlacement
+            ? {
+                border: "2px solid rgba(46,196,182,0.25)",
+                boxShadow:
+                  "0 6px 0 rgba(46,196,182,0.18), 0 4px 14px rgba(26,26,46,0.06)",
+              }
+            : undefined
+        }
+      >
         <div className="mb-3 inline-block rounded-full bg-[#FFF8E7] px-3 py-1 font-mono text-[11px] font-bold tracking-wider text-[#1B4A4A]">
           {isPlacement ? "PLACEMENT TEST" : "GRADE TEST"}
         </div>
@@ -1619,15 +1706,21 @@ function GradeStartScreen({
           ))}
         </div>
 
-        <div className="mb-8 rounded-[14px] bg-[#FFF8E7] p-4 text-[13px] font-medium leading-relaxed text-[#6B7280]">
-          You can move through the test one question at a time. Try to answer
-          without guessing too quickly.
-        </div>
+        {!isPlacement && (
+          <div className="mb-8 rounded-[14px] bg-[#FFF8E7] p-4 text-[13px] font-medium leading-relaxed text-[#6B7280]">
+            You can move through the test one question at a time. Try to answer
+            without guessing too quickly.
+          </div>
+        )}
 
         <button
           onClick={onBegin}
           disabled={isBusy}
-          className="flex w-full items-center justify-center gap-3 rounded-full bg-[#F5A623] py-4 font-bold text-[17px] text-white shadow-[0_6px_20px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(245,166,35,0.40)] disabled:opacity-60"
+          className={`flex w-full items-center justify-center gap-3 rounded-full bg-[#F5A623] py-4 font-bold text-[17px] text-white transition-all hover:bg-[#E0941A] disabled:opacity-60 ${
+            isPlacement
+              ? "shadow-[0_6px_0_#C68213] hover:translate-y-0.5 hover:shadow-[0_3px_0_#C68213] active:translate-y-1 active:shadow-[0_0_0_#C68213] disabled:translate-y-0 disabled:shadow-[0_6px_0_#C68213]"
+              : "shadow-[0_6px_20px_rgba(245,166,35,0.30)] hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(245,166,35,0.40)]"
+          }`}
         >
           {isBusy ? (
             <>
@@ -1644,15 +1737,18 @@ function GradeStartScreen({
 }
 
 // ─── Question Input ────────────────────────────────────────────────────────────
-function QuestionInput({
+export function QuestionInput({
   question,
   answer,
   setAnswer,
+  assessmentKind = "diagnostic",
 }: {
   question: DemoQuizQuestion;
   answer: string;
   setAnswer: (value: string) => void;
+  assessmentKind?: AssessmentKind;
 }) {
+  const isPlacement = assessmentKind === "placement";
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
 
@@ -1693,7 +1789,7 @@ function QuestionInput({
                     {label}
                   </span>
                   {selected ? (
-                    <span className="rounded-full bg-[#FFF8E7] px-2.5 py-1 font-mono text-[10px] font-bold text-[#B77400]">
+                    <span className="rounded-full bg-[#FFF8E7] px-2.5 py-1 font-mono text-[10px] font-bold text-[#C68213]">
                       Selected
                     </span>
                   ) : null}
@@ -1725,7 +1821,13 @@ function QuestionInput({
     }
 
     return (
-      <div className="flex flex-col gap-3">
+      <div
+        className={
+          isPlacement
+            ? "grid grid-cols-1 gap-3 sm:grid-cols-2"
+            : "flex flex-col gap-3"
+        }
+      >
         {question.options.map((option, index) => {
           const label = OPTION_LABELS[index] ?? "";
           const selected = answer === label;
@@ -1735,14 +1837,18 @@ function QuestionInput({
               key={`${question.id}-${label}`}
               type="button"
               onClick={() => setAnswer(label)}
-              className={`group flex w-full items-center gap-4 border-2 p-4 text-left transition-all duration-200 rounded-full ${
+              className={`group flex w-full items-center gap-4 border-2 p-4 text-left transition-all duration-200 ${
+                isPlacement ? "rounded-[8px]" : "rounded-full"
+              } ${
                 selected
                   ? "border-[#F5A623] bg-[rgba(245,166,35,0.05)] text-[#1B4A4A]"
                   : "border-gray-100 bg-white text-[#1a1a1a] hover:translate-x-0.5 hover:border-[#2EC4B6]/50 hover:shadow-sm"
               }`}
             >
               <span
-                className={`flex h-8 w-8 shrink-0 items-center justify-center border-2 font-mono text-[14px] font-extrabold transition-all rounded-full ${
+                className={`flex h-8 w-8 shrink-0 items-center justify-center border-2 font-mono text-[14px] font-extrabold transition-all ${
+                  isPlacement ? "rounded-[6px]" : "rounded-full"
+                } ${
                   selected
                     ? "border-[#F5A623] bg-[#F5A623] text-white"
                     : "border-gray-200 bg-[#F8F9FA] text-[#6B7280] group-hover:border-[#F5A623] group-hover:text-[#F5A623]"
@@ -3574,11 +3680,13 @@ function ReportView({
         </div>
       </div>
 
-      <ProgressComparisonCard
-        report={report}
-        currentCorrectCount={correctCount}
-        currentTotalQuestions={totalQuestions}
-      />
+      {report.mode !== "placement" && (
+        <ProgressComparisonCard
+          report={report}
+          currentCorrectCount={correctCount}
+          currentTotalQuestions={totalQuestions}
+        />
+      )}
 
       {/* Parent notes */}
       <div
@@ -3621,7 +3729,10 @@ function ReportView({
           onClick={onReset}
           className="flex min-w-[240px] items-center justify-center gap-2 rounded-full bg-[#F5A623] px-10 py-4 text-[16px] font-bold text-white shadow-[0_8px_24px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-1 hover:shadow-[0_12px_36px_rgba(245,166,35,0.40)]"
         >
-          <RotateCcw className="h-4 w-4" /> Run New Diagnostic
+          <RotateCcw className="h-4 w-4" />{" "}
+          {report.mode === "placement"
+            ? "Run New Placement Test"
+            : "Run New Diagnostic"}
         </button>
       </div>
 
@@ -3699,7 +3810,7 @@ function ReportView({
 }
 
 // ─── Result Tabs (V1 / V2) ────────────────────────────────────────────────────
-function ResultTabs({
+export function ResultTabs({
   report,
   onReset,
   onRecurring,
@@ -4160,13 +4271,24 @@ export function DiagnosticDemo({
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-full border-2 border-[#F5A623] bg-white text-[20px]">
-              🔭
+            <div
+              className={`flex h-[40px] w-[40px] shrink-0 items-center justify-center border-2 border-[#F5A623] bg-white text-[20px] ${
+                assessmentCopy.headerShape === "square"
+                  ? "rounded-[10px]"
+                  : "rounded-full"
+              }`}
+            >
+              {assessmentCopy.headerEmoji}
             </div>
-            <span className="font-bold text-[15px] tracking-[0.02em] text-[#1B4A4A] uppercase sm:text-[18px]">
-              <span className="hidden sm:inline">{assessmentCopy.brand}</span>
-              <span className="sm:hidden">{assessmentCopy.shortBrand}</span>
-            </span>
+            <div className="flex flex-col leading-tight">
+              <span className="font-bold text-[15px] tracking-[0.02em] text-[#1B4A4A] uppercase sm:text-[18px]">
+                <span className="hidden sm:inline">{assessmentCopy.brand}</span>
+                <span className="sm:hidden">{assessmentCopy.shortBrand}</span>
+              </span>
+              <span className="hidden text-[11px] font-medium tracking-[0.08em] text-[#6B7280] uppercase sm:inline">
+                {assessmentCopy.tagline}
+              </span>
+            </div>
           </div>
 
           {isQuizActive || isSubmitting || showResult ? (
@@ -4185,7 +4307,11 @@ export function DiagnosticDemo({
             </button>
           ) : appScreen !== "student-info" ? (
             <button
-              onClick={() => setAppScreen("selector")}
+              onClick={() =>
+                setAppScreen(
+                  assessmentKind === "placement" ? "student-info" : "selector",
+                )
+              }
               className="flex items-center gap-1 text-[14px] text-[#6B7280] transition-colors hover:text-[#1a1a1a]"
             >
               ‹ Back
@@ -4302,7 +4428,11 @@ export function DiagnosticDemo({
               onBegin={() => {
                 startQuizRun();
               }}
-              onBack={() => setAppScreen("selector")}
+              onBack={() =>
+                setAppScreen(
+                  assessmentKind === "placement" ? "student-info" : "selector",
+                )
+              }
               isBusy={isBusy}
               testMode={testMode}
             />
@@ -4312,7 +4442,22 @@ export function DiagnosticDemo({
         {isQuizActive && quiz && currentQuestion && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Question header card */}
-            <div className="mb-5 rounded-[16px] border border-[rgba(0,0,0,0.08)] bg-white px-4 py-4 shadow-sm sm:px-5">
+            <div
+              className={`mb-5 rounded-[16px] bg-white px-4 py-4 sm:px-5 ${
+                assessmentKind === "placement"
+                  ? ""
+                  : "border border-[rgba(0,0,0,0.08)] shadow-sm"
+              }`}
+              style={
+                assessmentKind === "placement"
+                  ? {
+                      border: "2px solid rgba(46,196,182,0.25)",
+                      boxShadow:
+                        "0 6px 0 rgba(46,196,182,0.18), 0 4px 14px rgba(26,26,46,0.06)",
+                    }
+                  : undefined
+              }
+            >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#2EC4B6]">
@@ -4385,11 +4530,28 @@ export function DiagnosticDemo({
 
             <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
               {/* Question card */}
-              <div className="overflow-hidden rounded-[16px] border border-[rgba(0,0,0,0.08)] bg-white">
+              <div
+                className={`overflow-hidden rounded-[16px] bg-white ${
+                  assessmentKind === "placement"
+                    ? ""
+                    : "border border-[rgba(0,0,0,0.08)]"
+                }`}
+                style={
+                  assessmentKind === "placement"
+                    ? {
+                        border: "2px solid rgba(46,196,182,0.25)",
+                        boxShadow:
+                          "0 6px 0 rgba(46,196,182,0.18), 0 4px 14px rgba(26,26,46,0.06)",
+                      }
+                    : undefined
+                }
+              >
                 {/* Question top */}
                 <div className="relative border-b border-[rgba(0,0,0,0.08)] px-4 pb-5 pt-6 sm:px-7">
                   <div className="pointer-events-none absolute right-3 top-1 z-0 hidden font-mono text-[80px] font-extrabold leading-none text-[#1a1a1a] opacity-[0.06] select-none sm:block">
-                    {String(currentIndex + 1).padStart(2, "0")}
+                    {assessmentKind === "placement"
+                      ? toRomanNumeral(currentIndex + 1)
+                      : String(currentIndex + 1).padStart(2, "0")}
                   </div>
 
                   <div className="relative z-10">
@@ -4441,6 +4603,7 @@ export function DiagnosticDemo({
                     question={currentQuestion}
                     answer={currentAnswer}
                     setAnswer={setCurrentAnswer}
+                    assessmentKind={assessmentKind}
                   />
                 </div>
 
@@ -4461,7 +4624,11 @@ export function DiagnosticDemo({
                   <button
                     onClick={() => advanceRef.current(currentAnswer)}
                     disabled={!canSubmitCurrent || isBusy}
-                    className="flex items-center gap-2 rounded-full bg-[#F5A623] px-7 py-3 font-bold text-[15px] text-white shadow-sm transition-all hover:bg-[#E0941A] hover:-translate-y-0.5 disabled:opacity-50"
+                    className={`flex items-center gap-2 rounded-full bg-[#F5A623] px-7 py-3 font-bold text-[15px] text-white transition-all hover:bg-[#E0941A] disabled:opacity-50 ${
+                      assessmentKind === "placement"
+                        ? "shadow-[0_6px_0_#C68213] hover:translate-y-0.5 hover:shadow-[0_3px_0_#C68213] active:translate-y-1 active:shadow-[0_0_0_#C68213] disabled:translate-y-0 disabled:shadow-[0_6px_0_#C68213]"
+                        : "shadow-sm hover:-translate-y-0.5"
+                    }`}
                   >
                     {isBusy ? (
                       <span className="flex items-center gap-2.5">
@@ -4491,7 +4658,22 @@ export function DiagnosticDemo({
 
               {/* Sidebar */}
               <aside>
-                <div className="rounded-2xl border border-[rgba(0,0,0,0.08)] bg-white p-5 shadow-sm">
+                <div
+                  className={`rounded-2xl bg-white p-5 ${
+                    assessmentKind === "placement"
+                      ? ""
+                      : "border border-[rgba(0,0,0,0.08)] shadow-sm"
+                  }`}
+                  style={
+                    assessmentKind === "placement"
+                      ? {
+                          border: "2px solid rgba(46,196,182,0.25)",
+                          boxShadow:
+                            "0 6px 0 rgba(46,196,182,0.18), 0 4px 14px rgba(26,26,46,0.06)",
+                        }
+                      : undefined
+                  }
+                >
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <h4 className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#6B7280]">
                       Question Map
@@ -4553,6 +4735,7 @@ export function DiagnosticDemo({
           <MultiStageLoadingScreen
             onBack={resetQuiz}
             studentName={studentSetup.studentId}
+            assessmentKind={assessmentKind}
           />
         )}
 

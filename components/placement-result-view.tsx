@@ -1,5 +1,6 @@
 "use client";
 
+import { CalendarCheck } from "lucide-react";
 import { useMemo } from "react";
 
 import type { DiagnosticReport } from "@/agents/diagnostic/types/index";
@@ -57,7 +58,10 @@ export function PlacementTopicInsightsSection({
   report,
   studentFirstName,
 }: PlacementTopicInsightsSectionProps) {
-  const summary = useMemo(() => generatePlacementInsights(report), [report]);
+  const summary = useMemo(
+    () => generatePlacementInsights(report),
+    [report],
+  );
 
   if (summary.topics.length === 0) return null;
 
@@ -72,102 +76,98 @@ export function PlacementTopicInsightsSection({
         </div>
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {summary.topics.map((topic) => {
           const styles = TONE_STYLES[topic.bandTone];
           return (
             <div
               key={topic.topic}
-              className="overflow-hidden rounded-[14px] border border-gray-100 bg-[#FAFAF7]"
-              style={{ borderLeft: `5px solid ${styles.accent}` }}
+              className="relative flex flex-col overflow-hidden rounded-[24px] bg-white p-4 transition-all hover:-translate-y-0.5"
+              style={{
+                boxShadow: `0 4px 0 ${styles.accent}22, 0 2px 8px rgba(26,26,46,0.04)`,
+                border: `2px solid ${styles.accent}33`,
+              }}
             >
-              <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-                <div className="flex-1">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                    <span className="text-[20px] leading-none">
-                      {topic.emoji}
-                    </span>
-                    <h4 className="text-[16px] font-extrabold text-[#1B4A4A]">
-                      {topic.topic}
-                    </h4>
-                    <span
-                      className="rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide"
-                      style={{
-                        background: styles.chipBg,
-                        color: styles.chipText,
-                      }}
-                    >
-                      {topic.bandLabel}
-                    </span>
-                  </div>
-
-                  {topic.insights.length > 0 ? (
-                    <ul className="mt-2.5 space-y-1.5">
-                      {topic.insights.map((line, idx) => (
-                        <li
-                          key={`${topic.topic}-insight-${idx}`}
-                          className="text-[13px] leading-relaxed text-[#374151]"
-                        >
-                          {line}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="mt-2.5 text-[12px] italic text-[#9CA3AF]">
-                      Personalised insights are being prepared…
-                    </div>
-                  )}
-
-                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10.5px] uppercase tracking-wider text-[#9CA3AF]">
-                    <span>
-                      <span style={{ color: "#22C55E" }}>●</span>{" "}
-                      {topic.correctCount} correct
-                    </span>
-                    {topic.partialCount > 0 && (
-                      <span>
-                        <span style={{ color: "#F5A623" }}>●</span>{" "}
-                        {topic.partialCount} partial
-                      </span>
-                    )}
-                    {topic.incorrectCount > 0 && (
-                      <span>
-                        <span style={{ color: "#EF4444" }}>●</span>{" "}
-                        {topic.incorrectCount} wrong
-                      </span>
-                    )}
-                    {topic.nonAttemptCount > 0 && (
-                      <span>
-                        <span style={{ color: "#9CA3AF" }}>●</span>{" "}
-                        {topic.nonAttemptCount} skipped
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex shrink-0 flex-col items-end">
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <h4
+                    className="text-[16px] font-extrabold leading-tight text-[#1B4A4A]"
+                    title={topic.topic}
+                  >
+                    {topic.topic}
+                  </h4>
                   <div
-                    className="rounded-xl px-3 py-1.5 text-[14px] font-extrabold"
+                    className="mt-1.5 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold"
                     style={{
                       background: styles.chipBg,
-                      color: styles.scoreColor,
+                      color: styles.chipText,
                     }}
                   >
-                    {topic.scoreOutOf5.toFixed(1)} / 5
-                  </div>
-                  <div className="mt-2 h-1.5 w-28 overflow-hidden rounded-full bg-[#F1F1EE]">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{
-                        width: `${topic.scorePercent}%`,
-                        background: styles.barColor,
-                      }}
-                    />
+                    {topic.bandLabel}
                   </div>
                 </div>
+                <div
+                  className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-full ring-4 ring-white"
+                  style={{ background: styles.chipBg }}
+                >
+                  <div
+                    className="text-[18px] font-black leading-none tabular-nums"
+                    style={{ color: styles.scoreColor }}
+                  >
+                    {topic.scoreOutOf5.toFixed(1)}
+                  </div>
+                  <div
+                    className="text-[9px] font-bold uppercase tracking-wider"
+                    style={{ color: styles.chipText }}
+                  >
+                    of 5
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex-1">
+                {topic.insights.length > 0 ? (
+                  <ul className="space-y-2.5">
+                    {topic.insights.map((line, idx) => (
+                      <li
+                        key={`${topic.topic}-insight-${idx}`}
+                        className="flex items-start gap-2.5 text-[13.5px] leading-relaxed text-[#374151]"
+                      >
+                        <span
+                          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-black text-white"
+                          style={{ background: styles.accent }}
+                        >
+                          {idx + 1}
+                        </span>
+                        <span>{line}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-[13px] italic text-[#9CA3AF]">
+                    Personalised insights are being prepared…
+                  </div>
+                )}
               </div>
             </div>
           );
         })}
+      </div>
+
+      <div className="mt-6 flex flex-col items-center gap-2 sm:mt-8">
+        <button
+          type="button"
+          onClick={() => {
+            // TODO: wire up booking flow
+          }}
+          className="flex items-center justify-center gap-2 rounded-full bg-[#F5A623] px-8 py-3.5 font-bold text-[15px] text-white transition-all hover:bg-[#E0941A] shadow-[0_6px_0_#C68213] hover:translate-y-0.5 hover:shadow-[0_3px_0_#C68213] active:translate-y-1 active:shadow-[0_0_0_#C68213]"
+        >
+          <CalendarCheck className="h-4 w-4" />
+          Book a free class
+        </button>
+        <p className="text-[12px] text-[#6B7280]">
+          Talk to a tutor about {studentFirstName}'s next steps.
+        </p>
       </div>
     </div>
   );

@@ -70,7 +70,10 @@ function summarizeCorrectAnswer(question: QuestionBankQuestion) {
         ?.correctAnswer === true;
     return expected ? "True" : "False";
   }
-  if (question.questionType === "matching" || question.questionType === "drag_drop") {
+  if (
+    question.questionType === "matching" ||
+    question.questionType === "drag_drop"
+  ) {
     const answerKey =
       (
         question.payload as
@@ -170,19 +173,31 @@ export async function generatePlacementTopicInsights(
       {
         role: "system",
         content: [
-          "You write 2-3 short, concrete insight lines per topic for a placement-test result card.",
-          "Each topic has up to 5 questions. Use only the data given. Never invent facts, scores, mistakes, or concepts.",
-          "Voice: a calm, observant tutor talking to a parent. Third person, use the student's first name once per card max. No emojis. No hype.",
-          "Each line: 8-16 words, one idea, plain English. Tie to actual question content (specific numbers, expressions, scenarios) whenever you can.",
+          "You write 2-3 short insight lines per topic for a placement-test result card.",
+          "You will receive each question, the student's answer, the correct answer, the verdict, and a 'whyWrong' note. USE this data only as private evidence to diagnose the underlying conceptual misunderstanding. NEVER surface it in the output.",
+          "Goal: name the fundamental concept, skill, or prerequisite the student is shaky or solid on — not what happened on any specific question.",
+          "Voice: a warm, plain-spoken tutor talking to a parent. Friendly, simple, easy to read out loud. No emojis. No hype. No jargon.",
+          "Naming rules:",
+          "- Use the student's first name (from input.student.name — use only the first word) once per card, ideally in the first line.",
+          "- After that, use natural pronouns ('she', 'he', 'her', 'his', 'they', 'them') — whichever fits — instead of repeating the name. Repeated names sound robotic.",
+          "- Do not start every line with the student's name.",
+          "Language rules:",
+          "- Use everyday words a parent without a teaching background can understand. Avoid academic or fancy words like 'fragile', 'inconsistent', 'foundational', 'prerequisite', 'sequencing', 'cognitive', 'reasoning' — say the same thing in simple words.",
+          "- Prefer short, plain sentences. 8-16 words each. One idea per line.",
+          "- Talk like you're explaining over a cup of tea — not like you're writing a report.",
+          "STRICT output rules:",
+          "- Do NOT quote or paraphrase question text, scenarios, numbers, expressions, or option text from the input.",
+          "- Do NOT mention specific items: no 'in the question about…', 'when asked…', 'they picked option B', 'they answered 12', no question numbers.",
+          "- Do NOT describe the student's specific answers. Instead, infer the misconception and describe the concept itself in simple words.",
+          "- Generalise. If the student got fraction-equivalence items wrong, write about understanding equal fractions as an idea, not about the specific fractions seen.",
           "STRICT anti-template rules:",
           "- Vary the opener of every line and across topics. Do not start lines with the same word or phrase.",
-          "- Ban these openers and stock phrases: 'She needs more practice with…', 'He needs more practice with…', '<Name> needs more practice with…', '<Name> handled X correctly', 'This shows…', 'Great job', 'Keep going', 'Strong foundation'.",
-          "- Do not use the same verb shape twice in one card (e.g., avoid two lines both starting with 'She…' or both ending with 'would help').",
-          "- Mix sentence types: one observation line, one diagnosis line, one suggestion line — but rephrase each freshly.",
+          "- Ban stock phrases: 'needs more practice with…', 'This shows…', 'Great job', 'Keep going', 'Strong foundation'.",
+          "- Mix sentence types across the 2-3 lines: one line on where the student stands, one line naming the specific idea or skill that's the gap or strength, one line with a friendly forward suggestion — each freshly phrased.",
           "Content rules by performance:",
-          "- All 5 correct: name the hardest thing they nailed and the kind of challenge they're ready for next. No vague praise.",
-          "- Mixed: surface the specific concept the wrong answers expose, with at least one concrete reference (a number, expression, or scenario from the questions).",
-          "- Mostly wrong: be honest but kind; point at the foundational concept that needs to come first, again referencing a specific question when possible.",
+          "- All correct: name the idea the student has clearly understood, in plain words, and the next small step that would stretch the student.",
+          "- Mixed: name the specific everyday idea the wrong attempts point to (e.g., 'splitting things into equal parts', 'comparing two amounts fairly', 'doing the steps in the right order') — without referencing the specific items.",
+          "- Mostly wrong: be honest but kind; name the simpler idea that needs to come first, in everyday words.",
           "Return one entry per topic provided, with the exact topic string.",
         ].join(" "),
       },

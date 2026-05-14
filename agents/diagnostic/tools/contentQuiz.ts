@@ -266,7 +266,7 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
     explanation = explanationFromColumn;
     typedPayload = {
       options: mcqOptions,
-      explanation: row.explanation,
+      explanation: explanationFromColumn,
       ...(questionSvg ? { questionSvg } : {}),
     };
   } else if (questionType === "true_false") {
@@ -677,7 +677,8 @@ async function loadRecurringTestQuestions(input: {
   failedLOs: string[];
   excludedQuestionIds: string[];
 }) {
-  if (input.failedTopics.length === 0 && input.failedLOs.length === 0) return [];
+  if (input.failedTopics.length === 0 && input.failedLOs.length === 0)
+    return [];
 
   const result = await query(
     `
@@ -889,7 +890,10 @@ function takeInteractiveQuestions(
     if (requestedForType <= 0) break;
 
     selected.push(
-      ...takeRoundRobin(queues.get(questionType) ?? new Map(), requestedForType),
+      ...takeRoundRobin(
+        queues.get(questionType) ?? new Map(),
+        requestedForType,
+      ),
     );
   }
 
@@ -1712,7 +1716,7 @@ export async function loadPlacementQuestions(input: {
         options,
         explanation,
         generation_metadata
-      FROM placement_test_questions
+      FROM placement_test_questions_v2
       WHERE subject = $1
         AND grade = $2
         AND question_text IS NOT NULL
@@ -1760,7 +1764,7 @@ export async function getPlacementQuestionsByIds(input: {
         options,
         explanation,
         generation_metadata
-      FROM placement_test_questions
+      FROM placement_test_questions_v2
       WHERE id = ANY($1::uuid[])
         AND subject = $2
         AND grade = $3
@@ -1806,4 +1810,3 @@ export async function getPlacementQuizForClient(input: {
     questions: sortedQuestions.map(toClientQuizQuestion),
   };
 }
-
