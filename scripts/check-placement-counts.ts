@@ -5,7 +5,7 @@ import { query } from "../lib/db";
 async function checkCounts() {
   const result = await query(`
     SELECT grade, count(*) 
-    FROM placement_test_questions 
+    FROM placement_test_questions_v2 
     GROUP BY grade 
     ORDER BY grade
   `);

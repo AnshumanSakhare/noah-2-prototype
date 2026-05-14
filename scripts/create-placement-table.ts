@@ -32,9 +32,9 @@ const pool = new Pool({
 async function createTable() {
   const client = await pool.connect();
   try {
-    console.log("Creating table 'placement_test_questions'...");
+    console.log("Creating table 'placement_test_questions_v2'...");
     await client.query(`
-      CREATE TABLE IF NOT EXISTS placement_test_questions (
+      CREATE TABLE IF NOT EXISTS placement_test_questions_v2 (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         question_number TEXT,
         question_type TEXT,
@@ -67,17 +67,17 @@ async function createTable() {
     `);
 
     await client.query(`
-      DROP TRIGGER IF EXISTS update_placement_test_questions_modtime ON placement_test_questions;
+      DROP TRIGGER IF EXISTS update_placement_test_questions_v2_modtime ON placement_test_questions_v2;
     `);
 
     await client.query(`
-      CREATE TRIGGER update_placement_test_questions_modtime
-          BEFORE UPDATE ON placement_test_questions
+      CREATE TRIGGER update_placement_test_questions_v2_modtime
+          BEFORE UPDATE ON placement_test_questions_v2
           FOR EACH ROW
           EXECUTE FUNCTION update_updated_at_column();
     `);
 
-    console.log("Table 'placement_test_questions' created successfully.");
+    console.log("Table 'placement_test_questions_v2' created successfully.");
   } catch (error) {
     console.error("Error creating table:", error);
   } finally {

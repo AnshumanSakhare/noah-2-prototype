@@ -74,7 +74,7 @@ function parseCSVLine(line: string) {
 // Improved JSON cleanup specifically for how pg wants JSONB
 function sanitizeJson(val: any) {
   if (val === null || val === undefined) return null;
-  if (typeof val === 'object') return JSON.stringify(val);
+  if (typeof val === "object") return JSON.stringify(val);
   return val;
 }
 
@@ -86,7 +86,7 @@ async function migrate() {
   const client = await pool.connect();
   try {
     console.log(`Starting migration of ${data.length} questions...`);
-    
+
     // Begin transaction
     await client.query("BEGIN");
 
@@ -106,7 +106,7 @@ async function migrate() {
         difficultyRating,
         options,
         explanation,
-        generationMetadata
+        generationMetadata,
       } = row;
 
       // Parse JSON fields
@@ -116,13 +116,17 @@ async function migrate() {
           optionsJson = JSON.parse(options);
         } catch (e) {
           try {
-             // Handle case where it might be double stringified or have common CSV issues
-             let cleaned = options.trim();
-             if (cleaned.startsWith('"') && cleaned.endsWith('"')) cleaned = cleaned.slice(1, -1);
-             cleaned = cleaned.replace(/""/g, '"');
-             optionsJson = JSON.parse(cleaned);
+            // Handle case where it might be double stringified or have common CSV issues
+            let cleaned = options.trim();
+            if (cleaned.startsWith('"') && cleaned.endsWith('"'))
+              cleaned = cleaned.slice(1, -1);
+            cleaned = cleaned.replace(/""/g, '"');
+            optionsJson = JSON.parse(cleaned);
           } catch (e2) {
-             console.warn(`Failed to parse options for Q${questionNumber}:`, options.substring(0, 50));
+            console.warn(
+              `Failed to parse options for Q${questionNumber}:`,
+              options.substring(0, 50),
+            );
           }
         }
       }
@@ -134,17 +138,25 @@ async function migrate() {
         } catch (e) {
           try {
             let cleaned = generationMetadata.trim();
-            if (cleaned.startsWith('"') && cleaned.endsWith('"')) cleaned = cleaned.slice(1, -1);
+            if (cleaned.startsWith('"') && cleaned.endsWith('"'))
+              cleaned = cleaned.slice(1, -1);
             cleaned = cleaned.replace(/""/g, '"');
             metadataJson = JSON.parse(cleaned);
           } catch (e2) {
-            console.warn(`Failed to parse metadata for Q${questionNumber}:`, generationMetadata.substring(0, 50));
+            console.warn(
+              `Failed to parse metadata for Q${questionNumber}:`,
+              generationMetadata.substring(0, 50),
+            );
           }
         }
       }
 
       // Transform Drag and Drop payload to compatible format if needed
-      if (questionType === "drag_drop" && metadataJson && metadataJson.payload) {
+      if (
+        questionType === "drag_drop" &&
+        metadataJson &&
+        metadataJson.payload
+      ) {
         const p = metadataJson.payload;
         if (p.items && p.targets && !p.draggableItems) {
           const itemMap = new Map(p.items.map((i: any) => [i.id, i.label]));
@@ -160,7 +172,7 @@ async function migrate() {
       }
 
       const queryText = `
-        INSERT INTO placement_test_questions (
+        INSERT INTO placement_test_questions_v2 (
           question_number, question_type, question_text, subject, 
           grade, grade_level, topic, subtopic, learning_objective, 
           blooms_level, difficulty_level, difficulty_rating, 
@@ -183,7 +195,7 @@ async function migrate() {
         parseInt(difficultyRating) || 0,
         sanitizeJson(optionsJson),
         explanation,
-        sanitizeJson(metadataJson)
+        sanitizeJson(metadataJson),
       ];
 
       await client.query(queryText, values);

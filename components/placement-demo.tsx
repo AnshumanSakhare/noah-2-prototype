@@ -2,6 +2,7 @@
 
 import {
   AlertCircle,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   GraduationCap,
@@ -118,23 +119,26 @@ function PlacementStudentInfoScreen({
               <GraduationCap className="h-4 w-4 text-[#F5A623]" />
               Grade
             </span>
-            <select
-              value={setup.classLevel}
-              onChange={(event) =>
-                onChange({
-                  ...setup,
-                  classLevel: event.target
-                    .value as CreateSessionInput["classLevel"],
-                })
-              }
-              className="h-12 w-full appearance-none rounded-[14px] border border-gray-200 bg-[#F8F9FA] px-4 text-[16px] font-semibold text-[#1a1a1a] outline-none transition-all focus:border-[#F5A623] focus:bg-white focus:ring-4 focus:ring-[#F5A623]/10"
-            >
-              {classLevels.map((classLevel) => (
-                <option key={classLevel} value={classLevel}>
-                  {classLabel(classLevel)}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={setup.classLevel}
+                onChange={(event) =>
+                  onChange({
+                    ...setup,
+                    classLevel: event.target
+                      .value as CreateSessionInput["classLevel"],
+                  })
+                }
+                className="h-12 w-full appearance-none rounded-[14px] border border-gray-200 bg-[#F8F9FA] px-4 pr-11 text-[16px] font-semibold text-[#1a1a1a] outline-none transition-all focus:border-[#F5A623] focus:bg-white focus:ring-4 focus:ring-[#F5A623]/10"
+              >
+                {classLevels.map((classLevel) => (
+                  <option key={classLevel} value={classLevel}>
+                    {classLabel(classLevel)}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+            </div>
           </label>
         </div>
 
@@ -284,9 +288,6 @@ export function PlacementDemo({
     >
   >({});
   const [error, setError] = useState<string | null>(null);
-  const [devCorrectAnswers, setDevCorrectAnswers] = useState<
-    Record<string, string>
-  >({});
   const [pendingAction, setPendingAction] = useState<"load" | "submit" | null>(
     null,
   );
@@ -434,35 +435,6 @@ export function PlacementDemo({
     return () => window.clearInterval(timer);
   }, [currentQuestion, quiz]);
 
-  const fetchDevAnswers = useCallback(async (loadedQuiz: DemoLoadedQuiz) => {
-    try {
-      const res = await fetch("/api/quiz/dev-answers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questionIds: loadedQuiz.questions.map((q) => q.id),
-          subject: loadedQuiz.subject,
-          classLevel: loadedQuiz.classLevel,
-          topic: loadedQuiz.topic,
-          testMode: loadedQuiz.testMode,
-        }),
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as { answers?: Record<string, string> };
-      setDevCorrectAnswers(data.answers ?? {});
-    } catch {
-      setDevCorrectAnswers({});
-    }
-  }, []);
-
-  const fillCorrectAnswer = useCallback(() => {
-    const q = quizRef.current?.questions[currentIndexRef.current];
-    if (!q) return;
-    const correct = devCorrectAnswers[q.id];
-    if (correct === undefined) return;
-    setCurrentAnswer(correct);
-  }, [devCorrectAnswers]);
-
   const startQuizRun = useCallback(() => {
     setPendingAction("load");
     startTransition(() => {
@@ -477,7 +449,6 @@ export function PlacementDemo({
           setQuestionElapsedMs(0);
           setResponseMeta({});
           setCurrentAnswer("");
-          void fetchDevAnswers(loadedQuiz);
         } catch (err) {
           setError(toErrorMessage(err));
         } finally {
@@ -485,7 +456,7 @@ export function PlacementDemo({
         }
       })();
     });
-  }, [form, fetchDevAnswers]);
+  }, [form]);
 
   const startRecurringTest = useCallback(
     (assessmentId: string) => {
@@ -506,7 +477,6 @@ export function PlacementDemo({
             setQuestionElapsedMs(0);
             setResponseMeta({});
             setCurrentAnswer("");
-            void fetchDevAnswers(recurringQuiz);
           } catch (err) {
             setError(toErrorMessage(err));
           } finally {
@@ -515,7 +485,7 @@ export function PlacementDemo({
         })();
       });
     },
-    [studentSetup.studentId, fetchDevAnswers],
+    [studentSetup.studentId],
   );
 
   const continueFromStudentInfo = () => {
@@ -783,19 +753,7 @@ export function PlacementDemo({
                   />
                 </div>
 
-                <div className="flex items-center justify-between gap-3 border-t border-[rgba(0,0,0,0.08)] px-3.5 py-3 sm:px-7 sm:py-4">
-                  <button
-                    type="button"
-                    onClick={fillCorrectAnswer}
-                    disabled={
-                      isBusy ||
-                      devCorrectAnswers[currentQuestion.id] === undefined
-                    }
-                    title="Dev: fill the correct answer"
-                    className="hidden rounded-full border border-dashed border-[#9333EA]/40 bg-[#F5F3FF] px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-wider text-[#7C3AED] transition hover:bg-[#EDE9FE] disabled:opacity-40 sm:inline-flex"
-                  >
-                    🪄 Fill correct
-                  </button>
+                <div className="flex items-center justify-end gap-3 border-t border-[rgba(0,0,0,0.08)] px-3.5 py-3 sm:px-7 sm:py-4">
                   <button
                     onClick={() => advanceRef.current(currentAnswer)}
                     disabled={!canSubmitCurrent || isBusy}

@@ -1,7 +1,7 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { CalendarCheck } from "lucide-react";
+import { useMemo } from "react";
 
 import type { DiagnosticReport } from "@/agents/diagnostic/types/index";
 import {
@@ -58,80 +58,22 @@ export function PlacementTopicInsightsSection({
   report,
   studentFirstName,
 }: PlacementTopicInsightsSectionProps) {
-  const [overrideInsights, setOverrideInsights] = useState<
-    DiagnosticReport["placementTopicInsights"] | null
-  >(null);
-  const [isRegenerating, setIsRegenerating] = useState(false);
-  const [regenerateError, setRegenerateError] = useState<string | null>(null);
-
-  const reportForInsights = useMemo(
-    () =>
-      overrideInsights
-        ? { ...report, placementTopicInsights: overrideInsights }
-        : report,
-    [overrideInsights, report],
-  );
   const summary = useMemo(
-    () => generatePlacementInsights(reportForInsights),
-    [reportForInsights],
+    () => generatePlacementInsights(report),
+    [report],
   );
-
-  const handleRegenerate = async () => {
-    setIsRegenerating(true);
-    setRegenerateError(null);
-    try {
-      const response = await fetch("/api/quiz/regenerate-insights", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ report }),
-      });
-      const data = (await response.json()) as {
-        placementTopicInsights?: DiagnosticReport["placementTopicInsights"];
-        error?: string;
-      };
-      if (!response.ok) {
-        throw new Error(data.error ?? "Failed to regenerate insights.");
-      }
-      setOverrideInsights(data.placementTopicInsights ?? []);
-    } catch (error) {
-      setRegenerateError(
-        error instanceof Error ? error.message : "Failed to regenerate.",
-      );
-    } finally {
-      setIsRegenerating(false);
-    }
-  };
 
   if (summary.topics.length === 0) return null;
 
   return (
     <div className="rounded-[18px] border border-gray-100 bg-white p-5 shadow-[0_2px_20px_rgba(26,26,46,0.05)] sm:p-7">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <div className="text-[1.1rem] font-extrabold text-[#1B4A4A] sm:text-[1.2rem]">
-            What {studentFirstName} needs — topic by topic
-          </div>
-          <div className="mt-1 text-[0.78rem] font-medium text-[#6B7280]">
-            Insights are based on how each topic's 5 questions were answered.
-          </div>
-          {regenerateError && (
-            <div className="mt-2 text-[0.75rem] font-medium text-[#B91C1C]">
-              {regenerateError}
-            </div>
-          )}
+      <div className="mb-4">
+        <div className="text-[1.1rem] font-extrabold text-[#1B4A4A] sm:text-[1.2rem]">
+          What {studentFirstName} needs — topic by topic
         </div>
-        <button
-          type="button"
-          onClick={handleRegenerate}
-          disabled={isRegenerating}
-          className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 font-mono text-[10.5px] font-bold uppercase tracking-wider text-[#1B4A4A] transition-all hover:border-[#2EC4B6] hover:text-[#2EC4B6] disabled:opacity-60"
-          title="Regenerate AI insights without retaking the test"
-        >
-          <RefreshCw
-            className={`h-3 w-3 ${isRegenerating ? "animate-spin" : ""}`}
-          />
-          {isRegenerating ? "Regenerating" : "Regenerate"}
-        </button>
+        <div className="mt-1 text-[0.78rem] font-medium text-[#6B7280]">
+          Insights are based on how each topic's 5 questions were answered.
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -210,6 +152,22 @@ export function PlacementTopicInsightsSection({
             </div>
           );
         })}
+      </div>
+
+      <div className="mt-6 flex flex-col items-center gap-2 sm:mt-8">
+        <button
+          type="button"
+          onClick={() => {
+            // TODO: wire up booking flow
+          }}
+          className="flex items-center justify-center gap-2 rounded-full bg-[#F5A623] px-8 py-3.5 font-bold text-[15px] text-white transition-all hover:bg-[#E0941A] shadow-[0_6px_0_#C68213] hover:translate-y-0.5 hover:shadow-[0_3px_0_#C68213] active:translate-y-1 active:shadow-[0_0_0_#C68213]"
+        >
+          <CalendarCheck className="h-4 w-4" />
+          Book a free class
+        </button>
+        <p className="text-[12px] text-[#6B7280]">
+          Talk to a tutor about {studentFirstName}'s next steps.
+        </p>
       </div>
     </div>
   );
