@@ -205,8 +205,8 @@ const DIFFICULTY_TIME_LIMITS_MS: Record<string, number> = {
 const RAPID_RESPONSE_THRESHOLD_MS = 2_000;
 
 // ─── Toast triggers ───────────────────────────────────────────────────────────
-const TOAST_TRIGGERS = [3, 8, 13]; // 0-based question indices after which to show toast
-const TOAST_CONFIGS = [
+export const TOAST_TRIGGERS = [3, 8, 13]; // 0-based question indices after which to show toast
+export const TOAST_CONFIGS = [
   {
     emoji: "🌟",
     title: "Great work! Keep going!",
@@ -225,7 +225,7 @@ const TOAST_CONFIGS = [
 ];
 
 // ─── Utility functions ────────────────────────────────────────────────────────
-function classLabel(value: string) {
+export function classLabel(value: string) {
   if (value === "classKG") return "KG";
   if (value === "class1") return "Grade 1";
   if (value === "class2") return "Grade 2";
@@ -238,11 +238,11 @@ function classLabel(value: string) {
   return value;
 }
 
-function classNum(value: string) {
+export function classNum(value: string) {
   return value.replace("class", "");
 }
 
-function toRomanNumeral(num: number) {
+export function toRomanNumeral(num: number) {
   if (num <= 0) return "";
   const map: Array<[number, string]> = [
     [1000, "M"],
@@ -270,7 +270,7 @@ function toRomanNumeral(num: number) {
   return result;
 }
 
-function toErrorMessage(error: unknown) {
+export function toErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
 }
 
@@ -294,7 +294,7 @@ function getDefaultCatalogEntry(catalog: DemoQuizCatalog) {
   );
 }
 
-function getCatalogEntryForClass(
+export function getCatalogEntryForClass(
   catalog: DemoQuizCatalog,
   classLevel: CreateSessionInput["classLevel"],
 ) {
@@ -304,7 +304,7 @@ function getCatalogEntryForClass(
   );
 }
 
-function buildDefaultForm(
+export function buildDefaultForm(
   entry: DemoQuizCatalogEntry | null,
   studentId = "Riya Sharma",
 ): CreateSessionInput {
@@ -335,13 +335,13 @@ function getTopicQuestionCountForEntry(entry?: DemoQuizCatalogEntry | null) {
   return getTopicTestQuestionCount(entry?.learningObjectives.length ?? 0);
 }
 
-function getGradeQuestionCountForClass(
+export function getGradeQuestionCountForClass(
   classLevel: CreateSessionInput["classLevel"],
 ) {
   return getGradeTestPlan(classLevel).total;
 }
 
-function getAnswerMap(answer: string) {
+export function getAnswerMap(answer: string) {
   try {
     return JSON.parse(answer) as Record<string, string>;
   } catch {
@@ -384,7 +384,7 @@ function scoreStars(correct: number, total: number) {
   return Math.min(5, Math.max(1, Math.ceil((correct / total) * 5)));
 }
 
-function getEstimatedTestTimeLabel(questionCount: number) {
+export function getEstimatedTestTimeLabel(questionCount: number) {
   if (questionCount <= 15) return "15 min";
   if (questionCount <= 22) return "20 min";
   if (questionCount <= 25) return "25 min";
@@ -423,7 +423,7 @@ function normalizeDifficultyLevel(value?: string) {
   return "easy";
 }
 
-function getQuestionTimeLimitMs(difficultyLevel?: string) {
+export function getQuestionTimeLimitMs(difficultyLevel?: string) {
   return DIFFICULTY_TIME_LIMITS_MS[normalizeDifficultyLevel(difficultyLevel)];
 }
 
@@ -879,7 +879,7 @@ function formatLearningObjectiveLabel(learningObjective?: string) {
 }
 
 // ─── API functions ─────────────────────────────────────────────────────────────
-async function loadQuiz(input: CreateSessionInput) {
+export async function loadQuiz(input: CreateSessionInput) {
   const response = await fetch("/api/quiz/section", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -893,7 +893,10 @@ async function loadQuiz(input: CreateSessionInput) {
   return data.quiz;
 }
 
-async function loadRecurringQuiz(assessmentId: string, studentId: string) {
+export async function loadRecurringQuiz(
+  assessmentId: string,
+  studentId: string,
+) {
   const response = await fetch("/api/quiz/recurring", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -913,7 +916,7 @@ async function loadRecurringQuiz(assessmentId: string, studentId: string) {
   };
 }
 
-async function submitQuiz(
+export async function submitQuiz(
   quiz: DemoLoadedQuiz,
   answers: Record<string, string>,
   responseMeta: Record<
@@ -956,7 +959,7 @@ async function submitQuiz(
 }
 
 // ─── AI Tutor Chat Bubble ─────────────────────────────────────────────────────
-function AIChatBubble({
+export function AIChatBubble({
   config,
   onDismiss,
 }: {
@@ -1734,7 +1737,7 @@ function GradeStartScreen({
 }
 
 // ─── Question Input ────────────────────────────────────────────────────────────
-function QuestionInput({
+export function QuestionInput({
   question,
   answer,
   setAnswer,
@@ -3677,11 +3680,13 @@ function ReportView({
         </div>
       </div>
 
-      <ProgressComparisonCard
-        report={report}
-        currentCorrectCount={correctCount}
-        currentTotalQuestions={totalQuestions}
-      />
+      {report.mode !== "placement" && (
+        <ProgressComparisonCard
+          report={report}
+          currentCorrectCount={correctCount}
+          currentTotalQuestions={totalQuestions}
+        />
+      )}
 
       {/* Parent notes */}
       <div
@@ -3724,7 +3729,10 @@ function ReportView({
           onClick={onReset}
           className="flex min-w-[240px] items-center justify-center gap-2 rounded-full bg-[#F5A623] px-10 py-4 text-[16px] font-bold text-white shadow-[0_8px_24px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-1 hover:shadow-[0_12px_36px_rgba(245,166,35,0.40)]"
         >
-          <RotateCcw className="h-4 w-4" /> Run New Diagnostic
+          <RotateCcw className="h-4 w-4" />{" "}
+          {report.mode === "placement"
+            ? "Run New Placement Test"
+            : "Run New Diagnostic"}
         </button>
       </div>
 
@@ -3802,7 +3810,7 @@ function ReportView({
 }
 
 // ─── Result Tabs (V1 / V2) ────────────────────────────────────────────────────
-function ResultTabs({
+export function ResultTabs({
   report,
   onReset,
   onRecurring,

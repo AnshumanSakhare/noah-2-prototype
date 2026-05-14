@@ -266,7 +266,7 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
     explanation = explanationFromColumn;
     typedPayload = {
       options: mcqOptions,
-      explanation: row.explanation,
+      explanation: explanationFromColumn,
       ...(questionSvg ? { questionSvg } : {}),
     };
   } else if (questionType === "true_false") {
