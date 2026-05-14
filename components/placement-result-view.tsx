@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarCheck } from "lucide-react";
+import { CalendarCheck, Sparkles } from "lucide-react";
 import { useMemo } from "react";
 
 import type { DiagnosticReport } from "@/agents/diagnostic/types/index";
@@ -114,13 +114,13 @@ export function PlacementTopicInsightsSection({
                     className="text-[18px] font-black leading-none tabular-nums"
                     style={{ color: styles.scoreColor }}
                   >
-                    {topic.scoreOutOf5.toFixed(1)}
+                    {Math.round(topic.scoreOutOf5 * 4)}
                   </div>
                   <div
                     className="text-[9px] font-bold uppercase tracking-wider"
                     style={{ color: styles.chipText }}
                   >
-                    of 5
+                    of 20
                   </div>
                 </div>
               </div>
@@ -154,20 +154,43 @@ export function PlacementTopicInsightsSection({
         })}
       </div>
 
-      <div className="mt-6 flex flex-col items-center gap-2 sm:mt-8">
-        <button
-          type="button"
-          onClick={() => {
-            // TODO: wire up booking flow
-          }}
-          className="flex items-center justify-center gap-2 rounded-full bg-[#F5A623] px-8 py-3.5 font-bold text-[15px] text-white transition-all hover:bg-[#E0941A] shadow-[0_6px_0_#C68213] hover:translate-y-0.5 hover:shadow-[0_3px_0_#C68213] active:translate-y-1 active:shadow-[0_0_0_#C68213]"
-        >
-          <CalendarCheck className="h-4 w-4" />
-          Book a free class
-        </button>
-        <p className="text-[12px] text-[#6B7280]">
-          Talk to a tutor about {studentFirstName}'s next steps.
-        </p>
+      <div
+        className="mt-6 overflow-hidden rounded-[20px] p-5 sm:mt-8 sm:p-7"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(46,196,182,0.08), rgba(245,166,35,0.08))",
+          border: "2px solid rgba(46,196,182,0.20)",
+        }}
+      >
+        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white text-[28px] shadow-sm ring-2 ring-[#2EC4B6]/20">
+            🚀
+          </div>
+          <div className="flex-1">
+            <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-white/80 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-[#1B4A4A] ring-1 ring-[#2EC4B6]/30">
+              <Sparkles className="h-3 w-3 text-[#F5A623]" />
+              Codeyoung can help
+            </div>
+            <h3 className="text-[17px] font-extrabold leading-tight text-[#1B4A4A] sm:text-[19px]">
+              Ready to help {studentFirstName} grow?
+            </h3>
+            <p className="mt-1.5 text-[13.5px] leading-relaxed text-[#6B7280]">
+              Codeyoung's expert tutors will guide {studentFirstName} 1-on-1
+              through the topics that need work — building strong fundamentals
+              and confidence, one concept at a time.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              // TODO: wire up booking flow
+            }}
+            className="flex w-full shrink-0 items-center justify-center gap-2 rounded-full bg-[#F5A623] px-6 py-3.5 font-bold text-[14px] text-white transition-all hover:bg-[#E0941A] sm:w-auto sm:px-7 sm:text-[15px] shadow-[0_6px_0_#C68213] hover:translate-y-0.5 hover:shadow-[0_3px_0_#C68213] active:translate-y-1 active:shadow-[0_0_0_#C68213]"
+          >
+            <CalendarCheck className="h-4 w-4" />
+            Book a free class
+          </button>
+        </div>
       </div>
     </div>
   );
