@@ -79,18 +79,36 @@ function sanitizeJson(val: any) {
 }
 
 async function migrate() {
-  const csvPath = path.resolve(process.cwd(), "csv/placement test.csv");
-  const content = fs.readFileSync(csvPath, "utf-8");
-  const data = parseCSV(content);
+  const csvFiles = [
+    "placement test.csv",
+    "one.csv",
+    "two.csv",
+    "three.csv",
+    "four.csv",
+    "five.csv"
+  ];
 
   const client = await pool.connect();
   try {
-    console.log(`Starting migration of ${data.length} questions...`);
-    
-    // Begin transaction
-    await client.query("BEGIN");
+    // Optional: Clear existing questions if you want a fresh start
+    // console.log("Clearing existing questions...");
+    // await client.query("TRUNCATE placement_test_questions;");
 
-    for (const row of data) {
+    for (const fileName of csvFiles) {
+      const csvPath = path.resolve(process.cwd(), "csv", fileName);
+      if (!fs.existsSync(csvPath)) {
+        console.warn(`File not found, skipping: ${fileName}`);
+        continue;
+      }
+
+      console.log(`Starting migration of ${fileName}...`);
+      const content = fs.readFileSync(csvPath, "utf-8");
+      const data = parseCSV(content);
+      
+      // Begin transaction for this file
+      await client.query("BEGIN");
+
+      for (const row of data) {
       const {
         questionNumber,
         questionType,
@@ -186,11 +204,12 @@ async function migrate() {
         sanitizeJson(metadataJson)
       ];
 
-      await client.query(queryText, values);
-    }
+        await client.query(queryText, values);
+      }
 
-    await client.query("COMMIT");
-    console.log("Migration completed successfully.");
+      await client.query("COMMIT");
+      console.log(`Migration of ${fileName} completed successfully.`);
+    }
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("Migration failed:", error);
