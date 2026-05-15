@@ -10,6 +10,7 @@ import { getGradeTestPlan, getTopicTestQuestionCount } from "@/lib/quiz-counts";
 import type {
   BloomLevel,
   ClassLevel,
+  DiagnosticRegion,
   DifficultyBand,
   DragDropQuestionPayload,
   FitbQuestionPayload,
@@ -41,7 +42,18 @@ type ContentQuestionRow = {
   options: unknown;
   explanation: string | null;
   generation_metadata: unknown;
+  region?: string | null;
+  parent_id?: string | null;
 };
+
+export const DIAGNOSTIC_REGIONS = [
+  "US",
+  "UK",
+  "UAE",
+  "Ontario",
+  "Australia",
+] as const satisfies readonly DiagnosticRegion[];
+export const DEFAULT_DIAGNOSTIC_REGION: DiagnosticRegion = "US";
 
 const INTERACTIVE_QUESTION_TYPES = ["fitb", "drag_drop"] as const;
 const MIN_INTERACTIVE_QUESTION_COUNTS: Record<
@@ -94,6 +106,14 @@ function toClassLevel(value: string | null | undefined): ClassLevel {
   if (grade === 6) return "class6";
   if (grade === 7) return "class7";
   return "class8";
+}
+
+function toDiagnosticRegion(value: string | null | undefined): DiagnosticRegion {
+  const normalized = normalizeKey(value);
+  return (
+    DIAGNOSTIC_REGIONS.find((region) => normalizeKey(region) === normalized) ??
+    DEFAULT_DIAGNOSTIC_REGION
+  );
 }
 
 function toDbGrade(classLevel: ClassLevel) {
@@ -373,6 +393,15 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
       ].join(" "),
     ),
     gradeLevel: row.grade_level ? normalizeText(row.grade_level) : undefined,
+    ...(row.region
+      ? {
+          region:
+            normalizeKey(row.region) === "global"
+              ? "global"
+              : toDiagnosticRegion(row.region),
+        }
+      : {}),
+    ...(row.parent_id ? { parentId: normalizeText(row.parent_id) } : {}),
     payload: typedPayload,
   };
 }
@@ -393,8 +422,10 @@ const CONTENT_QUESTION_SELECT = `
     difficulty_rating,
     options,
     explanation,
-    generation_metadata
-  FROM final_content_questions
+    generation_metadata,
+    region,
+    parent_id::text AS parent_id
+  FROM final_content_questions_1
 `;
 
 const QUESTION_VISUAL_MODE_TYPE_FILTER = `
@@ -445,9 +476,10 @@ async function loadDiagnosticQuizCatalog(): Promise<DemoQuizCatalog> {
         WHERE learning_objective IS NOT NULL AND btrim(learning_objective) <> ''
       ) AS learning_objectives,
       count(*)::int AS question_count
-    FROM final_content_questions
+    FROM final_content_questions_1
     WHERE question_text IS NOT NULL
       AND question_type IS NOT NULL
+      AND region IN ('global', '${DEFAULT_DIAGNOSTIC_REGION}')
       ${QUESTION_VISUAL_MODE_TYPE_FILTER}
       AND subject IS NOT NULL
       AND grade IS NOT NULL
@@ -497,6 +529,7 @@ async function loadTopicQuestions(input: {
   subject: Subject;
   classLevel: ClassLevel;
   topic: string;
+  region: DiagnosticRegion;
 }) {
   const result = await query(
     `
@@ -504,12 +537,18 @@ async function loadTopicQuestions(input: {
       WHERE subject = $1
         AND grade = $2
         AND topic = $3
+        AND region IN ('global', $4)
         AND question_text IS NOT NULL
         AND question_type IS NOT NULL
         ${QUESTION_VISUAL_MODE_TYPE_FILTER}
       ORDER BY learning_objective, difficulty_level, id
     `,
-    [input.subject, toDbGrade(input.classLevel), input.topic],
+    [
+      input.subject,
+      toDbGrade(input.classLevel),
+      input.topic,
+      input.region,
+    ],
   );
 
   return toQuestions(result.rows as ContentQuestionRow[]);
@@ -518,6 +557,7 @@ async function loadTopicQuestions(input: {
 async function loadGradeQuestions(input: {
   subject: Subject;
   classLevel: ClassLevel;
+  region: DiagnosticRegion;
 }) {
   const targets = getGradeTestPlan(input.classLevel).difficultyTargets;
   const perTopicCandidateLimit = Math.max(
@@ -544,13 +584,16 @@ async function loadGradeQuestions(input: {
           options,
           explanation,
           generation_metadata,
+          region,
+          parent_id::text AS parent_id,
           row_number() OVER (
             PARTITION BY difficulty_level, topic
             ORDER BY random()
           ) AS topic_difficulty_rank
-        FROM final_content_questions
+        FROM final_content_questions_1
         WHERE subject = $1
           AND grade = $2
+          AND region IN ('global', $4)
           AND question_text IS NOT NULL
           AND question_type IS NOT NULL
           ${QUESTION_VISUAL_MODE_TYPE_FILTER}
@@ -570,12 +613,19 @@ async function loadGradeQuestions(input: {
         difficulty_rating,
         options,
         explanation,
-        generation_metadata
+        generation_metadata,
+        region,
+        parent_id
       FROM ranked_questions
       WHERE topic_difficulty_rank <= $3
       ORDER BY topic, learning_objective, difficulty_level, id
     `,
-    [input.subject, toDbGrade(input.classLevel), perTopicCandidateLimit],
+    [
+      input.subject,
+      toDbGrade(input.classLevel),
+      perTopicCandidateLimit,
+      input.region,
+    ],
   );
 
   return toQuestions(result.rows as ContentQuestionRow[]);
@@ -586,6 +636,7 @@ async function getPreviouslyAnsweredQuestionIds(input: {
   testMode: "topic" | "grade";
   subject: Subject;
   classLevel: ClassLevel;
+  region: DiagnosticRegion;
   topic?: string | null;
 }) {
   const normalizedStudentName = normalizeStudentName(input.studentId);
@@ -606,6 +657,7 @@ async function getPreviouslyAnsweredQuestionIds(input: {
           AND a.subject = $4
           AND a.class_level = $2
           AND ($5::text IS NULL OR a.topic = $5)
+          AND COALESCE(a.region, '${DEFAULT_DIAGNOSTIC_REGION}') = $6
         LIMIT 1000
       `,
       [
@@ -616,6 +668,7 @@ async function getPreviouslyAnsweredQuestionIds(input: {
         input.testMode === "topic" && input.topic
           ? normalizeText(input.topic)
           : null,
+        input.region,
       ],
     );
 
@@ -676,6 +729,7 @@ async function loadRecurringTestQuestions(input: {
   failedTopics: string[];
   failedLOs: string[];
   excludedQuestionIds: string[];
+  region: DiagnosticRegion;
 }) {
   if (input.failedTopics.length === 0 && input.failedLOs.length === 0)
     return [];
@@ -689,6 +743,7 @@ async function loadRecurringTestQuestions(input: {
           topic = ANY($3::text[])
           OR learning_objective = ANY($5::text[])
         )
+        AND region IN ('global', $6)
         AND id::text != ALL($4::text[])
         AND question_text IS NOT NULL
         AND question_type IS NOT NULL
@@ -701,6 +756,7 @@ async function loadRecurringTestQuestions(input: {
       input.failedTopics,
       input.excludedQuestionIds,
       input.failedLOs,
+      input.region,
     ],
   );
 
@@ -1407,6 +1463,7 @@ export async function getQuizQuestionsByIds(input: {
   subject: Subject;
   classLevel: ClassLevel;
   topic?: string | null;
+  region?: DiagnosticRegion;
 }) {
   const questionIds = Array.from(new Set(input.questionIds.filter(Boolean)));
 
@@ -1476,10 +1533,15 @@ export async function getTopicQuizQuestions(input: {
   classLevel: ClassLevel;
   topic: string;
   maxQuestions: number;
+  region?: DiagnosticRegion;
   questions?: QuestionBankQuestion[];
 }) {
   const matchingQuestions =
-    input.questions ?? (await loadTopicQuestions(input));
+    input.questions ??
+    (await loadTopicQuestions({
+      ...input,
+      region: input.region ?? DEFAULT_DIAGNOSTIC_REGION,
+    }));
 
   const { questions, coverageWarnings } =
     selectQuestionsAcrossLearningObjectives(
@@ -1518,9 +1580,15 @@ export async function getTopicQuizQuestions(input: {
 export async function getGradeQuizQuestions(input: {
   subject: Subject;
   classLevel: ClassLevel;
+  region?: DiagnosticRegion;
   questions?: QuestionBankQuestion[];
 }) {
-  const gradeQuestions = input.questions ?? (await loadGradeQuestions(input));
+  const gradeQuestions =
+    input.questions ??
+    (await loadGradeQuestions({
+      ...input,
+      region: input.region ?? DEFAULT_DIAGNOSTIC_REGION,
+    }));
   const { questions, coverageWarnings } = selectQuestionsForGradeTest(
     gradeQuestions,
     input.classLevel,
@@ -1551,13 +1619,16 @@ export async function getTopicQuizForClient(input: {
   classLevel: ClassLevel;
   topic: string;
   maxQuestions: number;
+  region?: DiagnosticRegion;
 }) {
-  const matchingQuestions = await loadTopicQuestions(input);
+  const region = input.region ?? DEFAULT_DIAGNOSTIC_REGION;
+  const matchingQuestions = await loadTopicQuestions({ ...input, region });
   const seenQuestionIds = await getPreviouslyAnsweredQuestionIds({
     studentId: input.studentId,
     testMode: "topic",
     subject: input.subject,
     classLevel: input.classLevel,
+    region,
     topic: input.topic,
   });
   const quiz = await getTopicQuizQuestions({
@@ -1574,6 +1645,7 @@ export async function getTopicQuizForClient(input: {
 
   return {
     studentId: input.studentId,
+    region,
     testMode: "topic" as const,
     subject: quiz.subject,
     classLevel: quiz.classLevel,
@@ -1588,13 +1660,16 @@ export async function getGradeQuizForClient(input: {
   studentId: string;
   subject: Subject;
   classLevel: ClassLevel;
+  region?: DiagnosticRegion;
 }) {
-  const gradeQuestions = await loadGradeQuestions(input);
+  const region = input.region ?? DEFAULT_DIAGNOSTIC_REGION;
+  const gradeQuestions = await loadGradeQuestions({ ...input, region });
   const seenQuestionIds = await getPreviouslyAnsweredQuestionIds({
     studentId: input.studentId,
     testMode: "grade",
     subject: input.subject,
     classLevel: input.classLevel,
+    region,
   });
   const quiz = await getGradeQuizQuestions({
     ...input,
@@ -1614,6 +1689,7 @@ export async function getGradeQuizForClient(input: {
 
   return {
     studentId: input.studentId,
+    region,
     testMode: "grade" as const,
     subject: input.subject,
     classLevel: input.classLevel,
@@ -1664,10 +1740,12 @@ export async function getRecurringTestForClient(input: {
   studentId: string;
   subject: Subject;
   classLevel: ClassLevel;
+  region?: DiagnosticRegion;
   failedTopics: string[];
   failedLOs: string[];
   excludedQuestionIds: string[];
 }) {
+  const region = input.region ?? DEFAULT_DIAGNOSTIC_REGION;
   const targetCount = recurringTestQuestionCount(input.failedTopics.length);
 
   // Load fresh candidate questions from failed topics only, excluding seen IDs
@@ -1677,6 +1755,7 @@ export async function getRecurringTestForClient(input: {
     failedTopics: input.failedTopics,
     failedLOs: input.failedLOs,
     excludedQuestionIds: input.excludedQuestionIds,
+    region,
   });
 
   const selected = selectQuestionsForRecurringTest(candidates, targetCount);
@@ -1684,6 +1763,7 @@ export async function getRecurringTestForClient(input: {
 
   return {
     studentId: input.studentId,
+    region,
     testMode: "recurring" as const,
     subject: input.subject,
     classLevel: input.classLevel,

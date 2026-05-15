@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Globe2,
   GraduationCap,
   RotateCcw,
   Sparkles,
@@ -26,6 +27,7 @@ import {
 
 import type {
   DiagnosticReport,
+  DiagnosticRegion,
   DragDropQuestionPayload,
   MatchingQuestionPayload,
 } from "../agents/diagnostic/types/index";
@@ -67,7 +69,17 @@ type AppScreen =
 type StudentSetup = {
   studentId: string;
   classLevel: CreateSessionInput["classLevel"];
+  region: DiagnosticRegion;
 };
+
+const DIAGNOSTIC_REGION_OPTIONS = [
+  "US",
+  "UK",
+  "UAE",
+  "Ontario",
+  "Australia",
+] as const satisfies readonly DiagnosticRegion[];
+const DEFAULT_DIAGNOSTIC_REGION: DiagnosticRegion = "US";
 
 export type AssessmentKind = "diagnostic" | "placement";
 
@@ -307,6 +319,7 @@ export function getCatalogEntryForClass(
 export function buildDefaultForm(
   entry: DemoQuizCatalogEntry | null,
   studentId = "Riya Sharma",
+  region: DiagnosticRegion = DEFAULT_DIAGNOSTIC_REGION,
 ): CreateSessionInput {
   const topicQuestionCount = entry
     ? getTopicTestQuestionCount(entry.learningObjectives.length)
@@ -320,6 +333,7 @@ export function buildDefaultForm(
         classLevel: entry.classLevel,
         topic: entry.topic,
         maxQuestions: topicQuestionCount,
+        region,
       }
     : {
         studentId,
@@ -328,6 +342,7 @@ export function buildDefaultForm(
         classLevel: DIAGNOSTIC_CONTENT_DEFAULTS.classLevel,
         topic: DIAGNOSTIC_CONTENT_DEFAULTS.topic,
         maxQuestions: 0,
+        region,
       };
 }
 
@@ -932,6 +947,7 @@ export async function submitQuiz(
       testMode: quiz.testMode,
       subject: quiz.subject,
       classLevel: quiz.classLevel,
+      region: quiz.region,
       topic: quiz.topic,
       maxQuestions: quiz.maxQuestions,
       parentAssessmentId: quiz.parentAssessmentId,
@@ -1129,6 +1145,31 @@ function StudentInfoScreen({
               })}
             </select>
           </label>
+
+          {!isPlacement && (
+            <label className="block">
+              <span className="mb-2 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-widest text-[#6B7280]">
+                <Globe2 className="h-4 w-4 text-[#2EC4B6]" />
+                Country / region
+              </span>
+              <select
+                value={setup.region}
+                onChange={(event) =>
+                  onChange({
+                    ...setup,
+                    region: event.target.value as DiagnosticRegion,
+                  })
+                }
+                className="h-12 w-full appearance-none rounded-[14px] border border-gray-200 bg-[#F8F9FA] px-4 text-[16px] font-semibold text-[#1a1a1a] outline-none transition-all focus:border-[#2EC4B6] focus:bg-white focus:ring-4 focus:ring-[#2EC4B6]/10"
+              >
+                {DIAGNOSTIC_REGION_OPTIONS.map((region) => (
+                  <option key={region} value={region}>
+                    {region}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
 
         <button
@@ -3863,6 +3904,7 @@ export function DiagnosticDemo({
   const [studentSetup, setStudentSetup] = useState<StudentSetup>({
     studentId: "Riya Sharma",
     classLevel: initialClassLevel,
+    region: DEFAULT_DIAGNOSTIC_REGION,
   });
   const [testMode, setTestMode] = useState<
     "topic" | "grade" | "recurring" | "placement"
@@ -3878,7 +3920,7 @@ export function DiagnosticDemo({
   } | null>(null);
 
   const [form, setForm] = useState<CreateSessionInput>(() =>
-    buildDefaultForm(initialTopicEntry, "Riya Sharma"),
+    buildDefaultForm(initialTopicEntry, "Riya Sharma", DEFAULT_DIAGNOSTIC_REGION),
   );
   const [quiz, setQuiz] = useState<DemoLoadedQuiz | null>(null);
   const [report, setReport] = useState<DiagnosticReport | null>(null);
@@ -4129,12 +4171,12 @@ export function DiagnosticDemo({
     );
     setSelectedGradeClass(studentSetup.classLevel);
     setSelectedTopicEntry(entry);
-    setForm(buildDefaultForm(entry, studentId));
+    setForm(buildDefaultForm(entry, studentId, studentSetup.region));
     setError(null);
 
     if (assessmentKind === "placement") {
       setTestMode("placement");
-      setForm((prev) => ({ ...prev, testMode: "placement" }));
+      setForm((prev) => ({ ...prev, testMode: "placement", region: undefined }));
       setAppScreen("grade-start");
     } else {
       setAppScreen("selector");
@@ -4154,7 +4196,13 @@ export function DiagnosticDemo({
     setAppScreen("student-info");
     setSelectedTopicEntry(initialTopicEntry);
     setSelectedGradeClass(studentSetup.classLevel);
-    setForm(buildDefaultForm(initialTopicEntry, studentSetup.studentId.trim()));
+    setForm(
+      buildDefaultForm(
+        initialTopicEntry,
+        studentSetup.studentId.trim(),
+        studentSetup.region,
+      ),
+    );
   };
 
   const canSubmitCurrent =
@@ -4204,6 +4252,7 @@ export function DiagnosticDemo({
       classLevel: topicEntry.classLevel,
       topic: topicEntry.topic,
       maxQuestions: getTopicQuestionCountForEntry(topicEntry),
+      region: studentSetup.region,
     });
   };
 
@@ -4237,6 +4286,7 @@ export function DiagnosticDemo({
         classLevel: gradeClass,
         topic: gradeEntry.topic,
         maxQuestions: getGradeQuestionCountForClass(gradeClass),
+        region: studentSetup.region,
       });
     }
     setTestMode("grade");
@@ -4257,6 +4307,7 @@ export function DiagnosticDemo({
         maxQuestions: getGradeQuestionCountForClass(
           cl as CreateSessionInput["classLevel"],
         ),
+        region: studentSetup.region,
       }));
     }
     setAppScreen("grade-start");
@@ -4472,6 +4523,12 @@ export function DiagnosticDemo({
                     <span>
                       Question {currentIndex + 1} of {quiz.questions.length}
                     </span>
+                    {(currentQuestion as any).region && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">
+                        <Globe2 className="h-3 w-3 text-[#2EC4B6]" />
+                        {(currentQuestion as any).region} VERSION
+                      </span>
+                    )}
                     {testMode === "placement" &&
                       (currentQuestion as any).gradeLevel && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-[#2EC4B6]/30 bg-[#E6F8F6] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-[#1B4A4A]">

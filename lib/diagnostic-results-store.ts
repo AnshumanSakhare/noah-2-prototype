@@ -4,11 +4,14 @@ import type { PoolClient } from "pg";
 
 import type {
   AskedQuestionRecord,
+  DiagnosticRegion,
   DiagnosticReport,
   LearningObjectiveResult,
   ProgressComparison,
 } from "@/agents/diagnostic/types/index";
 import pool from "@/lib/db";
+
+const DEFAULT_DIAGNOSTIC_REGION: DiagnosticRegion = "US";
 
 export interface StoredDiagnosticResult {
   assessmentId: string;
@@ -32,6 +35,12 @@ function gradeForStorage(classLevel: DiagnosticReport["classLevel"]) {
 
 function reportTopicForStorage(report: DiagnosticReport) {
   return report.mode === "grade" ? null : report.topic;
+}
+
+function reportRegionForStorage(report: DiagnosticReport) {
+  return report.mode === "placement"
+    ? DEFAULT_DIAGNOSTIC_REGION
+    : (report.region ?? DEFAULT_DIAGNOSTIC_REGION);
 }
 
 function questionJson(record: AskedQuestionRecord) {
@@ -102,11 +111,18 @@ async function getPreviousProgressComparison(input: {
         AND a.subject = $2
         AND a.class_level = $3
         AND a.topic = $4
+        AND COALESCE(a.region, $5) = $5
       GROUP BY a.id
       ORDER BY a.submitted_at DESC
       LIMIT 1
     `,
-    [studentDbId, report.subject, gradeForStorage(report.classLevel), topic],
+    [
+      studentDbId,
+      report.subject,
+      gradeForStorage(report.classLevel),
+      topic,
+      reportRegionForStorage(report),
+    ],
   );
   const previous = previousResult.rows[0];
   if (!previous) return undefined;
@@ -171,6 +187,7 @@ export async function saveDiagnosticResult(
           test_mode,
           subject,
           class_level,
+          region,
           topic,
           readiness_score,
           attempted_readiness_score,
@@ -197,9 +214,9 @@ export async function saveDiagnosticResult(
         )
         VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-          $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb,
-          $18::jsonb, $19::jsonb, $20::jsonb, $21::jsonb, $22::jsonb,
-          $23::jsonb, $24::jsonb, $25::jsonb, $26::jsonb, $27, $28
+          $11, $12, $13, $14, $15, $16::jsonb, $17::jsonb, $18::jsonb,
+          $19::jsonb, $20::jsonb, $21::jsonb, $22::jsonb, $23::jsonb,
+          $24::jsonb, $25::jsonb, $26::jsonb, $27::jsonb, $28, $29
         )
         RETURNING id
       `,
@@ -209,6 +226,7 @@ export async function saveDiagnosticResult(
         report.mode,
         report.subject,
         grade,
+        reportRegionForStorage(report),
         reportTopicForStorage(report),
         report.readinessScore,
         report.attemptedReadinessScore ?? null,
