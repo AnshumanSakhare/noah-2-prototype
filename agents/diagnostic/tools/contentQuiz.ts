@@ -302,21 +302,67 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
       normalizeText(fitbPayload.hint ?? "") || explanationFromColumn;
     typedPayload = { ...fitbPayload, ...(questionSvg ? { questionSvg } : {}) };
   } else if (questionType === "matching") {
-    const matchingPayload = payload as unknown as MatchingQuestionPayload;
+    const matchingPayload = payload as any;
+
+    // Support both new (items/targets) and old (premises/responses) schema
+    let premises: string[] = matchingPayload.premises ?? [];
+    if (premises.length === 0 && Array.isArray(matchingPayload.items)) {
+      premises = matchingPayload.items.map((i: any) => i.label || i.text || i.value || "");
+    }
+    let responses: string[] = matchingPayload.responses ?? [];
+    if (responses.length === 0 && Array.isArray(matchingPayload.targets)) {
+      responses = matchingPayload.targets.map((t: any) => t.label || t.text || t.value || "");
+    }
+
+    let answerKey: any[] = matchingPayload.answerKey ?? [];
+    if (answerKey.length > 0 && answerKey[0].itemId) {
+      answerKey = answerKey.map((ans: any) => {
+        const itemObj = (matchingPayload.items || []).find((i: any) => i.id === ans.itemId);
+        const targetObj = (matchingPayload.targets || []).find((t: any) => t.id === ans.targetId);
+        return {
+          prompt: itemObj ? (itemObj.label || itemObj.text || "") : (ans.prompt || ""),
+          match: targetObj ? (targetObj.label || targetObj.text || "") : (ans.match || "")
+        };
+      });
+    }
+
     explanation =
       normalizeText(matchingPayload.scoringGuidance ?? "") ||
       explanationFromColumn;
     typedPayload = {
       ...matchingPayload,
-      premises: matchingPayload.premises ?? [],
-      responses: matchingPayload.responses ?? [],
-      answerKey: matchingPayload.answerKey ?? [],
+      premises,
+      responses,
+      answerKey,
       ...(questionSvg ? { questionSvg } : {}),
     };
   } else if (questionType === "drag_drop") {
-    const dragDropPayload = payload as unknown as DragDropQuestionPayload;
-    const dropZones = dragDropPayload.dropZones ?? [];
-    const answerKey = dragDropPayload.answerKey ?? [];
+    const dragDropPayload = payload as any;
+
+    // Support both new (items/targets) and old (draggableItems/dropZones) schema
+    let draggableItems: string[] = dragDropPayload.draggableItems ?? [];
+    if (draggableItems.length === 0 && Array.isArray(dragDropPayload.items)) {
+      draggableItems = dragDropPayload.items.map((i: any) => i.label || i.text || i.value || "");
+    }
+
+    let dropZones: string[] = dragDropPayload.dropZones ?? [];
+    if (dropZones.length === 0 && Array.isArray(dragDropPayload.targets)) {
+      dropZones = dragDropPayload.targets.map((t: any) => t.label || t.text || t.value || "");
+    }
+
+    let answerKey: any[] = dragDropPayload.answerKey ?? [];
+    if (answerKey.length > 0 && answerKey[0].itemId) {
+      // Map itemId/targetId pointers back to actual string labels
+      answerKey = answerKey.map((ans: any) => {
+        const itemObj = (dragDropPayload.items || []).find((i: any) => i.id === ans.itemId);
+        const targetObj = (dragDropPayload.targets || []).find((t: any) => t.id === ans.targetId);
+        return {
+          item: itemObj ? (itemObj.label || itemObj.text || "") : (ans.item || ""),
+          target: targetObj ? (targetObj.label || targetObj.text || "") : (ans.target || "")
+        };
+      });
+    }
+
     const visibleDropZones = dropZones.filter(
       (dropZone) => !isNotCorrectDropZone(dropZone),
     );
@@ -328,7 +374,7 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
       explanationFromColumn;
     typedPayload = {
       ...dragDropPayload,
-      draggableItems: dragDropPayload.draggableItems ?? [],
+      draggableItems,
       dropZones: visibleDropZones,
       answerKey: visibleAnswerKey,
       ...(questionSvg ? { questionSvg } : {}),
