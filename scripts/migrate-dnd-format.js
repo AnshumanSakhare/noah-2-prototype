@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
-require('dotenv').config({ path: '.env.local' });
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env.local') });
 
 // -----------------------------------------------------------------------
 // DnD FORMAT MIGRATION SCRIPT
@@ -80,7 +81,7 @@ async function migrate() {
         console.log('🔍 Finding old-format drag_drop questions...');
         const res = await client.query(`
             SELECT id, generation_metadata
-            FROM public.final_content_questions_1
+            FROM public.final_content_questions_1_backup
             WHERE question_type = 'drag_drop'
               AND generation_metadata -> 'payload' ? 'draggableItems'
         `);
@@ -134,7 +135,7 @@ async function migrate() {
 
         for (const { id, newMeta } of updates) {
             await client.query(`
-                UPDATE public.final_content_questions_1
+                UPDATE public.final_content_questions_1_backup
                 SET generation_metadata = $1::jsonb,
                     updated_at = NOW()
                 WHERE id = $2
@@ -148,7 +149,7 @@ async function migrate() {
         console.log('\n🔍 Post-migration verification...');
         const verify = await client.query(`
             SELECT COUNT(*) as old_format_remaining
-            FROM public.final_content_questions_1
+            FROM public.final_content_questions_1_backup
             WHERE question_type = 'drag_drop'
               AND generation_metadata -> 'payload' ? 'draggableItems'
         `);
@@ -156,7 +157,7 @@ async function migrate() {
 
         const verifyNew = await client.query(`
             SELECT COUNT(*) as new_format_count
-            FROM public.final_content_questions_1
+            FROM public.final_content_questions_1_backup
             WHERE question_type = 'drag_drop'
               AND generation_metadata -> 'payload' ? 'items'
         `);
