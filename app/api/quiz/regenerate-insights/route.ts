@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { generatePlacementTopicInsights } from "@/agents/diagnostic/placementTopicInsights";
+import { generatePlacementAIInsights } from "@/agents/diagnostic/placementTopicInsights";
 import type { DiagnosticReport } from "@/agents/diagnostic/types/index";
 
 export const runtime = "nodejs";
@@ -16,11 +16,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const placementTopicInsights = await generatePlacementTopicInsights(
-      body.report,
-    );
+    const placementAIInsights = await generatePlacementAIInsights(body.report);
 
-    return NextResponse.json({ placementTopicInsights });
+    return NextResponse.json({
+      placementTopicInsights: placementAIInsights.topics,
+      placementPlanInsights: placementAIInsights.placementPlanInsights,
+    });
   } catch (error) {
     return NextResponse.json(
       {

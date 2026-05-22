@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { runDiagnostic } from "@/agents/diagnostic/diagnosticAgent";
-import { generatePlacementTopicInsights } from "@/agents/diagnostic/placementTopicInsights";
+import { generatePlacementAIInsights } from "@/agents/diagnostic/placementTopicInsights";
 import { generateResultNarrative } from "@/agents/diagnostic/resultNarrative";
 import { saveDiagnosticResult } from "@/lib/diagnostic-results-store";
 
@@ -73,22 +73,27 @@ export async function POST(request: Request) {
         ? { ...diagnosticReport, mode: "recurring" as never }
         : diagnosticReport;
 
-    const [resultNarrative, placementTopicInsights] = await Promise.all([
+    const [resultNarrative, placementAIInsights] = await Promise.all([
       generateResultNarrative(diagnosticReport).catch((error) => {
         console.error("generateResultNarrative failed", error);
         return undefined;
       }),
       testMode === "placement"
-        ? generatePlacementTopicInsights(diagnosticReport).catch((error) => {
-            console.error("generatePlacementTopicInsights failed", error);
-            return [];
+        ? generatePlacementAIInsights(diagnosticReport).catch((error) => {
+            console.error("generatePlacementAIInsights failed", error);
+            return undefined;
           })
         : Promise.resolve(undefined),
     ]);
     const report = {
       ...reportToSave,
       ...(resultNarrative ? { resultNarrative } : {}),
-      ...(placementTopicInsights ? { placementTopicInsights } : {}),
+      ...(placementAIInsights
+        ? {
+            placementTopicInsights: placementAIInsights.topics,
+            placementPlanInsights: placementAIInsights.placementPlanInsights,
+          }
+        : {}),
     };
     const { progressComparison, ...storedResult } = await saveDiagnosticResult(
       report,

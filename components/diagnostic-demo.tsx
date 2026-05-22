@@ -7,6 +7,7 @@ import {
   ChevronRight,
   GraduationCap,
   RotateCcw,
+  Shuffle,
   Sparkles,
   Star,
   UserRound,
@@ -99,7 +100,8 @@ const ASSESSMENT_COPY: Record<
       "Add the student name and grade before choosing the diagnostic test.",
     selectorIntro: "Pick a {grade} test that fits what you want to check.",
     topicBrowseIntro: "Select a class and topic to begin your diagnostic.",
-    gradeBrowseIntro: "Select your class to see your grade-wide diagnostic test.",
+    gradeBrowseIntro:
+      "Select your class to see your grade-wide diagnostic test.",
     topicStartIntro:
       "Answer each question carefully. The test is designed to quickly check your current understanding.",
     gradeStartIntro:
@@ -118,7 +120,8 @@ const ASSESSMENT_COPY: Record<
     selectorIntro:
       "Pick a {grade} placement flow to understand the right starting point.",
     topicBrowseIntro: "Select a class and topic to begin your placement check.",
-    gradeBrowseIntro: "Select your class to see your grade-wide placement test.",
+    gradeBrowseIntro:
+      "Select your class to see your grade-wide placement test.",
     topicStartIntro:
       "Answer each question carefully. The test is designed to estimate the right starting level.",
     gradeStartIntro:
@@ -439,6 +442,88 @@ function getQuestionFinalPoints(record: {
   if (record.verdict === "correct") return base;
   if (record.verdict === "partial") return base * 0.5;
   return 0;
+}
+
+function randomInt(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randomItem<T>(items: T[]) {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function buildRandomAnswer(question: DemoQuizQuestion) {
+  if (question.questionType === "mcq") {
+    const optionCount = Math.max(1, question.options?.length ?? 4);
+    return OPTION_LABELS[randomInt(0, Math.min(optionCount, 4) - 1)] ?? "A";
+  }
+
+  if (question.questionType === "true_false") {
+    return Math.random() > 0.5 ? "true" : "false";
+  }
+
+  if (question.questionType === "matching") {
+    const payload = question.payload as MatchingQuestionPayload | undefined;
+    const premises = payload?.premises ?? [];
+    const responses = payload?.responses ?? [];
+    const answer: Record<string, string> = {};
+    for (const premise of premises) {
+      answer[premise] = randomItem(responses) ?? "";
+    }
+    return JSON.stringify(answer);
+  }
+
+  if (question.questionType === "drag_drop") {
+    const payload = question.payload as DragDropQuestionPayload | undefined;
+    const draggableItems = payload?.draggableItems ?? [];
+    const dropZones = payload?.dropZones ?? [];
+    const answer: Record<string, string> = {};
+    for (const item of draggableItems) {
+      answer[item] = randomItem(dropZones) ?? "";
+    }
+    return JSON.stringify(answer);
+  }
+
+  if (question.questionType === "fitb") {
+    return randomItem(["0", "1", "2", "4", "10", "not sure"]) ?? "0";
+  }
+
+  if (question.questionType === "word_problem") {
+    return (
+      randomItem(["12", "24", "36", "I would add the numbers", "not sure"]) ??
+      "not sure"
+    );
+  }
+
+  return (
+    randomItem([
+      "I am not sure yet.",
+      "The answer is 10.",
+      "I would solve it by checking the pattern.",
+      "I think the first option is correct.",
+    ]) ?? "I am not sure yet."
+  );
+}
+
+function buildRandomQuizSubmission(quiz: DemoLoadedQuiz) {
+  const randomAnswers: Record<string, string> = {};
+  const randomResponseMeta: Record<
+    string,
+    { timeTakenMs: number; allocatedTimeMs: number; wasAutoSkipped: boolean }
+  > = {};
+
+  for (const question of quiz.questions) {
+    const allocatedTimeMs = getQuestionTimeLimitMs(question.difficultyLevel);
+    const maxTimeMs = Math.max(3_000, Math.min(allocatedTimeMs, 18_000));
+    randomAnswers[question.id] = buildRandomAnswer(question);
+    randomResponseMeta[question.id] = {
+      timeTakenMs: randomInt(1_200, maxTimeMs),
+      allocatedTimeMs,
+      wasAutoSkipped: false,
+    };
+  }
+
+  return { randomAnswers, randomResponseMeta };
 }
 
 function getQuestionConceptText(record: DiagnosticReport["results"][number]) {
@@ -950,11 +1035,11 @@ export async function submitQuiz(
   };
   if (!response.ok || !("report" in data))
     throw new Error(data.error ?? "Unable to submit quiz.");
-  
+
   // Attach the server-generated assessmentId to the report so UI can use it
   return {
     ...data.report,
-    assessmentId: data.assessmentId
+    assessmentId: data.assessmentId,
   };
 }
 
@@ -1197,18 +1282,16 @@ function SelectorScreen({
             have mastered what you just learnt.
           </p>
           <div className="mb-5 flex flex-wrap gap-2">
-            {[
-              "3 per learning objective",
-              "One topic",
-              "15–20 min",
-            ].map((pill) => (
-              <span
-                key={pill}
-                className="rounded-full bg-[#F8F9FA] px-3 py-1.5 font-mono text-[12px] text-[#6B7280] border border-gray-100"
-              >
-                {pill}
-              </span>
-            ))}
+            {["3 per learning objective", "One topic", "15–20 min"].map(
+              (pill) => (
+                <span
+                  key={pill}
+                  className="rounded-full bg-[#F8F9FA] px-3 py-1.5 font-mono text-[12px] text-[#6B7280] border border-gray-100"
+                >
+                  {pill}
+                </span>
+              ),
+            )}
           </div>
           <div className="flex items-center gap-1 font-semibold text-[14px] text-[#F5A623]">
             Start a topic test{" "}
@@ -1233,11 +1316,7 @@ function SelectorScreen({
             topics to focus on next.
           </p>
           <div className="mb-5 flex flex-wrap gap-2">
-            {[
-              "15-30 questions",
-              "All topics",
-              "20–30 min",
-            ].map((pill) => (
+            {["15-30 questions", "All topics", "20–30 min"].map((pill) => (
               <span
                 key={pill}
                 className="rounded-full bg-[#F8F9FA] px-3 py-1.5 font-mono text-[12px] text-[#6B7280] border border-gray-100"
@@ -1620,6 +1699,7 @@ function GradeStartScreen({
   subject,
   assessmentCopy,
   onBegin,
+  onBeginRandom,
   onBack,
   isBusy,
   testMode,
@@ -1628,6 +1708,7 @@ function GradeStartScreen({
   subject: string;
   assessmentCopy: (typeof ASSESSMENT_COPY)[AssessmentKind];
   onBegin: () => void;
+  onBeginRandom?: () => void;
   onBack: () => void;
   isBusy: boolean;
   testMode?: string;
@@ -1731,6 +1812,18 @@ function GradeStartScreen({
             "Begin Test"
           )}
         </button>
+
+        {isPlacement && onBeginRandom && (
+          <button
+            type="button"
+            onClick={onBeginRandom}
+            disabled={isBusy}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-dashed border-[#2563EB]/35 bg-[#EFF6FF] py-3.5 font-mono text-[12px] font-bold uppercase tracking-wider text-[#2563EB] transition hover:bg-[#DBEAFE] disabled:opacity-50"
+          >
+            <Shuffle className="h-4 w-4" />
+            Randomly answer and show result
+          </button>
+        )}
       </div>
     </div>
   );
@@ -2003,7 +2096,9 @@ export function QuestionInput({
     const placedCount = Object.keys(answerMap).filter((item) =>
       leftItems.includes(item),
     ).length;
-    const totalSlots = isSingleItemTarget ? rightItems.length : leftItems.length;
+    const totalSlots = isSingleItemTarget
+      ? rightItems.length
+      : leftItems.length;
     const unplacedItems = leftItems.filter((item) => !answerMap[item]);
     const placedItemsLookup = leftItems.filter((item) =>
       Boolean(answerMap[item]),
@@ -2769,9 +2864,9 @@ function MascotReportV2({
             </div>
           </div>
         )}
-      <div className="mt-8 flex flex-col items-center gap-4">
-        {/* Removed Take Another Test button from here */}
-      </div>
+        <div className="mt-8 flex flex-col items-center gap-4">
+          {/* Removed Take Another Test button from here */}
+        </div>
       </div>
     </div>
   );
@@ -2928,6 +3023,43 @@ function ReportView({
   const sortedLearningObjectives = [...learningObjectives].sort(
     (left, right) => right.score - left.score,
   );
+  const placementBand =
+    report.placementPlanInsights?.bandName ??
+    (roundedScore >= 80
+      ? "Grade-Ahead"
+      : roundedScore >= 55
+        ? "Confident Solver"
+        : roundedScore >= 35
+          ? "Foundation Builder"
+          : "Early Start");
+  const placementNextBand =
+    report.placementPlanInsights?.nextBandName ??
+    (roundedScore >= 80
+      ? "Advanced stretch"
+      : roundedScore >= 55
+        ? "Grade-Ahead"
+        : roundedScore >= 35
+          ? "Confident Solver"
+          : "Foundation Builder");
+  const placementPercentile = Math.max(
+    5,
+    Math.min(96, Math.round(8 + roundedScore * 0.9 - (rapidCount > 3 ? 4 : 0))),
+  );
+  const placementMarkerX = Math.max(16, Math.min(384, roundedScore * 4));
+  const placementMarkerPct = Math.max(4, Math.min(96, roundedScore));
+  const placementSummary =
+    report.placementPlanInsights?.placementSummary ??
+    `${studentName} is in ${placementBand} with ${roundedScore}% accuracy, ${correctCount}/${totalQuestions} correct, and ${formatCompactDuration(totalTimeTakenMs)} total time.`;
+  const placementTopicCount = new Set(
+    results.map((record) => record.question.topic).filter(Boolean),
+  ).size;
+  const weakTopicCount = new Set(
+    results
+      .filter((record) => record.verdict !== "correct")
+      .map((record) => record.question.topic)
+      .filter(Boolean),
+  ).size;
+  const peerDotSeeds = Array.from({ length: 28 }, (_, index) => index + 1);
 
   return (
     <div className="font-sans text-[#1a1a1a] pb-20 max-w-7xl mx-auto flex flex-col gap-[18px]">
@@ -3004,146 +3136,293 @@ function ReportView({
         </div>
       )}
 
-      <div className="v1-result-hero">
-        <div className="hero-title font-extrabold text-[1.5rem] mb-1">
-          {hero.greeting}
-        </div>
-        <div className="hero-subtitle text-[1.05rem] font-semibold text-[#5a5a72] mb-6 max-w-[600px] mx-auto leading-relaxed">
-          {report.mode === "recurring" ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="rounded-full bg-[#2EC4B6]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-widest text-[#2EC4B6] ring-1 ring-[#2EC4B6]/20">
-                Recurring Test Result
-              </span>
-            </span>
-          ) : (
-            hero.subtitle
-          )}
-        </div>
-
-        <div className="flex flex-col items-center justify-center p-8 sm:p-12 mb-6">
-          {/* Left Column: Rocket + Score */}
-          <div className="flex items-center justify-center gap-6 sm:gap-11 w-full">
-            <div className="v1-rocket-launchpad">
-              <div className="v1-rocket-track">
-                {[25, 50, 75, 100].map((m) => (
-                  <div
-                    key={m}
-                    className="v1-rocket-marker"
-                    style={{ bottom: `${m}%` }}
-                  >
-                    <span className="v1-rocket-marker-label">
-                      {m}
-                      {m === 100 ? "" : "%"}
-                    </span>
-                  </div>
-                ))}
-                <div
-                  className="v1-rocket-track-fill"
-                  style={{
-                    height: `${rocketBottom}%`,
-                    background: `linear-gradient(to top, ${accentColor}, ${accentColor}44)`,
-                  }}
-                />
+      {report.mode === "placement" ? (
+        <section className="v1-card">
+          <div className="grid min-h-[280px] lg:grid-cols-[1.1fr_1fr]">
+            <div className="bg-[linear-gradient(135deg,#fff,#f3f7ff)] p-7 sm:p-8">
+              <div className="mb-2 font-mono text-[0.65rem] font-extrabold uppercase tracking-[0.18em] text-[#3A5CCC]">
+                Placement complete
               </div>
-              <svg
-                className="v1-rocket-ship"
-                style={{ bottom: `${(rocketBottom / 100) * 200}px` }}
-                width="40"
-                height="56"
-                viewBox="0 0 40 56"
-              >
-                <defs>
-                  <linearGradient id="bodyGradV1" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#e8e4dc" />
-                    <stop offset="100%" stopColor="#d4d0c8" />
-                  </linearGradient>
-                </defs>
-                <path d="M8,40 L4,52 L14,44 Z" fill={accentColor} opacity=".8" />
-                <path
-                  d="M32,40 L36,52 L26,44 Z"
-                  fill={accentColor}
-                  opacity=".8"
-                />
-                <rect
-                  x="12"
-                  y="14"
-                  width="16"
-                  height="32"
-                  rx="3"
-                  fill="url(#bodyGradV1)"
-                  stroke="#c4bfb4"
-                  strokeWidth="1"
-                />
-                <path d="M12,14 Q12,2 20,0 Q28,2 28,14 Z" fill={accentColor} />
-                <circle
-                  cx="20"
-                  cy="24"
-                  r="4.5"
-                  fill="#F5A623"
-                  stroke="#E0941A"
-                  strokeWidth="1"
-                />
-                <circle
-                  cx="18.5"
-                  cy="22.5"
-                  r="1.2"
-                  fill="rgba(255,255,255,0.5)"
-                />
-              </svg>
-              <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                {Array.from({
-                  length: Math.max(3, Math.floor(roundedScore / 10)),
-                }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute rounded-full bg-[#ffc53d] opacity-0"
-                    style={{
-                      width: `${seededRange(i + 101, 2, 5)}px`,
-                      height: `${seededRange(i + 127, 2, 5)}px`,
-                      left: `${seededRange(i + 149, 0, 100)}%`,
-                      top: `${seededRange(i + 173, 0, 70)}%`,
-                      animation: `starTwinkle 1.5s ease both ${seededRange(i + 197, 0.6, 1.8)}s`,
-                    }}
-                  />
+              <div className="mb-2 text-[1.8rem] font-extrabold leading-tight tracking-tight text-[#0F1226]">
+                Hi {firstName} - here is your spot.
+              </div>
+              <div className="mb-5 max-w-[420px] text-[0.92rem] font-medium leading-relaxed text-[#525978]">
+                You sit in the <b>{placementBand}</b> band for{" "}
+                {classLabel(report.classLevel)}. The plan below shows which
+                skills should move first.
+              </div>
+
+              <div className="mb-4 flex items-end gap-5">
+                <div className="text-[4.2rem] font-black leading-none tracking-tight text-[#3A5CCC]">
+                  {roundedScore}
+                </div>
+                <div className="pb-1">
+                  <div className="font-mono text-[0.85rem] font-bold text-[#9AA0B5]">
+                    / 100
+                  </div>
+                  <div className="mt-2">
+                    <StarRating filled={starCount} size={18} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#3A5CCC]/15 bg-[#3A5CCC]/[0.08] px-3 py-1.5 text-[0.78rem] font-bold text-[#3A5CCC]">
+                {placementBand} - {classLabel(report.classLevel)}
+              </div>
+              <div className="ml-2 mt-2 inline-flex items-center gap-2 rounded-full border border-[#7C5CFC]/15 bg-[#7C5CFC]/[0.08] px-3 py-1.5 text-[0.74rem] font-bold text-[#4338CA]">
+                Next: {placementNextBand}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[
+                  `Student: ${studentName}`,
+                  `${correctCount}/${totalQuestions} correct`,
+                  `${formatCompactDuration(totalTimeTakenMs)} total`,
+                ].map((pill) => (
+                  <span
+                    key={pill}
+                    className="rounded-full border border-[#E6EAF2] bg-white px-3 py-1 text-[0.74rem] font-semibold text-[#525978]"
+                  >
+                    {pill}
+                  </span>
                 ))}
               </div>
             </div>
-            <div className="text-left">
-              <div
-                className="font-extrabold text-[4.5rem] leading-none tracking-tighter"
-                style={{ color: accentColor }}
-              >
-                {countPct}
+
+            <div className="relative overflow-hidden bg-[linear-gradient(135deg,#0F1226,#1C1F3D)] p-7 text-white sm:p-8">
+              <div className="font-mono text-[0.62rem] font-extrabold uppercase tracking-[0.18em] text-white/50">
+                Placed among grade peers
               </div>
-              <div className="font-mono text-[1.2rem] text-[#9a9ab0] font-bold mt-1">
-                / 100
+              <div className="mt-1 text-[1.05rem] font-extrabold">
+                You are around P{placementPercentile} on this placement run
               </div>
-              <div className="mt-3">
-                <StarRating filled={starCount} size={24} />
+              <div className="mt-3 max-w-[580px] text-[0.82rem] font-semibold leading-relaxed text-white/65">
+                {placementSummary}
               </div>
-              <div className="text-[0.75rem] text-[#9a9ab0] font-semibold mt-3">
-                {hero.altitude}
+              <div className="relative mt-5 h-[165px]">
+                <div
+                  className="absolute -top-1 z-20 -translate-x-1/2 rounded-md bg-[#F46853] px-2.5 py-1 font-mono text-[0.62rem] font-extrabold uppercase tracking-wider"
+                  style={{
+                    left: `${placementMarkerPct}%`,
+                  }}
+                >
+                  You - {roundedScore}
+                </div>
+                <svg
+                  className="h-full w-full"
+                  viewBox="0 0 400 140"
+                  preserveAspectRatio="none"
+                  aria-label="Placement curve"
+                >
+                  <defs>
+                    <linearGradient
+                      id="placementHeroBell"
+                      x1="0"
+                      x2="0"
+                      y1="0"
+                      y2="1"
+                    >
+                      <stop offset="0%" stopColor="rgba(124,92,252,0.5)" />
+                      <stop offset="100%" stopColor="rgba(124,92,252,0)" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    d="M 0 130 C 80 130, 120 120, 160 60 C 180 20, 220 20, 240 60 C 280 120, 320 130, 400 130 L 400 140 L 0 140 Z"
+                    fill="url(#placementHeroBell)"
+                  />
+                  <path
+                    d="M 0 130 C 80 130, 120 120, 160 60 C 180 20, 220 20, 240 60 C 280 120, 320 130, 400 130"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.4)"
+                    strokeWidth="1.5"
+                  />
+                  {[35, 55, 80].map((mark) => (
+                    <line
+                      key={mark}
+                      x1={mark * 4}
+                      y1="104"
+                      x2={mark * 4}
+                      y2="134"
+                      stroke="rgba(255,255,255,0.22)"
+                      strokeDasharray="3 4"
+                    />
+                  ))}
+                  <line
+                    x1={placementMarkerX}
+                    y1="50"
+                    x2={placementMarkerX}
+                    y2="130"
+                    stroke="#F46853"
+                    strokeWidth="2"
+                  />
+                  <circle
+                    cx={placementMarkerX}
+                    cy="50"
+                    r="6"
+                    fill="#F46853"
+                    stroke="#fff"
+                    strokeWidth="2"
+                  />
+                </svg>
+                <div className="mt-1 flex justify-between font-mono text-[0.62rem] font-bold text-white/45">
+                  <span>0</span>
+                  <span>25</span>
+                  <span>50</span>
+                  <span>75</span>
+                  <span>100</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </section>
+      ) : (
+        <div className="v1-result-hero">
+          <div className="hero-title font-extrabold text-[1.5rem] mb-1">
+            {hero.greeting}
+          </div>
+          <div className="hero-subtitle text-[1.05rem] font-semibold text-[#5a5a72] mb-6 max-w-[600px] mx-auto leading-relaxed">
+            {report.mode === "recurring" ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="rounded-full bg-[#2EC4B6]/10 px-3 py-1 text-[12px] font-bold uppercase tracking-widest text-[#2EC4B6] ring-1 ring-[#2EC4B6]/20">
+                  Recurring Test Result
+                </span>
+              </span>
+            ) : (
+              hero.subtitle
+            )}
+          </div>
 
-        <div className="flex justify-center gap-3 flex-wrap">
-          {[
-            `👤 ${studentName}`,
-            `✅ ${correctCount}/${totalQuestions} Correct`,
-            `⏱ ${formatCompactDuration(totalTimeTakenMs)} Total`,
-            `📝 ${report.topic}`,
-          ].map((pill) => (
-            <span
-              key={pill}
-              className="text-[0.78rem] text-[#6B7280] font-semibold flex items-center gap-1.5 bg-[#F8F9FA] border border-gray-100 px-3.5 py-1.5 rounded-full"
-            >
-              {pill}
-            </span>
-          ))}
+          <div className="flex flex-col items-center justify-center p-8 sm:p-12 mb-6">
+            {/* Left Column: Rocket + Score */}
+            <div className="flex items-center justify-center gap-6 sm:gap-11 w-full">
+              <div className="v1-rocket-launchpad">
+                <div className="v1-rocket-track">
+                  {[25, 50, 75, 100].map((m) => (
+                    <div
+                      key={m}
+                      className="v1-rocket-marker"
+                      style={{ bottom: `${m}%` }}
+                    >
+                      <span className="v1-rocket-marker-label">
+                        {m}
+                        {m === 100 ? "" : "%"}
+                      </span>
+                    </div>
+                  ))}
+                  <div
+                    className="v1-rocket-track-fill"
+                    style={{
+                      height: `${rocketBottom}%`,
+                      background: `linear-gradient(to top, ${accentColor}, ${accentColor}44)`,
+                    }}
+                  />
+                </div>
+                <svg
+                  className="v1-rocket-ship"
+                  style={{ bottom: `${(rocketBottom / 100) * 200}px` }}
+                  width="40"
+                  height="56"
+                  viewBox="0 0 40 56"
+                >
+                  <defs>
+                    <linearGradient id="bodyGradV1" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#e8e4dc" />
+                      <stop offset="100%" stopColor="#d4d0c8" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    d="M8,40 L4,52 L14,44 Z"
+                    fill={accentColor}
+                    opacity=".8"
+                  />
+                  <path
+                    d="M32,40 L36,52 L26,44 Z"
+                    fill={accentColor}
+                    opacity=".8"
+                  />
+                  <rect
+                    x="12"
+                    y="14"
+                    width="16"
+                    height="32"
+                    rx="3"
+                    fill="url(#bodyGradV1)"
+                    stroke="#c4bfb4"
+                    strokeWidth="1"
+                  />
+                  <path
+                    d="M12,14 Q12,2 20,0 Q28,2 28,14 Z"
+                    fill={accentColor}
+                  />
+                  <circle
+                    cx="20"
+                    cy="24"
+                    r="4.5"
+                    fill="#F5A623"
+                    stroke="#E0941A"
+                    strokeWidth="1"
+                  />
+                  <circle
+                    cx="18.5"
+                    cy="22.5"
+                    r="1.2"
+                    fill="rgba(255,255,255,0.5)"
+                  />
+                </svg>
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                  {Array.from({
+                    length: Math.max(3, Math.floor(roundedScore / 10)),
+                  }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="absolute rounded-full bg-[#ffc53d] opacity-0"
+                      style={{
+                        width: `${seededRange(i + 101, 2, 5)}px`,
+                        height: `${seededRange(i + 127, 2, 5)}px`,
+                        left: `${seededRange(i + 149, 0, 100)}%`,
+                        top: `${seededRange(i + 173, 0, 70)}%`,
+                        animation: `starTwinkle 1.5s ease both ${seededRange(i + 197, 0.6, 1.8)}s`,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="text-left">
+                <div
+                  className="font-extrabold text-[4.5rem] leading-none tracking-tighter"
+                  style={{ color: accentColor }}
+                >
+                  {countPct}
+                </div>
+                <div className="font-mono text-[1.2rem] text-[#9a9ab0] font-bold mt-1">
+                  / 100
+                </div>
+                <div className="mt-3">
+                  <StarRating filled={starCount} size={24} />
+                </div>
+                <div className="text-[0.75rem] text-[#9a9ab0] font-semibold mt-3">
+                  {hero.altitude}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-center gap-3 flex-wrap">
+            {[
+              `👤 ${studentName}`,
+              `✅ ${correctCount}/${totalQuestions} Correct`,
+              `⏱ ${formatCompactDuration(totalTimeTakenMs)} Total`,
+              `📝 ${report.topic}`,
+            ].map((pill) => (
+              <span
+                key={pill}
+                className="text-[0.78rem] text-[#6B7280] font-semibold flex items-center gap-1.5 bg-[#F8F9FA] border border-gray-100 px-3.5 py-1.5 rounded-full"
+              >
+                {pill}
+              </span>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
         {/* Removed Run New Diagnostic button from here */}
@@ -3372,179 +3651,390 @@ function ReportView({
       )}
 
       {report.mode === "placement" && (
+        <section className="v1-card p-6 sm:p-8">
+          <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="text-[1.25rem] font-extrabold text-[#0F1226]">
+                {firstName}'s Placement Plan
+              </div>
+              <div className="mt-2 max-w-[760px] text-[0.88rem] font-medium leading-relaxed text-[#525978]">
+                Our AI placed {firstName} among {classLabel(report.classLevel)}{" "}
+                learners by skill profile and pinpointed the topics to act on
+                next.
+              </div>
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#4338CA]/20 bg-[#4338CA]/[0.08] px-4 py-2 font-mono text-[0.72rem] font-extrabold uppercase tracking-wider text-[#4338CA]">
+              <span className="h-2 w-2 rounded-full bg-[#4338CA]" />
+              AI placement by Codeyoung
+            </div>
+          </div>
+
+          <div className="rounded-[18px] border border-[#D8D7FF] bg-[linear-gradient(135deg,#FBFCFF,#F1F4FC)] p-5 sm:p-6">
+            <div className="mb-1 text-[1rem] font-extrabold text-[#0F1226]">
+              You sit in the{" "}
+              <span className="text-[#4338CA]">{placementBand}</span> cohort
+            </div>
+            <div className="mb-5 text-[0.78rem] font-medium text-[#525978]">
+              Each dot is a {classLabel(report.classLevel)} student. Position is
+              mapped on speed x accuracy across {placementTopicCount || 4}{" "}
+              topics.
+            </div>
+
+            <svg
+              className="block h-auto w-full rounded-[14px] border border-[#E0E4EF] bg-white"
+              viewBox="0 0 800 280"
+              preserveAspectRatio="xMidYMid meet"
+              aria-label="Placement cohort map"
+            >
+              <defs>
+                <linearGradient id="cohortBand1" x1="0" x2="1">
+                  <stop offset="0%" stopColor="rgba(244,104,83,0.08)" />
+                  <stop offset="100%" stopColor="rgba(244,104,83,0.02)" />
+                </linearGradient>
+                <linearGradient id="cohortBand2" x1="0" x2="1">
+                  <stop offset="0%" stopColor="rgba(255,154,60,0.10)" />
+                  <stop offset="100%" stopColor="rgba(255,154,60,0.03)" />
+                </linearGradient>
+                <linearGradient id="cohortBand3" x1="0" x2="1">
+                  <stop offset="0%" stopColor="rgba(58,92,204,0.08)" />
+                  <stop offset="100%" stopColor="rgba(58,92,204,0.02)" />
+                </linearGradient>
+                <linearGradient id="cohortBand4" x1="0" x2="1">
+                  <stop offset="0%" stopColor="rgba(46,204,135,0.10)" />
+                  <stop offset="100%" stopColor="rgba(46,204,135,0.03)" />
+                </linearGradient>
+              </defs>
+              <rect
+                x="0"
+                y="0"
+                width="200"
+                height="280"
+                fill="url(#cohortBand1)"
+              />
+              <rect
+                x="200"
+                y="0"
+                width="200"
+                height="280"
+                fill="url(#cohortBand2)"
+              />
+              <rect
+                x="400"
+                y="0"
+                width="200"
+                height="280"
+                fill="url(#cohortBand3)"
+              />
+              <rect
+                x="600"
+                y="0"
+                width="200"
+                height="280"
+                fill="url(#cohortBand4)"
+              />
+              {[200, 400, 600].map((x) => (
+                <line
+                  key={x}
+                  x1={x}
+                  y1="0"
+                  x2={x}
+                  y2="280"
+                  stroke="rgba(15,18,38,0.07)"
+                  strokeDasharray="3 4"
+                />
+              ))}
+              <text
+                x="100"
+                y="24"
+                textAnchor="middle"
+                fontSize="10"
+                fontWeight="800"
+                fill="#F46853"
+                letterSpacing="2"
+              >
+                EARLY START
+              </text>
+              <text
+                x="300"
+                y="24"
+                textAnchor="middle"
+                fontSize="10"
+                fontWeight="800"
+                fill="#FF8A2A"
+                letterSpacing="2"
+              >
+                FOUNDATION BUILDER
+              </text>
+              <text
+                x="500"
+                y="24"
+                textAnchor="middle"
+                fontSize="10"
+                fontWeight="800"
+                fill="#3A5CCC"
+                letterSpacing="2"
+              >
+                CONFIDENT SOLVER
+              </text>
+              <text
+                x="700"
+                y="24"
+                textAnchor="middle"
+                fontSize="10"
+                fontWeight="800"
+                fill="#20C97A"
+                letterSpacing="2"
+              >
+                GRADE-AHEAD
+              </text>
+              <text
+                x="16"
+                y="56"
+                fontSize="9"
+                fill="#9AA0B5"
+                fontWeight="800"
+                letterSpacing="1.5"
+              >
+                ↑ ACCURACY
+              </text>
+              <text
+                x="780"
+                y="268"
+                textAnchor="end"
+                fontSize="9"
+                fill="#9AA0B5"
+                fontWeight="800"
+                letterSpacing="1.5"
+              >
+                SKILL PROFILE →
+              </text>
+              <g fill="#9AA0B5" opacity="0.48">
+                {peerDotSeeds.map((seed) => (
+                  <circle
+                    key={seed}
+                    cx={seededRange(seed + 80, 40, 765)}
+                    cy={
+                      seededRange(seed + 160, 70, 238) -
+                      seededRange(seed + 220, 0, 70)
+                    }
+                    r="4"
+                  />
+                ))}
+              </g>
+              <path
+                d={`M ${Math.max(32, Math.min(768, roundedScore * 8)) + 20} ${Math.max(58, 238 - roundedScore * 1.75)} Q ${Math.max(380, Math.min(560, roundedScore * 8 + 130))} 95 540 112`}
+                fill="none"
+                stroke="#7C5CFC"
+                strokeWidth="2"
+                strokeDasharray="5 6"
+              />
+              <polygon points="540,112 531,106 532,119" fill="#7C5CFC" />
+              <text
+                x="455"
+                y="95"
+                textAnchor="middle"
+                fontSize="10"
+                fontWeight="800"
+                fill="#7C5CFC"
+                letterSpacing="1"
+              >
+                NEXT GOAL
+              </text>
+              <g>
+                <circle
+                  cx={Math.max(32, Math.min(768, roundedScore * 8))}
+                  cy={Math.max(56, 238 - roundedScore * 1.75)}
+                  r="14"
+                  fill="rgba(244,104,83,0.18)"
+                />
+                <circle
+                  cx={Math.max(32, Math.min(768, roundedScore * 8))}
+                  cy={Math.max(56, 238 - roundedScore * 1.75)}
+                  r="8"
+                  fill="#F46853"
+                  stroke="#FFFFFF"
+                  strokeWidth="3"
+                />
+                <rect
+                  x={Math.max(42, Math.min(690, roundedScore * 8 - 48))}
+                  y={Math.max(24, 208 - roundedScore * 1.75)}
+                  width="104"
+                  height="24"
+                  rx="6"
+                  fill="#0F1226"
+                />
+                <text
+                  x={Math.max(94, Math.min(742, roundedScore * 8 + 4))}
+                  y={Math.max(40, 224 - roundedScore * 1.75)}
+                  textAnchor="middle"
+                  fill="#FFFFFF"
+                  fontSize="10"
+                  fontWeight="800"
+                  letterSpacing="1"
+                >
+                  {firstName.toUpperCase()} - {roundedScore} / 100
+                </text>
+              </g>
+            </svg>
+
+            <div className="mt-4 grid gap-2 md:grid-cols-4">
+              {[
+                ["Early Start", "0-30", "~22% peers"],
+                ["Foundation Builder", "30-55", "~36% peers"],
+                ["Confident Solver", "55-80", "~28% peers"],
+                ["Grade-Ahead", "80+", "~14% peers"],
+              ].map(([name, range, peers]) => {
+                const isCurrent = name === placementBand;
+                return (
+                  <div
+                    key={name}
+                    className={`rounded-[10px] border bg-white p-3 text-center text-[0.74rem] ${
+                      isCurrent
+                        ? "border-[#FF8A2A] ring-2 ring-[#FF8A2A]/20"
+                        : "border-[#E0E4EF]"
+                    }`}
+                  >
+                    <div className="font-extrabold text-[#0F1226]">{name}</div>
+                    <div className="mt-1 text-[#525978]">
+                      {range} - {peers}
+                      {isCurrent ? " - YOU" : ""}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 grid gap-3 rounded-[14px] border border-[#D8D7FF] bg-white p-4 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+              <div className="grid h-10 w-10 place-items-center rounded-[10px] bg-[#4338CA] text-white">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="text-[0.86rem] font-medium leading-relaxed text-[#0F1226]">
+                {firstName} answered{" "}
+                <b className="text-[#4338CA]">
+                  {correctCount}/{totalQuestions}
+                </b>{" "}
+                correctly, placing around{" "}
+                <b className="text-[#4338CA]">P{placementPercentile}</b>. To
+                move into <b className="text-[#4338CA]">{placementNextBand}</b>,
+                focus first on {weakTopicCount || 1} weaker topic
+                {(weakTopicCount || 1) === 1 ? "" : "s"}.
+              </div>
+              <div className="font-mono text-[0.66rem] font-extrabold uppercase tracking-wider text-[#9AA0B5]">
+                Sample
+                <br />
+                dynamic
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {report.mode === "placement" && (
         <PlacementTopicInsightsSection
           report={report}
           studentFirstName={firstName}
         />
       )}
 
-      <div className="rounded-[18px] border border-[#F5DDD0] bg-[linear-gradient(135deg,#FFF8F2_0%,#FDF0E8_100%)] p-5 shadow-[0_2px_20px_rgba(26,26,46,0.04)] sm:p-8">
-        {/* Needs Practice + Recurring Button Section */}
-        {report.mode !== "placement" && roundedScore < 60 && (
-          <div className="mb-10 w-full rounded-[24px] bg-white/70 p-7 border-2 border-[#F5A623]/20 shadow-sm transition-all">
-            <div className="flex flex-col items-center text-center">
-              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#f46853]/10 text-[#f46853]">
-                <AlertCircle className="h-6 w-6" />
-              </div>
-              <h3 className="text-[1.1rem] font-extrabold text-[#1B4A4A]">
-                Focus Area: Improving your score
-              </h3>
-              <p className="mt-2 max-w-[500px] text-[0.92rem] font-medium leading-relaxed text-[#111827]">
-                Based on your results, you can significantly boost your performance by focusing on these specific topics:
-              </p>
-            </div>
-
-            {sortedLearningObjectives.filter((lo) => lo.score < 60).length > 0 && (
-              <div className="my-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {sortedLearningObjectives
-                  .filter((lo) => lo.score < 60)
-                  .slice(0, 6)
-                  .map((lo) => (
-                    <div
-                      key={lo.learningObjective}
-                      className="flex items-center gap-3 rounded-[14px] bg-white p-3.5 border border-[#F5A623]/20 shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all hover:border-[#F5A623]/40"
-                    >
-                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F5A623]/10 text-[#F5A623]">
-                        <span className="text-[10px] font-bold">🎯</span>
-                      </div>
-                      <span className="text-[14px] font-bold text-[#1B4A4A] leading-tight text-left">
-                        {formatLearningObjectiveLabel(lo.learningObjective)}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            )}
-
-            <div className="mt-8 flex flex-col items-center border-t border-dashed border-[#F5A623]/20 pt-8">
-              <p className="mb-5 text-center text-[0.92rem] font-bold text-[#111827]">
-                Ready to improve? Take a targeted practice test on these topics.
-              </p>
-              <button
-                onClick={() => {
-                  const assessmentId = (report as any).id || (report as any).assessmentId;
-                  if (assessmentId) onRecurring(assessmentId);
-                }}
-                disabled={isBusy}
-                className="group relative flex min-w-[280px] items-center justify-center gap-3 rounded-full bg-[#F5A623] px-10 py-4 text-[16px] font-bold text-white shadow-[0_8px_24px_rgba(245,166,35,0.30)] transition-all hover:bg-[#E0941A] hover:-translate-y-1 hover:shadow-[0_12px_36px_rgba(245,166,35,0.40)] disabled:opacity-50"
-              >
-                <RotateCcw className="h-5 w-5 transition-transform group-hover:rotate-45" />
-                {isBusy ? "Preparing..." : "Start Improvement Test"}
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="mb-5 text-[1.1rem] font-extrabold text-[#1B4A4A] sm:text-[1.2rem]">
-          What went well &amp; what to work on next
-        </div>
-
-        <p className="mb-5 max-w-[980px] text-[0.95rem] font-medium leading-[1.8] text-[#111827] sm:text-[1rem]">
-          {resultCopy.mainSummary}
-        </p>
-
-        <div className="mb-4 rounded-[12px] bg-white/75 px-4 py-3 text-[0.92rem] font-semibold leading-relaxed text-[#1B4A4A]">
-          {resultCopy.whatWentWell}
-        </div>
-
-        <p className="mb-6 max-w-[980px] text-[1rem] font-medium leading-[1.8] text-[#111827]">
-          {resultCopy.whatNeedsPractice}
-        </p>
-
-        <div className="my-6 h-px bg-[rgba(0,0,0,0.08)]" />
-
-        <div className="mb-4 font-mono text-[0.72rem] font-extrabold uppercase tracking-[0.16em] text-[#6B7280]">
-          How to get a higher score
-        </div>
-
-        <div className="flex flex-col gap-2">
-          {resultCopy.practiceSteps.map((item, index) => (
-            <div
-              key={item}
-              className="flex items-start gap-3 rounded-[10px] bg-white/75 px-4 py-3 text-[0.92rem] leading-relaxed text-[#111827]"
-            >
-              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#F5A623] font-mono text-[0.75rem] font-extrabold text-white">
-                {index + 1}
-              </span>
-              <span className="flex-1">{item}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="hidden">
-          <div>
-            <div className="font-bold text-[0.95rem] flex items-center gap-2">
-              🎯 Learning Objective Breakdown
-            </div>
-            <div className="text-[0.72rem] text-[#9a9ab0] font-medium">
-              How you did across each learning outcome
-            </div>
-          </div>
-        </div>
-        <div className="hidden">
-          <div className="v1-lo-grid">
-            {learningObjectives.map((lo, i) => {
-              let status = "needs-work",
-                statusText = "Needs Practice",
-                pctCol = "#f46853";
-              if (lo.score >= 80) {
-                status = "mastered";
-                statusText = "Mastered";
-                pctCol = "#2ecc87";
-              } else if (lo.score >= 50) {
-                status = "developing";
-                statusText = "Developing";
-                pctCol = "#b8860b";
-              }
-              const barColor =
-                lo.score >= 80
-                  ? "#2ecc87"
-                  : lo.score >= 50
-                    ? "#ffc53d"
-                    : "#f46853";
-              return (
-                <div
-                  key={lo.learningObjective}
-                  className="v1-lo-card"
-                  style={{ animationDelay: `${0.2 + i * 0.06}s` }}
-                >
-                  <div className="flex items-center gap-3 px-1">
-                    <span className="font-semibold text-[0.83rem] text-[#1a1a2e] truncate w-[200px] shrink-0">
-                      {formatLearningObjectiveLabel(lo.learningObjective)}
-                    </span>
-                    <span className={`v1-lo-status-badge ${status} shrink-0`}>
-                      {statusText}
-                    </span>
-                    <div className="flex-1 h-1.5 rounded-full bg-[#F8F9FA] overflow-hidden min-w-0">
-                      <div
-                        className="h-full rounded-full transition-all duration-1000 delay-300"
-                        style={{ width: `${lo.score}%`, background: barColor }}
-                      />
-                    </div>
-                    <span
-                      className="font-mono text-[0.72rem] font-bold min-w-[32px] text-right shrink-0"
-                      style={{ color: pctCol }}
-                    >
-                      {Math.round(lo.score)}%
-                    </span>
-                    <span className="font-mono text-[0.72rem] text-[#9a9ab0] shrink-0">
-                      {lo.correctCount}/{lo.correctCount + lo.incorrectCount}{" "}
-                      correct
-                    </span>
-                    <span className="text-[0.72rem] text-[#9a9ab0] italic shrink-0 border-l border-[rgba(0,0,0,0.1)] pl-3">
-                      {lo.score >= 80
-                        ? "Great job! You've mastered this."
-                        : lo.score >= 50
-                          ? "Getting there — focus on trickier scenarios."
-                          : "Needs more focus — revisit core concepts."}
-                    </span>
-                  </div>
+      {report.mode !== "placement" && (
+        <div className="rounded-[18px] border border-[#F5DDD0] bg-[linear-gradient(135deg,#FFF8F2_0%,#FDF0E8_100%)] p-5 shadow-[0_2px_20px_rgba(26,26,46,0.04)] sm:p-8">
+          {/* Needs Practice + Recurring Button Section */}
+          {roundedScore < 60 && (
+            <div className="mb-10 w-full rounded-[24px] border-2 border-[#F5A623]/20 bg-white/70 p-7 shadow-sm transition-all">
+              <div className="flex flex-col items-center text-center">
+                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#f46853]/10 text-[#f46853]">
+                  <AlertCircle className="h-6 w-6" />
                 </div>
-              );
-            })}
+                <h3 className="text-[1.1rem] font-extrabold text-[#1B4A4A]">
+                  Focus Area: Improving your score
+                </h3>
+                <p className="mt-2 max-w-[500px] text-[0.92rem] font-medium leading-relaxed text-[#111827]">
+                  Based on your results, you can significantly boost your
+                  performance by focusing on these specific topics:
+                </p>
+              </div>
+
+              {sortedLearningObjectives.filter((lo) => lo.score < 60).length >
+                0 && (
+                <div className="my-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {sortedLearningObjectives
+                    .filter((lo) => lo.score < 60)
+                    .slice(0, 6)
+                    .map((lo) => (
+                      <div
+                        key={lo.learningObjective}
+                        className="flex items-center gap-3 rounded-[14px] border border-[#F5A623]/20 bg-white p-3.5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all hover:border-[#F5A623]/40"
+                      >
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F5A623]/10 text-[#F5A623]">
+                          <span className="text-[10px] font-bold">🎯</span>
+                        </div>
+                        <span className="text-left text-[14px] font-bold leading-tight text-[#1B4A4A]">
+                          {formatLearningObjectiveLabel(lo.learningObjective)}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+
+              <div className="mt-8 flex flex-col items-center border-t border-dashed border-[#F5A623]/20 pt-8">
+                <p className="mb-5 text-center text-[0.92rem] font-bold text-[#111827]">
+                  Ready to improve? Take a targeted practice test on these
+                  topics.
+                </p>
+                <button
+                  onClick={() => {
+                    const assessmentId =
+                      (report as any).id || (report as any).assessmentId;
+                    if (assessmentId) onRecurring(assessmentId);
+                  }}
+                  disabled={isBusy}
+                  className="group relative flex min-w-[280px] items-center justify-center gap-3 rounded-full bg-[#F5A623] px-10 py-4 text-[16px] font-bold text-white shadow-[0_8px_24px_rgba(245,166,35,0.30)] transition-all hover:-translate-y-1 hover:bg-[#E0941A] hover:shadow-[0_12px_36px_rgba(245,166,35,0.40)] disabled:opacity-50"
+                >
+                  <RotateCcw className="h-5 w-5 transition-transform group-hover:rotate-45" />
+                  {isBusy ? "Preparing..." : "Start Improvement Test"}
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="mb-5 text-[1.1rem] font-extrabold text-[#1B4A4A] sm:text-[1.2rem]">
+            What went well &amp; what to work on next
+          </div>
+
+          <p className="mb-5 max-w-[980px] text-[0.95rem] font-medium leading-[1.8] text-[#111827] sm:text-[1rem]">
+            {resultCopy.mainSummary}
+          </p>
+
+          <div className="mb-4 rounded-[12px] bg-white/75 px-4 py-3 text-[0.92rem] font-semibold leading-relaxed text-[#1B4A4A]">
+            {resultCopy.whatWentWell}
+          </div>
+
+          <p className="mb-6 max-w-[980px] text-[1rem] font-medium leading-[1.8] text-[#111827]">
+            {resultCopy.whatNeedsPractice}
+          </p>
+
+          <div className="my-6 h-px bg-[rgba(0,0,0,0.08)]" />
+
+          <div className="mb-4 font-mono text-[0.72rem] font-extrabold uppercase tracking-[0.16em] text-[#6B7280]">
+            How to get a higher score
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {resultCopy.practiceSteps.map((item, index) => (
+              <div
+                key={item}
+                className="flex items-start gap-3 rounded-[10px] bg-white/75 px-4 py-3 text-[0.92rem] leading-relaxed text-[#111827]"
+              >
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#F5A623] font-mono text-[0.75rem] font-extrabold text-white">
+                  {index + 1}
+                </span>
+                <span className="flex-1">{item}</span>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      )}
 
       <div className="v1-card">
         <div className="px-5 pt-4 pb-3 flex items-center justify-between flex-wrap gap-2">
@@ -4063,6 +4553,57 @@ export function DiagnosticDemo({
     setCurrentAnswer(correct);
   }, [devCorrectAnswers]);
 
+  const answerAllRandomly = useCallback(() => {
+    const activeQuiz = quizRef.current;
+    if (!activeQuiz || isBusy) return;
+
+    const { randomAnswers, randomResponseMeta } =
+      buildRandomQuizSubmission(activeQuiz);
+
+    answersRef.current = randomAnswers;
+    responseMetaRef.current = randomResponseMeta;
+    setAnswers(randomAnswers);
+    setResponseMeta(randomResponseMeta);
+    setCurrentAnswer(
+      activeQuiz.questions[currentIndexRef.current]
+        ? (randomAnswers[activeQuiz.questions[currentIndexRef.current].id] ??
+            "")
+        : "",
+    );
+    finalizeQuiz(randomAnswers, randomResponseMeta);
+  }, [isBusy]);
+
+  const startRandomPlacementRun = useCallback(() => {
+    if (isBusy) return;
+    setPendingAction("submit");
+    startTransition(() => {
+      void (async () => {
+        try {
+          setError(null);
+          const loadedQuiz = await loadQuiz({ ...form, testMode: "placement" });
+          const { randomAnswers, randomResponseMeta } =
+            buildRandomQuizSubmission(loadedQuiz);
+          const finalReport = await submitQuiz(
+            loadedQuiz,
+            randomAnswers,
+            randomResponseMeta,
+          );
+          setReport(finalReport);
+          setQuiz(null);
+          setCurrentIndex(0);
+          setAnswers(randomAnswers);
+          setResponseMeta(randomResponseMeta);
+          setCurrentAnswer("");
+          setQuestionElapsedMs(0);
+        } catch (err) {
+          setError(toErrorMessage(err));
+        } finally {
+          setPendingAction(null);
+        }
+      })();
+    });
+  }, [form, isBusy]);
+
   const startQuizRun = useCallback(() => {
     setPendingAction("load");
     startTransition(() => {
@@ -4121,7 +4662,8 @@ export function DiagnosticDemo({
 
   const continueFromStudentInfo = () => {
     const studentId = studentSetup.studentId.trim() || "Placement Student";
-    if (assessmentKind !== "placement" && !studentSetup.studentId.trim()) return;
+    if (assessmentKind !== "placement" && !studentSetup.studentId.trim())
+      return;
 
     const entry = getCatalogEntryForClass(
       visibleQuizCatalog,
@@ -4178,8 +4720,9 @@ export function DiagnosticDemo({
   const gradeSubject = useMemo(() => {
     if (!selectedGradeClass) return "Maths";
     return (
-      visibleQuizCatalog.entries.find((e) => e.classLevel === selectedGradeClass)
-        ?.subject ?? "Maths"
+      visibleQuizCatalog.entries.find(
+        (e) => e.classLevel === selectedGradeClass,
+      )?.subject ?? "Maths"
     );
   }, [visibleQuizCatalog.entries, selectedGradeClass]);
 
@@ -4225,8 +4768,9 @@ export function DiagnosticDemo({
     const studentId = studentSetup.studentId.trim() || "Student";
     const gradeClass = studentSetup.classLevel;
     const gradeEntry =
-      visibleQuizCatalog.entries.find((entry) => entry.classLevel === gradeClass) ??
-      getDefaultCatalogEntry(visibleQuizCatalog);
+      visibleQuizCatalog.entries.find(
+        (entry) => entry.classLevel === gradeClass,
+      ) ?? getDefaultCatalogEntry(visibleQuizCatalog);
 
     setSelectedGradeClass(gradeClass);
     if (gradeEntry) {
@@ -4245,7 +4789,9 @@ export function DiagnosticDemo({
 
   const handleSelectGradeClass = (cl: string) => {
     setSelectedGradeClass(cl);
-    const firstEntry = visibleQuizCatalog.entries.find((e) => e.classLevel === cl);
+    const firstEntry = visibleQuizCatalog.entries.find(
+      (e) => e.classLevel === cl,
+    );
     if (firstEntry) {
       setForm((prev) => ({
         ...prev,
@@ -4428,6 +4974,7 @@ export function DiagnosticDemo({
               onBegin={() => {
                 startQuizRun();
               }}
+              onBeginRandom={startRandomPlacementRun}
               onBack={() =>
                 setAppScreen(
                   assessmentKind === "placement" ? "student-info" : "selector",
@@ -4488,21 +5035,36 @@ export function DiagnosticDemo({
                     </div>
                   )}
                 </div>
-                <div className="rounded-[14px] bg-[#F8F9FA] px-3 py-2 text-right sm:px-4">
-                  <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">
-                    Time taken
-                  </div>
-                  <div className="font-mono text-[20px] font-extrabold text-[#1B4A4A] sm:text-[22px]">
-                    {(() => {
-                      const totalSeconds = Math.floor(questionElapsedMs / 1000);
-                      if (totalSeconds < 60) return `${totalSeconds}s`;
-                      const m = Math.floor(totalSeconds / 60);
-                      const s = totalSeconds % 60;
-                      return `${m}m ${String(s).padStart(2, "0")}s`;
-                    })()}
-                  </div>
-                  <div className="mt-0.5 font-mono text-[9px] font-bold uppercase tracking-widest text-[#9CA3AF]">
-                    This question
+                <div className="flex flex-wrap items-center gap-3">
+                  {testMode === "placement" && (
+                    <button
+                      type="button"
+                      onClick={answerAllRandomly}
+                      disabled={isBusy}
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-dashed border-[#2563EB]/35 bg-[#EFF6FF] px-4 py-2.5 font-mono text-[11px] font-bold uppercase tracking-wider text-[#2563EB] transition hover:bg-[#DBEAFE] disabled:opacity-40"
+                    >
+                      <Shuffle className="h-3.5 w-3.5" />
+                      Random submit
+                    </button>
+                  )}
+                  <div className="rounded-[14px] bg-[#F8F9FA] px-3 py-2 text-right sm:px-4">
+                    <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">
+                      Time taken
+                    </div>
+                    <div className="font-mono text-[20px] font-extrabold text-[#1B4A4A] sm:text-[22px]">
+                      {(() => {
+                        const totalSeconds = Math.floor(
+                          questionElapsedMs / 1000,
+                        );
+                        if (totalSeconds < 60) return `${totalSeconds}s`;
+                        const m = Math.floor(totalSeconds / 60);
+                        const s = totalSeconds % 60;
+                        return `${m}m ${String(s).padStart(2, "0")}s`;
+                      })()}
+                    </div>
+                    <div className="mt-0.5 font-mono text-[9px] font-bold uppercase tracking-widest text-[#9CA3AF]">
+                      This question
+                    </div>
                   </div>
                 </div>
               </div>
@@ -4555,45 +5117,44 @@ export function DiagnosticDemo({
                   </div>
 
                   <div className="relative z-10">
-
-                  {"scenario" in (currentQuestion.payload ?? {}) && (
-                    <div className="mb-4 rounded-[12px] border border-[#F5A623]/10 bg-[#FFF8E7] p-4">
-                      <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#F5A623]">
-                        Scenario
+                    {"scenario" in (currentQuestion.payload ?? {}) && (
+                      <div className="mb-4 rounded-[12px] border border-[#F5A623]/10 bg-[#FFF8E7] p-4">
+                        <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#F5A623]">
+                          Scenario
+                        </div>
+                        <p className="text-[15px] font-semibold leading-relaxed text-[#1a1a1a]">
+                          {String(
+                            (currentQuestion.payload as { scenario?: string })
+                              .scenario ?? "",
+                          )}
+                        </p>
                       </div>
-                      <p className="text-[15px] font-semibold leading-relaxed text-[#1a1a1a]">
-                        {String(
-                          (currentQuestion.payload as { scenario?: string })
-                            .scenario ?? "",
-                        )}
-                      </p>
-                    </div>
-                  )}
+                    )}
 
-                  {typeof (
-                    currentQuestion.payload as
-                      | { questionSvg?: unknown }
-                      | undefined
-                  )?.questionSvg === "string" && (
-                    <div className="mb-5 flex justify-center rounded-[14px] border border-[#E8E3D8] bg-[#FAFAF7] p-4">
-                      <div
-                        className="h-[180px] w-full max-w-[360px] [&_svg]:h-full [&_svg]:w-full"
-                        dangerouslySetInnerHTML={{
-                          __html: String(
-                            (
-                              currentQuestion.payload as {
-                                questionSvg?: string;
-                              }
-                            ).questionSvg,
-                          ),
-                        }}
-                      />
-                    </div>
-                  )}
+                    {typeof (
+                      currentQuestion.payload as
+                        | { questionSvg?: unknown }
+                        | undefined
+                    )?.questionSvg === "string" && (
+                      <div className="mb-5 flex justify-center rounded-[14px] border border-[#E8E3D8] bg-[#FAFAF7] p-4">
+                        <div
+                          className="h-[180px] w-full max-w-[360px] [&_svg]:h-full [&_svg]:w-full"
+                          dangerouslySetInnerHTML={{
+                            __html: String(
+                              (
+                                currentQuestion.payload as {
+                                  questionSvg?: string;
+                                }
+                              ).questionSvg,
+                            ),
+                          }}
+                        />
+                      </div>
+                    )}
 
-                  <h3 className="text-[17px] font-semibold leading-normal text-[#1a1a1a]">
-                    {currentQuestion.question}
-                  </h3>
+                    <h3 className="text-[17px] font-semibold leading-normal text-[#1a1a1a]">
+                      {currentQuestion.question}
+                    </h3>
                   </div>
                 </div>
 
