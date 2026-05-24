@@ -7,6 +7,7 @@ import { z } from "zod";
 import type {
   AskedQuestionRecord,
   DiagnosticReport,
+  PlacementPlanInsights,
   QuestionBankQuestion,
 } from "./types/index";
 
@@ -19,11 +20,46 @@ const PlacementTopicInsightsSchema = z.object({
       insights: z.array(z.string()),
     }),
   ),
+  placementPlanInsights: z.object({
+    bandName: z.string(),
+    nextBandName: z.string(),
+    placementSummary: z.string(),
+    nextGoal: z.string(),
+    planSummary: z.string(),
+    focusAreas: z.array(
+      z.object({
+        topic: z.string(),
+        learningObjective: z.string(),
+        recommendation: z.enum([
+          "needs_lecture",
+          "high_practice",
+          "light_practice",
+          "on_track",
+        ]),
+        reason: z.string(),
+      }),
+    ),
+  }),
 });
 
 export type PlacementTopicAIInsights = z.infer<
   typeof PlacementTopicInsightsSchema
 >["topics"];
+
+export interface PlacementAIInsights {
+  topics: PlacementTopicAIInsights;
+  placementPlanInsights: PlacementPlanInsights;
+}
+
+function getPlacementBand(scorePercent: number) {
+  if (scorePercent >= 80)
+    return { bandName: "Grade-Ahead", nextBandName: "Advanced stretch" };
+  if (scorePercent >= 55)
+    return { bandName: "Confident Solver", nextBandName: "Grade-Ahead" };
+  if (scorePercent >= 35)
+    return { bandName: "Foundation Builder", nextBandName: "Confident Solver" };
+  return { bandName: "Early Start", nextBandName: "Foundation Builder" };
+}
 
 function compactText(value?: string | null, maxLength = 320) {
   const normalized = String(value ?? "")
@@ -112,9 +148,12 @@ function buildTopicInput(report: DiagnosticReport) {
     const correct = records.filter((r) => r.verdict === "correct").length;
     const partial = records.filter((r) => r.verdict === "partial").length;
     const incorrect = records.filter((r) => r.verdict === "incorrect").length;
-    const nonAttempt = records.filter((r) => r.verdict === "non_attempt").length;
+    const nonAttempt = records.filter(
+      (r) => r.verdict === "non_attempt",
+    ).length;
     const earned = correct + 0.5 * partial;
-    const scorePercent = records.length > 0 ? Math.round((earned / records.length) * 100) : 0;
+    const scorePercent =
+      records.length > 0 ? Math.round((earned / records.length) * 100) : 0;
 
     return {
       topic,
@@ -139,19 +178,63 @@ function buildTopicInput(report: DiagnosticReport) {
     };
   });
 
+  const totalQuestions =
+    report.results.length || report.totalQuestionsShown || 0;
+  const earned = report.results.reduce((sum, record) => {
+    if (record.verdict === "correct") return sum + 1;
+    if (record.verdict === "partial") return sum + 0.5;
+    return sum;
+  }, 0);
+  const overallScorePercent =
+    totalQuestions > 0 ? Math.round((earned / totalQuestions) * 100) : 0;
+  const placementBand = getPlacementBand(overallScorePercent);
+
   return {
     student: {
       name: report.studentId,
       subject: report.subject,
       classLevel: report.classLevel,
     },
+    placement: {
+      overallScorePercent,
+      totalQuestions,
+      correctCount: report.results.filter((r) => r.verdict === "correct")
+        .length,
+      partialCount: report.results.filter((r) => r.verdict === "partial")
+        .length,
+      nonAttemptCount: report.nonAttemptCount ?? 0,
+      totalTimeTakenMs: report.results.reduce(
+        (sum, r) => sum + (r.timeTakenMs ?? 0),
+        0,
+      ),
+      rapidAnswerCount: report.results.filter(
+        (r) => (r.timeTakenMs ?? 0) > 0 && (r.timeTakenMs ?? 0) < 2_000,
+      ).length,
+      ...placementBand,
+    },
+    learningObjectives: (report.learningObjectiveResults ?? []).map((lo) => ({
+      topic:
+        report.results.find(
+          (record) =>
+            record.question.learningObjective === lo.learningObjective,
+        )?.question.topic ?? "General",
+      learningObjective: lo.learningObjective,
+      score: Math.round(lo.score),
+      overallScore: Math.round(lo.overallScore),
+      correctCount: lo.correctCount,
+      partialCount: lo.partialCount,
+      incorrectCount: lo.incorrectCount,
+      nonAttemptCount: lo.nonAttemptCount,
+      likelyIssues: lo.likelyIssues.slice(0, 2),
+      nextSteps: lo.nextSteps.slice(0, 2),
+    })),
     topics,
   };
 }
 
-export async function generatePlacementTopicInsights(
+export async function generatePlacementAIInsights(
   report: DiagnosticReport,
-): Promise<PlacementTopicAIInsights> {
+): Promise<PlacementAIInsights> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error(
       "OPENAI_API_KEY is required to generate placement insights.",
@@ -159,7 +242,21 @@ export async function generatePlacementTopicInsights(
   }
 
   const input = buildTopicInput(report);
-  if (input.topics.length === 0) return [];
+  if (input.topics.length === 0) {
+    return {
+      topics: [],
+      placementPlanInsights: {
+        bandName: "Not enough data",
+        nextBandName: "Not enough data",
+        placementSummary:
+          "There were not enough answered questions to place the student.",
+        nextGoal: "Complete a full placement test.",
+        planSummary:
+          "Run the placement test again with enough questions answered.",
+        focusAreas: [],
+      },
+    };
+  }
 
   const openai = new OpenAI({
     timeout: 90_000,
@@ -173,7 +270,8 @@ export async function generatePlacementTopicInsights(
       {
         role: "system",
         content: [
-          "You write 2-3 short insight lines per topic for a placement-test result card.",
+          "You write placement-test result copy for a parent-facing result page.",
+          "Return both topic insight cards and a compact placement plan.",
           "You will receive each question, the student's answer, the correct answer, the verdict, and a 'whyWrong' note. USE this data only as private evidence to diagnose the underlying conceptual misunderstanding. NEVER surface it in the output.",
           "Goal: name the fundamental concept, skill, or prerequisite the student is shaky or solid on — not what happened on any specific question.",
           "Voice: a warm, plain-spoken tutor talking to a parent. Friendly, simple, easy to read out loud. No emojis. No hype. No jargon.",
@@ -198,7 +296,14 @@ export async function generatePlacementTopicInsights(
           "- All correct: name the idea the student has clearly understood, in plain words, and the next small step that would stretch the student.",
           "- Mixed: name the specific everyday idea the wrong attempts point to (e.g., 'splitting things into equal parts', 'comparing two amounts fairly', 'doing the steps in the right order') — without referencing the specific items.",
           "- Mostly wrong: be honest but kind; name the simpler idea that needs to come first, in everyday words.",
-          "Return one entry per topic provided, with the exact topic string.",
+          "Topic insights: return one entry per topic provided, with the exact topic string and 2-3 lines.",
+          "Placement plan fields:",
+          "- bandName and nextBandName must use the placement values from the user input exactly.",
+          "- placementSummary: one short sentence explaining the student's current band from accuracy, timing, and topic spread.",
+          "- nextGoal: one short sentence naming the next band and the main skill shift needed.",
+          "- planSummary: one short sentence for what Codeyoung should teach/practice first.",
+          "- focusAreas: 4-8 learning objectives from the provided learningObjectives array. Use exact topic and learningObjective strings. recommendation must be needs_lecture for scores below 35, high_practice for 35-54, light_practice for 55-74, and on_track for 75+.",
+          "- reason: one parent-friendly sentence. Do not mention question numbers, exact answers, or option text.",
         ].join(" "),
       },
       {
@@ -219,5 +324,12 @@ export async function generatePlacementTopicInsights(
     throw new Error("The AI placement insights could not be parsed.");
   }
 
-  return response.output_parsed.topics;
+  return response.output_parsed;
+}
+
+export async function generatePlacementTopicInsights(
+  report: DiagnosticReport,
+): Promise<PlacementTopicAIInsights> {
+  const insights = await generatePlacementAIInsights(report);
+  return insights.topics;
 }

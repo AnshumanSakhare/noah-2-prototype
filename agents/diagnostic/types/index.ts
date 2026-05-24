@@ -312,6 +312,26 @@ export interface ResultNarrative {
   parentNotes: string[];
 }
 
+export interface PlacementFocusArea {
+  topic: string;
+  learningObjective: string;
+  recommendation:
+    | "needs_lecture"
+    | "high_practice"
+    | "light_practice"
+    | "on_track";
+  reason: string;
+}
+
+export interface PlacementPlanInsights {
+  bandName: string;
+  nextBandName: string;
+  placementSummary: string;
+  nextGoal: string;
+  planSummary: string;
+  focusAreas: PlacementFocusArea[];
+}
+
 export interface ProgressComparison {
   previousAssessmentId: string;
   previousSubmittedAt: string;
@@ -395,6 +415,7 @@ export interface DiagnosticReport {
   aiSummary: string;
   resultNarrative?: ResultNarrative;
   placementTopicInsights?: Array<{ topic: string; insights: string[] }>;
+  placementPlanInsights?: PlacementPlanInsights;
   progressComparison?: ProgressComparison;
   stoppedBecause: "maxQuestions" | "noEligibleQuestions";
 }
