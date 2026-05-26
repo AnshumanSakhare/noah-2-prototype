@@ -1443,7 +1443,7 @@ function TopicBrowseScreen({
           return (
             <button
               type="button"
-              key={entry.topic}
+              key={`${entry.subject}-${entry.classLevel}-${entry.topic}`}
               onClick={() => handleSelectTopic(entry)}
               className={`cursor-pointer rounded-[14px] border-2 p-4 text-left transition-all duration-150 ${
                 isSelected
@@ -1555,7 +1555,7 @@ function TopicStartScreen({
               className="h-12 w-full appearance-none rounded-[14px] border border-gray-200 bg-[#F8F9FA] px-4 pr-11 text-[15px] font-semibold text-[#1a1a1a] outline-none transition-all focus:border-[#2EC4B6] focus:bg-white focus:ring-4 focus:ring-[#2EC4B6]/10 disabled:opacity-60"
             >
               {topicEntries.map((entry) => (
-                <option key={entry.topic} value={entry.topic}>
+                <option key={`${entry.subject}-${entry.classLevel}-${entry.topic}`} value={entry.topic}>
                   {entry.topic}
                 </option>
               ))}

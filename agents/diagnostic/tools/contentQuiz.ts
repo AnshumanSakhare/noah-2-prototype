@@ -456,32 +456,48 @@ async function loadDiagnosticQuizCatalog(): Promise<DemoQuizCatalog> {
     ORDER BY subject, grade, topic
   `);
 
-  return {
-    entries: result.rows
-      .map(
-        (row: {
-          subject: string;
-          grade: string;
-          topic: string;
-          learning_objectives: string[] | null;
-          question_count: number;
-        }): DemoQuizCatalogEntry => ({
-          subject: toSubject(row.subject),
-          classLevel: toClassLevel(row.grade),
-          topic: normalizeText(row.topic),
-          learningObjectives: (row.learning_objectives ?? [])
-            .map(normalizeText)
-            .filter(Boolean)
-            .sort((left, right) => left.localeCompare(right)),
-          questionCount: row.question_count,
-        }),
-      )
-      .sort((left, right) => {
-        const byClass = left.classLevel.localeCompare(right.classLevel);
-        if (byClass !== 0) return byClass;
-        return left.topic.localeCompare(right.topic);
-      }),
-  };
+  const rawEntries = result.rows.map(
+    (row: {
+      subject: string;
+      grade: string;
+      topic: string;
+      learning_objectives: string[] | null;
+      question_count: number;
+    }): DemoQuizCatalogEntry => ({
+      subject: toSubject(row.subject),
+      classLevel: toClassLevel(row.grade),
+      topic: normalizeText(row.topic),
+      learningObjectives: (row.learning_objectives ?? [])
+        .map(normalizeText)
+        .filter(Boolean),
+      questionCount: row.question_count,
+    }),
+  );
+
+  // Merge duplicates resolving to same subject, classLevel, and topic
+  const mergedMap = new Map<string, DemoQuizCatalogEntry>();
+  for (const entry of rawEntries) {
+    const key = `${entry.subject}-${entry.classLevel}-${entry.topic}`;
+    const existing = mergedMap.get(key);
+    if (existing) {
+      const mergedLOs = Array.from(
+        new Set([...existing.learningObjectives, ...entry.learningObjectives]),
+      ).sort((left, right) => left.localeCompare(right));
+      existing.learningObjectives = mergedLOs;
+      existing.questionCount += entry.questionCount;
+    } else {
+      entry.learningObjectives.sort((left, right) => left.localeCompare(right));
+      mergedMap.set(key, entry);
+    }
+  }
+
+  const entries = Array.from(mergedMap.values()).sort((left, right) => {
+    const byClass = left.classLevel.localeCompare(right.classLevel);
+    if (byClass !== 0) return byClass;
+    return left.topic.localeCompare(right.topic);
+  });
+
+  return { entries };
 }
 
 async function getCatalog() {
@@ -1089,7 +1105,6 @@ function selectQuestionsAcrossLearningObjectives(
   ).size;
   const learningObjectiveCount =
     distinctLearningObjectiveCount > 0 ? distinctLearningObjectiveCount : 1;
-  const targetByBand = learningObjectiveCount;
   const requestedByLearningObjectives = getTopicTestQuestionCount(
     learningObjectiveCount,
   );
@@ -1098,6 +1113,25 @@ function selectQuestionsAcrossLearningObjectives(
     requestedByLearningObjectives,
     questions.length,
   );
+
+  // Pre-calculate target count per difficulty band to ensure balanced 1:1:1 ratio
+  const targets: Record<DifficultyBand, number> = {
+    easy: Math.floor(requestedTotal / 3),
+    medium: Math.floor(requestedTotal / 3),
+    hard: Math.floor(requestedTotal / 3),
+  };
+
+  // Distribute any remainder to easy, then medium
+  let remainder = requestedTotal - (targets.easy + targets.medium + targets.hard);
+  if (remainder > 0) {
+    targets.easy += 1;
+    remainder -= 1;
+  }
+  if (remainder > 0) {
+    targets.medium += 1;
+    remainder -= 1;
+  }
+
   const interactiveTarget = Math.min(
     getInteractiveQuestionTarget(requestedTotal),
     questions.filter(isInteractiveQuestion).length,
@@ -1125,7 +1159,7 @@ function selectQuestionsAcrossLearningObjectives(
 
   for (const band of ["easy", "medium", "hard"] as const) {
     const requested = Math.min(
-      Math.max(0, targetByBand - countSelectedQuestionsByBand(selected, band)),
+      Math.max(0, targets[band] - countSelectedQuestionsByBand(selected, band)),
       requestedTotal - selected.length,
     );
     if (requested <= 0) continue;

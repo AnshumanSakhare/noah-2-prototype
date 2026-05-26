@@ -21,7 +21,8 @@ export const GRADE_TEST_PLANS: Record<
 };
 
 export function getTopicTestQuestionCount(learningObjectiveCount: number) {
-  return (
+  return Math.min(
+    12,
     Math.max(0, learningObjectiveCount) * TOPIC_QUESTIONS_PER_LEARNING_OBJECTIVE
   );
 }

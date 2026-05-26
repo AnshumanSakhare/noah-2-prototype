@@ -17,17 +17,21 @@ If the perfect balance is not possible because the database does not have enough
 
 ## Topic Test
 
-A topic test serves up to **18 questions**.
+A topic test serves up to **12 questions**.
 
 The target difficulty split is:
 
-- **6 easy**
-- **6 medium**
-- **6 hard**
+- **4 easy**
+- **4 medium**
+- **4 hard**
 
 So the intended ratio is:
 
 **Easy : Medium : Hard = 1 : 1 : 1**
+
+> [!NOTE]
+> **Recent Update:** Previously, topic test size scaled linearly with the number of unique learning objectives in the database (Unique LOs × 3, up to 18). Because some topics have a very high count of unique, granular learning objectives in the database (e.g., 26 or 351 LOs), the test size exploded up to 373 questions. 
+> We introduced a strict cap of **12 questions** and decoupled the difficulty targets to ensure a perfectly balanced 4/4/4 split regardless of how many unique learning objectives exist.
 
 ### How Learning Objectives Are Selected
 
