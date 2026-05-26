@@ -57,6 +57,81 @@ declare global {
   var __diagnosticQuizCatalogPromise__: Promise<DemoQuizCatalog> | undefined;
 }
 
+const TOPIC_STANDARDIZATION_MAP: Record<string, Record<string, string[]>> = {
+  class8: {
+    "Properties of Quadrilaterals": [
+      "quadrilaterals",
+      "Quadrilaterals",
+      "polygon properties",
+      "Polygons",
+      "Congruence and similarity",
+      "Geometry",
+      "triangle properties",
+      "Triangles",
+      "Properties of Quadrilaterals"
+    ],
+    "Geometric Constructions": [
+      "angles",
+      "Angles",
+      "circle geometry",
+      "lines and angles",
+      "Lines and angles",
+      "Lines and segments",
+      "transformations",
+      "Transformations",
+      "Geometric Constructions"
+    ],
+    "Perimeter, Area & Volume": [
+      "2D shapes",
+      "perimeter and area",
+      "Perimeter and area",
+      "Perimeter, Area & Volume"
+    ],
+    "3D Shapes & Mensuration": [
+      "3D shapes",
+      "3D Shapes & Mensuration"
+    ]
+  },
+  class7: {
+    "Circle Geometry": [
+      "Geometry",
+      "Circle Geometry"
+    ]
+  },
+  class5: {
+    "2D & 3D Geometry": [
+      "2D &3D Geometry",
+      "2D & 3D Geometry"
+    ]
+  }
+};
+
+export function getStandardizedTopicName(classLevel: string, rawTopic: string): string {
+  const normRaw = rawTopic.trim();
+  const classMap = TOPIC_STANDARDIZATION_MAP[classLevel];
+  if (!classMap) return normRaw;
+
+  for (const [standardized, rawList] of Object.entries(classMap)) {
+    if (rawList.some(r => r.toLowerCase().trim() === normRaw.toLowerCase())) {
+      return standardized;
+    }
+  }
+  return normRaw;
+}
+
+export function getRawTopicNames(classLevel: string, standardizedTopic: string): string[] {
+  const normStd = standardizedTopic.trim();
+  const classMap = TOPIC_STANDARDIZATION_MAP[classLevel];
+  if (!classMap) return [normStd];
+
+  for (const [standardized, rawList] of Object.entries(classMap)) {
+    if (standardized.toLowerCase().trim() === normStd.toLowerCase()) {
+      return rawList;
+    }
+  }
+  return [normStd];
+}
+
 function normalizeText(value: string | null | undefined): string {
   return (value ?? "").trim().replace(/\s+/g, " ");
 }
@@ -463,15 +538,18 @@ async function loadDiagnosticQuizCatalog(): Promise<DemoQuizCatalog> {
       topic: string;
       learning_objectives: string[] | null;
       question_count: number;
-    }): DemoQuizCatalogEntry => ({
-      subject: toSubject(row.subject),
-      classLevel: toClassLevel(row.grade),
-      topic: normalizeText(row.topic),
-      learningObjectives: (row.learning_objectives ?? [])
-        .map(normalizeText)
-        .filter(Boolean),
-      questionCount: row.question_count,
-    }),
+    }): DemoQuizCatalogEntry => {
+      const classLevel = toClassLevel(row.grade);
+      return {
+        subject: toSubject(row.subject),
+        classLevel,
+        topic: getStandardizedTopicName(classLevel, row.topic),
+        learningObjectives: (row.learning_objectives ?? [])
+          .map(normalizeText)
+          .filter(Boolean),
+        questionCount: row.question_count,
+      };
+    },
   );
 
   // Merge duplicates resolving to same subject, classLevel, and topic
@@ -514,21 +592,26 @@ async function loadTopicQuestions(input: {
   classLevel: ClassLevel;
   topic: string;
 }) {
+  const rawTopics = getRawTopicNames(input.classLevel, input.topic);
   const result = await query(
     `
       ${CONTENT_QUESTION_SELECT}
       WHERE subject = $1
         AND grade = $2
-        AND topic = $3
+        AND topic = ANY($3::text[])
         AND question_text IS NOT NULL
         AND question_type IS NOT NULL
         ${QUESTION_VISUAL_MODE_TYPE_FILTER}
       ORDER BY learning_objective, difficulty_level, id
     `,
-    [input.subject, toDbGrade(input.classLevel), input.topic],
+    [input.subject, toDbGrade(input.classLevel), rawTopics],
   );
 
-  return toQuestions(result.rows as ContentQuestionRow[]);
+  const questions = toQuestions(result.rows as ContentQuestionRow[]);
+  for (const q of questions) {
+    q.topic = input.topic;
+  }
+  return questions;
 }
 
 async function loadGradeQuestions(input: {
@@ -608,6 +691,15 @@ async function getPreviouslyAnsweredQuestionIds(input: {
   if (!normalizedStudentName) return new Set<string>();
 
   try {
+    const rawTopics = input.testMode === "topic" && input.topic
+      ? Array.from(
+          new Set([
+            normalizeText(input.topic),
+            ...getRawTopicNames(input.classLevel, input.topic),
+          ]),
+        )
+      : null;
+
     const result = await query(
       `
         SELECT DISTINCT qr.question_id::text AS question_id
@@ -621,7 +713,7 @@ async function getPreviouslyAnsweredQuestionIds(input: {
           AND a.test_mode = $3
           AND a.subject = $4
           AND a.class_level = $2
-          AND ($5::text IS NULL OR a.topic = $5)
+          AND ($5::text[] IS NULL OR a.topic = ANY($5::text[]))
         LIMIT 1000
       `,
       [
@@ -629,9 +721,7 @@ async function getPreviouslyAnsweredQuestionIds(input: {
         toDbGrade(input.classLevel),
         input.testMode,
         input.subject,
-        input.testMode === "topic" && input.topic
-          ? normalizeText(input.topic)
-          : null,
+        rawTopics,
       ],
     );
 

@@ -34,3 +34,7 @@ This document outlines how the diagnostic assessment app selects and balances qu
 ### Issue C: Duplicate Catalog Entries
 * **Problem:** Questions in the database for the same topic exist under different subjects (e.g., `'Geometry'` and `'Maths'`), which both normalize to `'Maths'` in the catalog helper, creating duplicate entries with the same React composite keys.
 * **Fix:** Grouped and merged catalog entries resolving to the same normalized subject, classLevel, and topic at the query load stage in `loadDiagnosticQuizCatalog`.
+
+### Issue D: Duplicate and Fragmented Topics (Excel Standardization)
+* **Problem:** Databases contain duplicate topics with minor casing differences (e.g. `2D &3D Geometry` vs `2D & 3D Geometry`) and highly fragmented topics (like 17 separate topics in G8 Geometry instead of the 4 official Excel topics).
+* **Fix:** Implemented an in-memory `TOPIC_STANDARDIZATION_MAP` mapping raw database strings to standardized Excel topic names on catalog load and query load. All duplicates and fragmented records are merged dynamically on the backend without any database changes.
