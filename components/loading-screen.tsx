@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   ChevronLeft,
   ClipboardCheck,
@@ -8,6 +7,7 @@ import {
   TrendingUp,
   Wand2,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 const LOADING_STAGES = [
   {
@@ -148,7 +148,10 @@ export function MultiStageLoadingScreen({
               </div>
 
               {/* Stage text — re-mounts on stage change for a subtle fade */}
-              <div key={currentStage} className="animate-[fadeIn_0.4s_ease-out]">
+              <div
+                key={currentStage}
+                className="animate-[fadeIn_0.4s_ease-out]"
+              >
                 <div className="mb-1 text-[11px] font-semibold tracking-[0.12em] text-[#9CA3AF] uppercase">
                   Step {currentStage + 1} of {totalStages}
                 </div>

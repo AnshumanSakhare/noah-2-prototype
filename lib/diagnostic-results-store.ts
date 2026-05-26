@@ -295,7 +295,12 @@ export async function saveDiagnosticResult(
     }
 
     await client.query("COMMIT");
-    return { assessmentId, studentDbId, progressComparison, parentAssessmentId: options?.parentAssessmentId };
+    return {
+      assessmentId,
+      studentDbId,
+      progressComparison,
+      parentAssessmentId: options?.parentAssessmentId,
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

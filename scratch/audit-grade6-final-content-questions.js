@@ -63,13 +63,16 @@ function toOptions(value) {
 
 function optionText(option) {
   if (typeof option === "string") return option;
-  if (option && typeof option === "object") return option.text ?? option.label ?? "";
+  if (option && typeof option === "object")
+    return option.text ?? option.label ?? "";
   return "";
 }
 
 function optionCorrect(option) {
   if (!option || typeof option !== "object") return false;
-  return option.correct === true || String(option.correct).toLowerCase() === "true";
+  return (
+    option.correct === true || String(option.correct).toLowerCase() === "true"
+  );
 }
 
 function isIntentionalIncorrectStatement(text, questionText) {
@@ -85,7 +88,9 @@ function isIntentionalIncorrectStatement(text, questionText) {
 }
 
 function hasSuspiciousEncoding(text) {
-  return /�|âœ|â|Â|Ã|ðŸ|[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(String(text ?? ""));
+  return /�|âœ|â|Â|Ã|ðŸ|[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(
+    String(text ?? ""),
+  );
 }
 
 function hasUnbalanced(text, open, close) {
@@ -145,11 +150,10 @@ function findBadEquations(text) {
     }
   }
 
-  const equationPattern =
-    new RegExp(
-      String.raw`(?<![\d./^])(${number}(?:\s*[+\-×÷]\s*${number}){1,3})\s*=\s*(${number})(?![\d.,/^])(?!(?:\s*[+\-×÷]))`,
-      "g",
-    );
+  const equationPattern = new RegExp(
+    String.raw`(?<![\d./^])(${number}(?:\s*[+\-×÷]\s*${number}){1,3})\s*=\s*(${number})(?![\d.,/^])(?!(?:\s*[+\-×÷]))`,
+    "g",
+  );
   for (const match of source.matchAll(equationPattern)) {
     if (/^\s+remainder\b/i.test(source.slice(match.index + match[0].length))) {
       continue;
@@ -181,7 +185,8 @@ function auditRow(row, duplicateQuestionIds) {
   const options = toOptions(row.options);
   const qtype = normalizeText(row.question_type);
 
-  if (!question) pushIssue(issues, row, "critical", "data", "Blank question text");
+  if (!question)
+    pushIssue(issues, row, "critical", "data", "Blank question text");
   if (!explanation)
     pushIssue(issues, row, "high", "data", "Blank explanation text");
 
@@ -329,7 +334,13 @@ function auditRow(row, duplicateQuestionIds) {
 
     texts.forEach((text, index) => {
       if (!text) {
-        pushIssue(issues, row, "high", "options", `Option ${index + 1} is blank`);
+        pushIssue(
+          issues,
+          row,
+          "high",
+          "options",
+          `Option ${index + 1} is blank`,
+        );
       }
       if (text.length > 260) {
         pushIssue(
@@ -408,10 +419,7 @@ function markdownTable(rows) {
           issue.message,
           issue.evidence || issue.question_text,
         ].map((cell) =>
-          compact(cell)
-            .replace(/\|/g, "\\|")
-            .replace(/\n/g, " ")
-            .slice(0, 220),
+          compact(cell).replace(/\|/g, "\\|").replace(/\n/g, " ").slice(0, 220),
         );
         return `| ${cells.join(" | ")} |`;
       })

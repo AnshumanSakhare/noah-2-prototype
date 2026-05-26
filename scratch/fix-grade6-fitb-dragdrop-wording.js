@@ -4,7 +4,9 @@ const { Pool } = require("pg");
 
 const ROOT = process.cwd();
 
-for (const line of fs.readFileSync(path.join(ROOT, ".env.local"), "utf8").split(/\r?\n/)) {
+for (const line of fs
+  .readFileSync(path.join(ROOT, ".env.local"), "utf8")
+  .split(/\r?\n/)) {
   const trimmed = line.trim();
   if (!trimmed || trimmed.startsWith("#")) continue;
   const i = trimmed.indexOf("=");
@@ -28,9 +30,18 @@ function transformFitb(text) {
   next = next.replace(/\bChoose\b/gi, "Write");
   next = next.replace(/\bSelect\b/gi, "Write");
   next = next.replace(/\bPick\b/gi, "Write");
-  next = next.replace(/\bwhich expression has the greater value\b/i, "write the expression with the greater value");
-  next = next.replace(/\bthe right end seat is seat number\.?$/i, "write the seat number at the right end. Answer: ____.");
-  next = next.replace(/\bthe water image of the capital letter M look like\b/i, "the water image of the capital letter M looks like");
+  next = next.replace(
+    /\bwhich expression has the greater value\b/i,
+    "write the expression with the greater value",
+  );
+  next = next.replace(
+    /\bthe right end seat is seat number\.?$/i,
+    "write the seat number at the right end. Answer: ____.",
+  );
+  next = next.replace(
+    /\bthe water image of the capital letter M look like\b/i,
+    "the water image of the capital letter M looks like",
+  );
   next = next.replace(/([.?!]\s*)write\b/g, "$1Write");
   next = next.replace(/,\s*Write\b/g, ", write");
   next = cleanSpaces(next);

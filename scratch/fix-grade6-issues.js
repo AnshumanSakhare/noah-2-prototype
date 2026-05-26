@@ -4,7 +4,9 @@ const { Pool } = require("pg");
 
 const ROOT = process.cwd();
 
-for (const line of fs.readFileSync(path.join(ROOT, ".env.local"), "utf8").split(/\r?\n/)) {
+for (const line of fs
+  .readFileSync(path.join(ROOT, ".env.local"), "utf8")
+  .split(/\r?\n/)) {
   const trimmed = line.trim();
   if (!trimmed || trimmed.startsWith("#")) continue;
   const i = trimmed.indexOf("=");
@@ -76,11 +78,13 @@ const updates = [
   },
   {
     id: "91bccb3f-6dea-4f81-b4af-41443538ffb5",
-    question_text: "Which pair has exactly the same value: 0.125, 12%, 1/8, and 0.13?",
+    question_text:
+      "Which pair has exactly the same value: 0.125, 12%, 1/8, and 0.13?",
   },
   {
     id: "fa731c6e-4e28-4329-bc14-bfded15fd1da",
-    question_text: "Which statement correctly compares 0.125, 12%, 1/8, and 0.13?",
+    question_text:
+      "Which statement correctly compares 0.125, 12%, 1/8, and 0.13?",
   },
   {
     id: "3ded0adf-324d-4d08-a802-4f7de8133426",
@@ -92,19 +96,23 @@ const updates = [
   },
   {
     id: "20c9a8fd-f7fe-4af3-9233-d569f6efbdab",
-    question_text: "Find the circumference of a circle with radius 5 cm. Use pi = 3.14.",
+    question_text:
+      "Find the circumference of a circle with radius 5 cm. Use pi = 3.14.",
   },
   {
     id: "38e9f177-317b-4566-8064-f291fb591f9b",
-    question_text: "Find the area of a circle with diameter 10 cm. Use pi = 3.14.",
+    question_text:
+      "Find the area of a circle with diameter 10 cm. Use pi = 3.14.",
   },
   {
     id: "50f72d39-30b1-4083-958d-79e37f26ec01",
-    question_text: "Find the circumference of a circle with radius 7 m. Use pi = 3.14.",
+    question_text:
+      "Find the circumference of a circle with radius 7 m. Use pi = 3.14.",
   },
   {
     id: "56a7f66d-e12d-4641-94a6-9f4f4030280f",
-    question_text: "Find the circumference of a circle with diameter 8 cm. Use pi = 3.14.",
+    question_text:
+      "Find the circumference of a circle with diameter 8 cm. Use pi = 3.14.",
   },
   {
     id: "584379f6-2d6f-4593-9a35-d51a06362415",
@@ -120,7 +128,8 @@ const updates = [
   },
   {
     id: "84732d74-dc84-4cb4-8df5-87d037242434",
-    question_text: "A diagram shows one diameter of a circle. How many diameters can the circle have in total?",
+    question_text:
+      "A diagram shows one diameter of a circle. How many diameters can the circle have in total?",
   },
   {
     id: "cfcbfff7-f18a-44b8-9a83-aa4e0b895d06",
@@ -159,7 +168,8 @@ const updates = [
   },
   {
     id: "821863e5-2e63-41b9-bce9-b819ce1f74dd",
-    question_text: "How many ordered outcomes are in the sample space when a die is rolled twice?",
+    question_text:
+      "How many ordered outcomes are in the sample space when a die is rolled twice?",
   },
   {
     id: "ef2a5888-4b27-41f2-b71a-14b0c514242f",
@@ -239,15 +249,15 @@ async function main() {
     const values = [];
     let index = 1;
 
-    if (Object.prototype.hasOwnProperty.call(update, "question_text")) {
+    if (Object.hasOwn(update, "question_text")) {
       fields.push(`question_text = $${index++}`);
       values.push(update.question_text);
     }
-    if (Object.prototype.hasOwnProperty.call(update, "explanation")) {
+    if (Object.hasOwn(update, "explanation")) {
       fields.push(`explanation = $${index++}`);
       values.push(update.explanation);
     }
-    if (Object.prototype.hasOwnProperty.call(update, "options")) {
+    if (Object.hasOwn(update, "options")) {
       fields.push(`options = $${index++}::jsonb`);
       values.push(JSON.stringify(update.options));
     }

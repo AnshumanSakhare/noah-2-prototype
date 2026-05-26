@@ -1,5 +1,7 @@
 import dotenv from "dotenv";
+
 dotenv.config({ path: ".env.local" });
+
 import { query } from "../lib/db";
 
 async function checkCounts() {

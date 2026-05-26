@@ -32,7 +32,10 @@ export async function POST(request: Request) {
       class_level: string;
       readiness_score: number;
       topic_results: Array<{ topic: string; status: string }>;
-      learning_objective_results: Array<{ learningObjective: string; score: number }>;
+      learning_objective_results: Array<{
+        learningObjective: string;
+        score: number;
+      }>;
     }>(
       `
         SELECT id, student_id, subject, class_level, readiness_score, topic_results, learning_objective_results
@@ -52,7 +55,10 @@ export async function POST(request: Request) {
 
     // 2. Check if student is underperforming
     if (assessment.readiness_score >= UNDERPERFORMANCE_THRESHOLD) {
-      return NextResponse.json({ eligible: false, reason: "score_above_threshold" });
+      return NextResponse.json({
+        eligible: false,
+        reason: "score_above_threshold",
+      });
     }
 
     // 3. Extract failed items from results JSONB
@@ -94,7 +100,8 @@ export async function POST(request: Request) {
     const quiz = await getRecurringTestForClient({
       studentId,
       subject: assessment.subject as Subject,
-      classLevel: `class${assessment.class_level === "kg" ? "KG" : assessment.class_level}` as ClassLevel,
+      classLevel:
+        `class${assessment.class_level === "kg" ? "KG" : assessment.class_level}` as ClassLevel,
       failedTopics,
       failedLOs,
       excludedQuestionIds,

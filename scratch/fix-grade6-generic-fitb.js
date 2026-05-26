@@ -40,8 +40,7 @@ const updates = [
   {
     id: "8768e612-5c83-443f-807d-d5f84af5a085",
     question_text: "Evaluate 3x + 5 when x = 4. Answer: ____.",
-    explanation:
-      "Substitute x = 4 into 3x + 5: 3(4) + 5 = 12 + 5 = 17.",
+    explanation: "Substitute x = 4 into 3x + 5: 3(4) + 5 = 12 + 5 = 17.",
     answer: "17",
     distractors: ["12", "20", "27"],
   },
@@ -83,8 +82,7 @@ const updates = [
   {
     id: "c7fa3b25-2434-42a8-953c-9eb5dc2ce068",
     question_text: "Evaluate 2^4. Answer: ____.",
-    explanation:
-      "2^4 means 2 x 2 x 2 x 2, which equals 16.",
+    explanation: "2^4 means 2 x 2 x 2 x 2, which equals 16.",
     answer: "16",
     distractors: ["6", "8", "24"],
   },
@@ -150,8 +148,7 @@ const updates = [
     id: "9ca69706-715c-42e0-90e2-88b18c66526b",
     question_text:
       "Ben is in seat 4 in a row numbered 1 to 5 from left to right. Write Ben's position in words. Answer: ____.",
-    explanation:
-      "Seat 4 means Ben is in the fourth position in the row.",
+    explanation: "Seat 4 means Ben is in the fourth position in the row.",
     answer: "fourth",
     distractors: ["fifth", "first", "second"],
   },
@@ -175,7 +172,8 @@ const updates = [
   },
   {
     id: "f03c5c2a-c53f-4a47-b0bb-2d5223fdbcb9",
-    question_text: "Write the sample space for flipping one coin. Answer: ____.",
+    question_text:
+      "Write the sample space for flipping one coin. Answer: ____.",
     explanation:
       "A single coin has exactly two possible outcomes: heads (H) or tails (T), so the sample space is {H, T}.",
     answer: "{H, T}",
@@ -206,7 +204,11 @@ const updates = [
     explanation:
       "The even numbers from 2 to 10 are 2, 4, 6, 8, and 10, so the roster form is {2, 4, 6, 8, 10}.",
     answer: "{2, 4, 6, 8, 10}",
-    distractors: ["{0, 2, 4, 6, 8, 10}", "{1, 3, 5, 7, 9}", "{2, 3, 4, 5, 6, 7, 8, 9, 10}"],
+    distractors: [
+      "{0, 2, 4, 6, 8, 10}",
+      "{1, 3, 5, 7, 9}",
+      "{2, 3, 4, 5, 6, 7, 8, 9, 10}",
+    ],
   },
   {
     id: "5079a603-d33f-4ecc-83f7-cea2c0115ab5",
@@ -247,8 +249,7 @@ const updates = [
     id: "d6bd7f8c-2181-4904-a0ef-3b64e7191726",
     question_text:
       "Calculate 234 / 9 using the Vedic division shortcut. Answer: ____.",
-    explanation:
-      "234 / 9 = 26 because 9 x 26 = 234.",
+    explanation: "234 / 9 = 26 because 9 x 26 = 234.",
     answer: "26",
     distractors: ["24", "28", "29"],
   },

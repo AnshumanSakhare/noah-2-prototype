@@ -18,13 +18,15 @@ import {
   useState,
   useTransition,
 } from "react";
-
+import type { DiagnosticReport } from "../agents/diagnostic/types/index";
+import type {
+  CreateSessionInput,
+  DemoLoadedQuiz,
+  DemoQuizCatalog,
+  DemoQuizCatalogEntry,
+} from "../lib/demo-types";
 import {
   AIChatBubble,
-  QuestionInput,
-  ResultTabs,
-  TOAST_CONFIGS,
-  TOAST_TRIGGERS,
   buildDefaultForm,
   classLabel,
   classNum,
@@ -34,19 +36,15 @@ import {
   getQuestionTimeLimitMs,
   loadQuiz,
   loadRecurringQuiz,
+  QuestionInput,
+  ResultTabs,
   submitQuiz,
+  TOAST_CONFIGS,
+  TOAST_TRIGGERS,
   toErrorMessage,
   toRomanNumeral,
 } from "./diagnostic-demo";
 import { MultiStageLoadingScreen } from "./loading-screen";
-
-import type { DiagnosticReport } from "../agents/diagnostic/types/index";
-import type {
-  CreateSessionInput,
-  DemoLoadedQuiz,
-  DemoQuizCatalog,
-  DemoQuizCatalogEntry,
-} from "../lib/demo-types";
 
 const PLACEMENT_EXCLUDED_CLASS_LEVELS = new Set([
   "classKG",
@@ -63,8 +61,7 @@ type StudentSetup = {
 
 const PLACEMENT_3D_CARD_STYLE = {
   border: "2px solid rgba(46,196,182,0.25)",
-  boxShadow:
-    "0 6px 0 rgba(46,196,182,0.18), 0 4px 14px rgba(26,26,46,0.06)",
+  boxShadow: "0 6px 0 rgba(46,196,182,0.18), 0 4px 14px rgba(26,26,46,0.06)",
 } as const;
 
 const PLACEMENT_BUTTON_3D =
@@ -203,7 +200,8 @@ function PlacementGradeStartScreen({
           <div className="text-[13px] sm:text-[14px] leading-relaxed text-[#1B4A4A] font-semibold">
             This short test covers the 3 core math areas and mixes in questions
             from the previous grade so you&apos;ll know if your child is truly
-            ready for what&apos;s ahead, or quietly missing something from before.
+            ready for what&apos;s ahead, or quietly missing something from
+            before.
           </div>
         </div>
 
@@ -267,8 +265,7 @@ export function PlacementDemo({
   const initialClassLevel = (visibleQuizCatalog.entries[0]?.classLevel ??
     "class6") as CreateSessionInput["classLevel"];
 
-  const [appScreen, setAppScreen] =
-    useState<PlacementScreen>("student-info");
+  const [appScreen, setAppScreen] = useState<PlacementScreen>("student-info");
   const [studentSetup, setStudentSetup] = useState<StudentSetup>({
     studentId: "Riya Sharma",
     classLevel: initialClassLevel,
@@ -664,9 +661,7 @@ export function PlacementDemo({
                   </div>
                   <div className="font-mono text-[13px] font-extrabold text-[#1B4A4A] sm:text-[22px]">
                     {(() => {
-                      const totalSeconds = Math.floor(
-                        questionElapsedMs / 1000,
-                      );
+                      const totalSeconds = Math.floor(questionElapsedMs / 1000);
                       if (totalSeconds < 60) return `${totalSeconds}s`;
                       const m = Math.floor(totalSeconds / 60);
                       const s = totalSeconds % 60;

@@ -4,9 +4,16 @@ const { Pool } = require("pg");
 
 const ROOT = process.cwd();
 const ISSUES_PATH = path.join(ROOT, "scratch", "grade6-audit", "issues.json");
-const OUT_PATH = path.join(ROOT, "scratch", "grade6-audit", "flagged-rows.json");
+const OUT_PATH = path.join(
+  ROOT,
+  "scratch",
+  "grade6-audit",
+  "flagged-rows.json",
+);
 
-for (const line of fs.readFileSync(path.join(ROOT, ".env.local"), "utf8").split(/\r?\n/)) {
+for (const line of fs
+  .readFileSync(path.join(ROOT, ".env.local"), "utf8")
+  .split(/\r?\n/)) {
   const trimmed = line.trim();
   if (!trimmed || trimmed.startsWith("#")) continue;
   const i = trimmed.indexOf("=");

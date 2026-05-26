@@ -1,6 +1,6 @@
-import { Pool } from "pg";
 import * as fs from "fs";
 import * as path from "path";
+import { Pool } from "pg";
 
 // Manually parse .env.local
 function loadEnvLocal() {

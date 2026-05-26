@@ -40,8 +40,7 @@ const updates = [
   {
     id: "4202d7b0-9cec-427c-8e30-ef2b98e7cdd4",
     question_text: "Evaluate 2y - 1 when y = 6. Answer: ____.",
-    explanation:
-      "Substitute y = 6 into 2y - 1: 2(6) - 1 = 12 - 1 = 11.",
+    explanation: "Substitute y = 6 into 2y - 1: 2(6) - 1 = 12 - 1 = 11.",
     answer: "11",
     distractors: ["5", "7", "12"],
   },
@@ -83,8 +82,7 @@ const updates = [
     id: "05ba2ac1-a87a-4a14-a3f8-93a9aa824a95",
     question_text:
       "Write the prime factorisation of 18 in index notation. Answer: ____.",
-    explanation:
-      "18 = 2 x 3 x 3, which is 2 x 3^2 in index notation.",
+    explanation: "18 = 2 x 3 x 3, which is 2 x 3^2 in index notation.",
     answer: "2 x 3^2",
     distractors: ["1 x 18", "2^2 x 3", "6 x 3"],
   },
@@ -141,12 +139,15 @@ const updates = [
   },
   {
     id: "024a1a13-4708-48b8-bf8b-c09a9c33b90c",
-    question_text:
-      "Write the numbers that integers include. Answer: ____.",
+    question_text: "Write the numbers that integers include. Answer: ____.",
     explanation:
       "Integers are the set of whole numbers and their negatives, including 0.",
     answer: "negative numbers, 0, and positive whole numbers",
-    distractors: ["fractions and decimals", "only counting numbers", "only negative numbers"],
+    distractors: [
+      "fractions and decimals",
+      "only counting numbers",
+      "only negative numbers",
+    ],
   },
   {
     id: "a79f18ea-fe45-41ee-833d-1d05d96d8b66",
@@ -167,8 +168,7 @@ const updates = [
   },
   {
     id: "15a651cb-4980-424f-b3bf-5f12028b864a",
-    question_text:
-      "Does y = 14 satisfy the equation y - 6 = 8? Answer: ____.",
+    question_text: "Does y = 14 satisfy the equation y - 6 = 8? Answer: ____.",
     explanation:
       "Substitute y = 14 into y - 6 = 8. This gives 14 - 6 = 8, which is true, so y = 14 satisfies the equation.",
     answer: "yes",
@@ -234,13 +234,16 @@ const updates = [
     explanation:
       "A set is a well-defined collection of objects. Sets can contain numbers, letters, shapes, or other clearly chosen objects.",
     answer: "a well-defined collection of objects",
-    distractors: ["a collection that must contain only numbers", "a group that cannot be written with braces", "a collection that must have at least 10 elements"],
+    distractors: [
+      "a collection that must contain only numbers",
+      "a group that cannot be written with braces",
+      "a collection that must have at least 10 elements",
+    ],
   },
   {
     id: "f0e416bc-fa2a-4312-8416-e2a8de3adb17",
     question_text: "How many elements are in the empty set? Answer: ____.",
-    explanation:
-      "The empty set has no elements. It is written as {} or ∅.",
+    explanation: "The empty set has no elements. It is written as {} or ∅.",
     answer: "0",
     distractors: ["1", "{0}", "cannot be determined"],
   },
@@ -263,12 +266,15 @@ const updates = [
   },
   {
     id: "bc23b06f-6e3d-4d41-a19f-a7dc7ed39db4",
-    question_text:
-      "What is the median of a set of numbers? Answer: ____.",
+    question_text: "What is the median of a set of numbers? Answer: ____.",
     explanation:
       "The median is the middle value when the data is arranged in order.",
     answer: "the middle value in order",
-    distractors: ["the largest number", "the most common value", "the difference between largest and smallest"],
+    distractors: [
+      "the largest number",
+      "the most common value",
+      "the difference between largest and smallest",
+    ],
   },
   {
     id: "44ca6681-443c-4ec5-bdd2-b3c4809d3612",
@@ -280,10 +286,8 @@ const updates = [
   },
   {
     id: "574f5422-b728-4dfd-a74c-a8c73bb1c79d",
-    question_text:
-      "Calculate 121 / 11 using a Vedic shortcut. Answer: ____.",
-    explanation:
-      "121 divided by 11 equals 11, since 11 x 11 = 121.",
+    question_text: "Calculate 121 / 11 using a Vedic shortcut. Answer: ____.",
+    explanation: "121 divided by 11 equals 11, since 11 x 11 = 121.",
     answer: "11",
     distractors: ["9", "10", "12"],
   },

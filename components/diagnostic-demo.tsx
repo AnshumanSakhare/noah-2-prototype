@@ -14,8 +14,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type React from "react";
-import { MultiStageLoadingScreen } from "./loading-screen";
-import { PlacementTopicInsightsSection } from "./placement-result-view";
 import {
   useCallback,
   useEffect,
@@ -24,7 +22,6 @@ import {
   useState,
   useTransition,
 } from "react";
-
 import type {
   DiagnosticReport,
   DragDropQuestionPayload,
@@ -44,6 +41,8 @@ import {
   getGradeTestPlan,
   getTopicTestQuestionCount,
 } from "../lib/quiz-counts";
+import { MultiStageLoadingScreen } from "./loading-screen";
+import { PlacementTopicInsightsSection } from "./placement-result-view";
 
 const OPTION_LABELS = ["A", "B", "C", "D"] as const;
 
@@ -1555,7 +1554,10 @@ function TopicStartScreen({
               className="h-12 w-full appearance-none rounded-[14px] border border-gray-200 bg-[#F8F9FA] px-4 pr-11 text-[15px] font-semibold text-[#1a1a1a] outline-none transition-all focus:border-[#2EC4B6] focus:bg-white focus:ring-4 focus:ring-[#2EC4B6]/10 disabled:opacity-60"
             >
               {topicEntries.map((entry) => (
-                <option key={`${entry.subject}-${entry.classLevel}-${entry.topic}`} value={entry.topic}>
+                <option
+                  key={`${entry.subject}-${entry.classLevel}-${entry.topic}`}
+                  value={entry.topic}
+                >
                   {entry.topic}
                 </option>
               ))}
@@ -4383,9 +4385,6 @@ export function DiagnosticDemo({
     >
   >({});
   const [error, setError] = useState<string | null>(null);
-  const [devCorrectAnswers, setDevCorrectAnswers] = useState<
-    Record<string, string>
-  >({});
   const [pendingAction, setPendingAction] = useState<"load" | "submit" | null>(
     null,
   );
@@ -4524,35 +4523,6 @@ export function DiagnosticDemo({
     return () => window.clearInterval(timer);
   }, [currentQuestion, quiz]);
 
-  const fetchDevAnswers = useCallback(async (loadedQuiz: DemoLoadedQuiz) => {
-    try {
-      const res = await fetch("/api/quiz/dev-answers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questionIds: loadedQuiz.questions.map((q) => q.id),
-          subject: loadedQuiz.subject,
-          classLevel: loadedQuiz.classLevel,
-          topic: loadedQuiz.topic,
-          testMode: loadedQuiz.testMode,
-        }),
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as { answers?: Record<string, string> };
-      setDevCorrectAnswers(data.answers ?? {});
-    } catch {
-      setDevCorrectAnswers({});
-    }
-  }, []);
-
-  const fillCorrectAnswer = useCallback(() => {
-    const q = quizRef.current?.questions[currentIndexRef.current];
-    if (!q) return;
-    const correct = devCorrectAnswers[q.id];
-    if (correct === undefined) return;
-    setCurrentAnswer(correct);
-  }, [devCorrectAnswers]);
-
   const answerAllRandomly = useCallback(() => {
     const activeQuiz = quizRef.current;
     if (!activeQuiz || isBusy) return;
@@ -4618,7 +4588,6 @@ export function DiagnosticDemo({
           setQuestionElapsedMs(0);
           setResponseMeta({});
           setCurrentAnswer("");
-          void fetchDevAnswers(loadedQuiz);
         } catch (err) {
           setError(toErrorMessage(err));
         } finally {
@@ -4648,7 +4617,6 @@ export function DiagnosticDemo({
             setQuestionElapsedMs(0);
             setResponseMeta({});
             setCurrentAnswer("");
-            void fetchDevAnswers(recurringQuiz);
           } catch (err) {
             setError(toErrorMessage(err));
           } finally {
@@ -5169,19 +5137,7 @@ export function DiagnosticDemo({
                 </div>
 
                 {/* Next button */}
-                <div className="flex items-center justify-between gap-3 border-t border-[rgba(0,0,0,0.08)] px-4 py-4 sm:px-7">
-                  <button
-                    type="button"
-                    onClick={fillCorrectAnswer}
-                    disabled={
-                      isBusy ||
-                      devCorrectAnswers[currentQuestion.id] === undefined
-                    }
-                    title="Dev: fill the correct answer"
-                    className="rounded-full border border-dashed border-[#9333EA]/40 bg-[#F5F3FF] px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-wider text-[#7C3AED] transition hover:bg-[#EDE9FE] disabled:opacity-40"
-                  >
-                    🪄 Fill correct
-                  </button>
+                <div className="flex items-center justify-end gap-3 border-t border-[rgba(0,0,0,0.08)] px-4 py-4 sm:px-7">
                   <button
                     onClick={() => advanceRef.current(currentAnswer)}
                     disabled={!canSubmitCurrent || isBusy}

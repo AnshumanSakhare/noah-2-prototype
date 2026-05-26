@@ -29,7 +29,7 @@ function deriveCorrectAnswer(question: QuestionBankQuestion): string {
       const payload = question.payload as McqQuestionPayload | undefined;
       const correctIndex =
         payload?.options?.findIndex((option) => option.correct) ?? -1;
-      return correctIndex >= 0 ? OPTION_LABELS[correctIndex] ?? "" : "";
+      return correctIndex >= 0 ? (OPTION_LABELS[correctIndex] ?? "") : "";
     }
     case "true_false": {
       const payload = question.payload as TrueFalseQuestionPayload | undefined;
@@ -56,13 +56,20 @@ function deriveCorrectAnswer(question: QuestionBankQuestion): string {
       return JSON.stringify(map);
     }
     case "short_answer": {
-      const payload = question.payload as ShortAnswerQuestionPayload | undefined;
+      const payload = question.payload as
+        | ShortAnswerQuestionPayload
+        | undefined;
       return (
-        payload?.modelAnswer ?? question.modelAnswer ?? question.correctAnswer ?? ""
+        payload?.modelAnswer ??
+        question.modelAnswer ??
+        question.correctAnswer ??
+        ""
       );
     }
     case "word_problem": {
-      const payload = question.payload as WordProblemQuestionPayload | undefined;
+      const payload = question.payload as
+        | WordProblemQuestionPayload
+        | undefined;
       return payload?.finalAnswer ?? question.correctAnswer ?? "";
     }
     case "open_response": {
@@ -87,11 +94,7 @@ export async function POST(request: Request) {
     };
 
     const questionIds = (body.questionIds ?? []).filter(Boolean);
-    if (
-      questionIds.length === 0 ||
-      !body.subject ||
-      !body.classLevel
-    ) {
+    if (questionIds.length === 0 || !body.subject || !body.classLevel) {
       return NextResponse.json({ answers: {} });
     }
 

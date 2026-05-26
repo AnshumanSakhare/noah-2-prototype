@@ -68,7 +68,7 @@ const TOPIC_STANDARDIZATION_MAP: Record<string, Record<string, string[]>> = {
       "Geometry",
       "triangle properties",
       "Triangles",
-      "Properties of Quadrilaterals"
+      "Properties of Quadrilaterals",
     ],
     "Geometric Constructions": [
       "angles",
@@ -79,47 +79,44 @@ const TOPIC_STANDARDIZATION_MAP: Record<string, Record<string, string[]>> = {
       "Lines and segments",
       "transformations",
       "Transformations",
-      "Geometric Constructions"
+      "Geometric Constructions",
     ],
     "Perimeter, Area & Volume": [
       "2D shapes",
       "perimeter and area",
       "Perimeter and area",
-      "Perimeter, Area & Volume"
+      "Perimeter, Area & Volume",
     ],
-    "3D Shapes & Mensuration": [
-      "3D shapes",
-      "3D Shapes & Mensuration"
-    ]
+    "3D Shapes & Mensuration": ["3D shapes", "3D Shapes & Mensuration"],
   },
   class7: {
-    "Circle Geometry": [
-      "Geometry",
-      "Circle Geometry"
-    ]
+    "Circle Geometry": ["Geometry", "Circle Geometry"],
   },
   class5: {
-    "2D & 3D Geometry": [
-      "2D &3D Geometry",
-      "2D & 3D Geometry"
-    ]
-  }
+    "2D & 3D Geometry": ["2D &3D Geometry", "2D & 3D Geometry"],
+  },
 };
 
-export function getStandardizedTopicName(classLevel: string, rawTopic: string): string {
+export function getStandardizedTopicName(
+  classLevel: string,
+  rawTopic: string,
+): string {
   const normRaw = rawTopic.trim();
   const classMap = TOPIC_STANDARDIZATION_MAP[classLevel];
   if (!classMap) return normRaw;
 
   for (const [standardized, rawList] of Object.entries(classMap)) {
-    if (rawList.some(r => r.toLowerCase().trim() === normRaw.toLowerCase())) {
+    if (rawList.some((r) => r.toLowerCase().trim() === normRaw.toLowerCase())) {
       return standardized;
     }
   }
   return normRaw;
 }
 
-export function getRawTopicNames(classLevel: string, standardizedTopic: string): string[] {
+export function getRawTopicNames(
+  classLevel: string,
+  standardizedTopic: string,
+): string[] {
   const normStd = standardizedTopic.trim();
   const classMap = TOPIC_STANDARDIZATION_MAP[classLevel];
   if (!classMap) return [normStd];
@@ -691,14 +688,15 @@ async function getPreviouslyAnsweredQuestionIds(input: {
   if (!normalizedStudentName) return new Set<string>();
 
   try {
-    const rawTopics = input.testMode === "topic" && input.topic
-      ? Array.from(
-          new Set([
-            normalizeText(input.topic),
-            ...getRawTopicNames(input.classLevel, input.topic),
-          ]),
-        )
-      : null;
+    const rawTopics =
+      input.testMode === "topic" && input.topic
+        ? Array.from(
+            new Set([
+              normalizeText(input.topic),
+              ...getRawTopicNames(input.classLevel, input.topic),
+            ]),
+          )
+        : null;
 
     const result = await query(
       `
@@ -1212,7 +1210,8 @@ function selectQuestionsAcrossLearningObjectives(
   };
 
   // Distribute any remainder to easy, then medium
-  let remainder = requestedTotal - (targets.easy + targets.medium + targets.hard);
+  let remainder =
+    requestedTotal - (targets.easy + targets.medium + targets.hard);
   if (remainder > 0) {
     targets.easy += 1;
     remainder -= 1;

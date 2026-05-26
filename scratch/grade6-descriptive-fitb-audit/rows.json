@@ -1,50 +1,17 @@
 {
   "total": 27,
   "byTopic": [
-    [
-      "Algebraic Expressions",
-      3
-    ],
-    [
-      "Area, Perimeter & Surface Area",
-      4
-    ],
-    [
-      "Factors, Multiples & Exponents",
-      2
-    ],
-    [
-      "Fractions & Decimals",
-      3
-    ],
-    [
-      "Integers & Operations",
-      1
-    ],
-    [
-      "Introduction to Algebra",
-      2
-    ],
-    [
-      "Logical Reasoning",
-      1
-    ],
-    [
-      "Probability: Events & Outcomes",
-      3
-    ],
-    [
-      "Set Theory",
-      3
-    ],
-    [
-      "Statistics & Measures of Average",
-      3
-    ],
-    [
-      "Vedic Mathematics",
-      2
-    ]
+    ["Algebraic Expressions", 3],
+    ["Area, Perimeter & Surface Area", 4],
+    ["Factors, Multiples & Exponents", 2],
+    ["Fractions & Decimals", 3],
+    ["Integers & Operations", 1],
+    ["Introduction to Algebra", 2],
+    ["Logical Reasoning", 1],
+    ["Probability: Events & Outcomes", 3],
+    ["Set Theory", 3],
+    ["Statistics & Measures of Average", 3],
+    ["Vedic Mathematics", 2]
   ],
   "rows": [
     {

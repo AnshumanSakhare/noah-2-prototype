@@ -1,7 +1,7 @@
 import { getDiagnosticQuizCatalog } from "../agents/diagnostic/tools/contentQuiz";
 import {
-  DiagnosticDemo,
   type AssessmentKind,
+  DiagnosticDemo,
 } from "../components/diagnostic-demo";
 import { DIAGNOSTIC_CONTENT_DEFAULTS } from "../lib/diagnostic-content-defaults";
 

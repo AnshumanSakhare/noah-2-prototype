@@ -1,6 +1,6 @@
-import { Client } from "pg";
 import * as dotenv from "dotenv";
 import * as path from "path";
+import { Client } from "pg";
 
 // Load .env.local
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
@@ -30,20 +30,25 @@ async function fixConstraints() {
       WHERE conrelid = 'public.diagnostic_assessments'::regclass
         AND contype = 'c';
     `);
-    
-    console.log("Current constraints found:", constraintsRes.rows.map(r => r.conname));
+
+    console.log(
+      "Current constraints found:",
+      constraintsRes.rows.map((r) => r.conname),
+    );
 
     // Drop any constraints that might be blocking us
     const constraintsToDrop = [
       "diagnostic_assessments_topic_mode_check",
       "diagnostic_assessments_test_mode_check",
       "diagnostic_assessments_topic_check",
-      "diagnostic_assessments_mode_check"
+      "diagnostic_assessments_mode_check",
     ];
 
     for (const constraint of constraintsToDrop) {
       console.log(`Dropping constraint if exists: ${constraint}...`);
-      await client.query(`ALTER TABLE public.diagnostic_assessments DROP CONSTRAINT IF EXISTS ${constraint}`);
+      await client.query(
+        `ALTER TABLE public.diagnostic_assessments DROP CONSTRAINT IF EXISTS ${constraint}`,
+      );
     }
 
     // Add updated constraints
@@ -66,7 +71,6 @@ async function fixConstraints() {
     `);
 
     console.log("✅ Database constraints updated successfully!");
-
   } catch (error) {
     console.error("❌ Error fixing constraints:", error);
   } finally {

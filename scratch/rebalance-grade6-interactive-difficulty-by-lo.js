@@ -90,7 +90,9 @@ async function main() {
   const assignments = [];
   for (const [key, rows] of groups.entries()) {
     if (rows.length !== 3) {
-      throw new Error(`Expected 3 interactive rows per LO, found ${rows.length} for ${key}`);
+      throw new Error(
+        `Expected 3 interactive rows per LO, found ${rows.length} for ${key}`,
+      );
     }
 
     const ranked = [...rows]

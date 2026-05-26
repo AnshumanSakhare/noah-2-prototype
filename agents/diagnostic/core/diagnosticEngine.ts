@@ -22,7 +22,10 @@ export function colorForStatus(status: TopicMasteryStatus): TopicColor {
 export function buildLessonPlan(topicResults: TopicResult[]): LessonPlanGroup {
   return {
     teachFirst: topicResults
-      .filter((topic) => topic.status === "needs_teaching" || topic.status === "likely_weak")
+      .filter(
+        (topic) =>
+          topic.status === "needs_teaching" || topic.status === "likely_weak",
+      )
       .map((topic) => topic.topic),
     reinforceSoon: topicResults
       .filter((topic) => topic.status === "partial")

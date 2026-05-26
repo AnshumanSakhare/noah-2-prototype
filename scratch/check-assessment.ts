@@ -1,6 +1,6 @@
-import { Client } from "pg";
 import * as dotenv from "dotenv";
 import * as path from "path";
+import { Client } from "pg";
 
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 
@@ -25,8 +25,21 @@ async function check() {
     `);
 
     if (res.rows[0]) {
-      console.log("TOPIC RESULTS:", JSON.stringify(res.rows[0].topic_results, null, 2));
-      console.log("LO RESULTS:", JSON.stringify(res.rows[0].learning_objective_results.map((l: any) => ({ lo: l.learningObjective, score: l.score })), null, 2));
+      console.log(
+        "TOPIC RESULTS:",
+        JSON.stringify(res.rows[0].topic_results, null, 2),
+      );
+      console.log(
+        "LO RESULTS:",
+        JSON.stringify(
+          res.rows[0].learning_objective_results.map((l: any) => ({
+            lo: l.learningObjective,
+            score: l.score,
+          })),
+          null,
+          2,
+        ),
+      );
     } else {
       console.log("No grade test found.");
     }
