@@ -198,6 +198,15 @@ function PlacementGradeStartScreen({
           readiness across the grade.
         </p>
 
+        <div className="mb-6 rounded-[14px] border border-[#2EC4B6]/30 bg-[#E6F8F6]/50 p-4 flex gap-3 items-start">
+          <Sparkles className="h-5 w-5 shrink-0 text-[#2EC4B6] mt-0.5" />
+          <div className="text-[13px] sm:text-[14px] leading-relaxed text-[#1B4A4A] font-semibold">
+            This short test covers the 3 core math areas and mixes in questions
+            from the previous grade so you&apos;ll know if your child is truly
+            ready for what&apos;s ahead, or quietly missing something from before.
+          </div>
+        </div>
+
         <div className="mb-7 grid gap-3 sm:grid-cols-3">
           {[
             { label: "Questions", value: String(questionCount) },
