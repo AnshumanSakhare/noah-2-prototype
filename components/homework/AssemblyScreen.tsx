@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useHomework } from './context';
 import { students } from '../../data/students';
 import { learningOutcomes } from '../../data/topics';
+import { Sparkles } from 'lucide-react';
 
 interface AssemblyScreenProps {
   onComplete: () => void;
@@ -38,7 +39,7 @@ export const AssemblyScreen: React.FC<AssemblyScreenProps> = ({ onComplete }) =>
       label: 'Interleaving content and questions topic by topic'
     },
     {
-      status: '✨ Your homework is ready!',
+      status: 'Your homework is ready!',
       label: 'Interactive journey assembled'
     }
   ];
@@ -59,10 +60,9 @@ export const AssemblyScreen: React.FC<AssemblyScreenProps> = ({ onComplete }) =>
 
   return (
     <div className="assembly-screen show" id="assemblyScreen">
-      <div className="assembly-orb">🪄</div>
       <h2>Assembling your homework…</h2>
       <div className="assembly-status" style={{ minHeight: '1.4em', transition: 'opacity .3s' }}>
-        {activeStep < steps.length ? steps[activeStep].status : '✨ Assembled!'}
+        {activeStep < steps.length ? steps[activeStep].status : 'Assembled!'}
       </div>
       
       <div className="assembly-log" id="assemblyLog">

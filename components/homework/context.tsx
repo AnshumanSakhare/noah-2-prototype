@@ -416,7 +416,11 @@ export const HomeworkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const selected = assignments.find(a => a.id === id);
     if (selected) {
       setActiveAssignmentId(id);
-      setHomeworkSteps(selected.steps);
+      // Filter out redundant slides to keep total cards under 12
+      const filteredSteps = selected.steps.filter(
+        step => !['topic-intro', 'topic-complete', 'flashcard'].includes(step.type)
+      );
+      setHomeworkSteps(filteredSteps);
       resetHomework();
     }
   };

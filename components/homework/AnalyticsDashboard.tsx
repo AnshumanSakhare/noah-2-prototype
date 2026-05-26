@@ -124,9 +124,8 @@ export const AnalyticsDashboard: React.FC = () => {
   return (
     <div className="analytics-dashboard saas-dashboard-wrapper">
       <div className="ad-header">
-        <Activity size={20} className="text-indigo animate-pulse" />
+        <Activity size={20} className="text-indigo" />
         <h2 style={{ margin: 0 }}>Class Accuracy &amp; AI Misconception Alerts</h2>
-        <span className="ad-badge saas-badge">Real-Time</span>
       </div>
       
       <div className="analytics-grid">
@@ -172,11 +171,13 @@ export const AnalyticsDashboard: React.FC = () => {
                             key={idx} 
                             className={`db-item ${q.correct ? 'correct' : 'wrong'}`}
                           >
-                            <span className="db-item-icon">
-                              {q.correct ? <CheckCircle2 size={12} className="text-correct" /> : <XCircle size={12} className="text-wrong" />}
-                            </span>
-                            <span className="db-q">{q.q}</span>
-                            <span className="db-meta">{q.meta}</span>
+                            <div className="db-item-header">
+                              <span className="db-item-icon">
+                                {q.correct ? <CheckCircle2 size={12} className="text-correct" /> : <XCircle size={12} className="text-wrong" />}
+                              </span>
+                              <span className="db-q">{q.q}</span>
+                            </div>
+                            <div className="db-meta">{q.meta}</div>
                           </div>
                         ))}
                       </div>
@@ -194,23 +195,23 @@ export const AnalyticsDashboard: React.FC = () => {
         
         {/* Right: Misconception Panels */}
         <div className="misconception-panel">
-          <h4 className="saas-section-title text-orange">
+          <h4 className="saas-section-title text-red">
             <AlertCircle size={14} style={{ marginRight: '6px' }} />
             Critical Misconception Hotspots
           </h4>
           
           {/* Misconception 1 */}
-          <div className="misconception-card saas-alert-card border-orange">
+          <div className="misconception-card saas-alert-card">
             <div className="mc-head">
-              <AlertCircle size={16} className="text-orange" />
+              <AlertCircle size={16} className="text-red" />
               <span className="mc-topic">Newton's First Law vs Third Law</span>
-              <span className="mc-alert-tag badge-danger">High Alert</span>
+              <span className="mc-alert-tag">High Alert</span>
             </div>
             <div className="mc-statement">
               <strong>6 students</strong> confusing inertia (First Law - objects resisting acceleration) with action-reaction force pairs (Third Law).
             </div>
             <div className="mc-action saas-tip-box">
-              <Lightbulb size={16} className="text-orange flex-shrink-0" />
+              <Lightbulb size={16} className="text-red flex-shrink-0" />
               <div>
                 <strong>Actionable Teaching Tip:</strong> Open tomorrow's class with a physical demo. Ask: <em>"Why do you lurch forward when a skateboard hits a curb?"</em> Focus on body inertia rather than pushback force.
               </div>
@@ -218,17 +219,17 @@ export const AnalyticsDashboard: React.FC = () => {
           </div>
 
           {/* Misconception 2 */}
-          <div className="misconception-card mild saas-alert-card border-yellow">
+          <div className="misconception-card mild saas-alert-card">
             <div className="mc-head">
-              <Search size={16} className="text-amber" />
+              <Search size={16} className="text-teal" />
               <span className="mc-topic">F = ma Algebraic Rearrangement</span>
-              <span className="mc-alert-tag badge-warning">Mild Nudge</span>
+              <span className="mc-alert-tag">Mild Nudge</span>
             </div>
             <div className="mc-statement" style={{ color: 'var(--text)' }}>
               <strong>4 students</strong> multiplied force by mass (<code style={{ background: 'rgba(0,0,0,0.05)', padding: '2px 4px', borderRadius: '4px' }}>a = F * m</code>) instead of dividing (<code style={{ background: 'rgba(0,0,0,0.05)', padding: '2px 4px', borderRadius: '4px' }}>a = F / m</code>).
             </div>
             <div className="mc-action saas-tip-box">
-              <Sparkles size={16} className="text-amber flex-shrink-0" />
+              <Sparkles size={16} className="text-teal flex-shrink-0" />
               <div>
                 <strong>Actionable Teaching Tip:</strong> Write the triangular cover-and-solve F-m-a widget on the whiteboard. Host three 1-minute quick calculation runs.
               </div>

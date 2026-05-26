@@ -74,7 +74,7 @@ export const PreviewScreen: React.FC<PreviewScreenProps> = ({ onBack, onPreviewS
   const getStepIcon = (s: HomeworkStep) => {
     if (s.type === 'topic-intro') return <Award size={16} className="text-indigo" />;
     if (s.type === 'topic-complete') return <CheckCircle2 size={16} className="text-correct" />;
-    if (s.isQuestion) return <HelpCircle size={16} className="text-orange" />;
+    if (s.isQuestion) return <HelpCircle size={16} className="text-indigo" />;
     return <BookOpen size={16} className="text-violet" />;
   };
 
@@ -97,7 +97,7 @@ export const PreviewScreen: React.FC<PreviewScreenProps> = ({ onBack, onPreviewS
         <div className="pb-actions">
           <button className="nav-btn secondary" onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <ChevronLeft size={16} />
-            Edit Recipe
+            Edit Homework
           </button>
           <button className="nav-btn primary" onClick={onPreviewStudent} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <Eye size={16} />

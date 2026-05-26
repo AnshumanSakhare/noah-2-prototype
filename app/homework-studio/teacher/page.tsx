@@ -109,18 +109,7 @@ export default function TeacherPage() {
         });
       } else {
         // Interleaved layout:
-        // A. Add Topic Intro Step
-        steps.push({
-          type: 'topic-intro',
-          topic: tId,
-          lo,
-          isQuestion: false,
-          topicIdx: tIdx,
-          totalTopics: selectedTopics.length,
-          motivational: content.motivational
-        });
-
-        // B. Add Study recap notebook step
+        // A. Add Study recap step (with animations/sandboxes)
         steps.push({
           type: 'recap',
           topic: tId,
@@ -129,23 +118,7 @@ export default function TeacherPage() {
           content: content.recap
         });
 
-        // C. Interleave Flashcard and Questions
-        // Add flashcard
-        steps.push({
-          type: 'flashcard',
-          topic: tId,
-          lo,
-          isQuestion: false,
-          content: {
-            title: content.recap.title,
-            sub: 'Concept self-test card',
-            text: '',
-            front: content.flashcard.front,
-            back: content.flashcard.back
-          }
-        });
-
-        // Add questions for this topic
+        // B. Add questions for this topic
         qs.forEach(q => {
           steps.push({
             type: q.type,
@@ -164,17 +137,6 @@ export default function TeacherPage() {
             wordBank: q.type === 'blanks' ? q.wordBank : undefined,
             pairs: q.type === 'drag' ? q.pairs : undefined,
           });
-        });
-
-        // D. Add Topic Complete Step
-        steps.push({
-          type: 'topic-complete',
-          topic: tId,
-          lo,
-          isQuestion: false,
-          topicIdx: tIdx,
-          totalTopics: selectedTopics.length,
-          isLast: tIdx === selectedTopics.length - 1
         });
       }
     });

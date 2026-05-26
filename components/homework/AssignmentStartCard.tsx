@@ -30,10 +30,7 @@ export const AssignmentStartCard: React.FC<AssignmentStartCardProps> = ({ onStar
       <div className="assign-card">
         <span className="assign-from">📌 Assigned by Ms. Rao</span>
         <h2>Tonight's Homework</h2>
-        <p className="assign-sub">
-          An interactive journey through your topics. Take your time — there's no clock and no pass/fail. You'll get recaps, flashcards and fun activities mixed in with the questions.
-        </p>
-        <div className="assign-meta">
+        <div className="assign-meta" style={{ margin: '14px 0 22px' }}>
           <span>📚 {usedTopics.length || builderState.topics.length} topics</span>
           <span>❓ {qCount} questions</span>
           <span style={{ textTransform: 'capitalize' }}>🎚️ {builderState.diff}</span>
@@ -43,11 +40,11 @@ export const AssignmentStartCard: React.FC<AssignmentStartCardProps> = ({ onStar
         <div className="checklist-preview">
           <h4>What you'll work through</h4>
           <div id="checklistPreview">
-            {usedLearningOutcomes.map(lo => {
+            {usedLearningOutcomes.map((lo, idx) => {
               const qNum = topicQuestionCounts[lo.id] || 0;
               return (
                 <div key={lo.id} className="cl-item">
-                  <span className="cl-check" />
+                  <span className="cl-num">{idx + 1}.</span>
                   <span>{lo.name}</span>
                   <span className="cl-topic-q">
                     {qNum} Q {builderState.format !== 'questions' ? '· recap · flash' : ''}
