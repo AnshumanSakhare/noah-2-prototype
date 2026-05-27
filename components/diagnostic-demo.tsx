@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
+  Pin,
   RotateCcw,
   Shuffle,
   Sparkles,
@@ -3424,6 +3425,23 @@ function ReportView({
             ))}
           </div>
         </div>
+      )}
+
+      {report.mode === "placement" && (
+        <section className="rounded-[16px] border border-[#DED8FF] bg-white px-5 py-4 shadow-[0_8px_20px_rgba(77,65,180,0.06)]">
+          <p className="text-[14px] font-medium leading-6 text-[#404765]">
+            <span className="float-left mr-3 mt-0.5 grid h-9 w-9 place-items-center rounded-full bg-[#F1ECFF] text-[#6B4FD8]">
+              <Pin className="h-4 w-4" />
+            </span>
+            Based on today&apos;s placement test, we&apos;ve identified the
+            skills to work on first and the areas where focused practice can
+            make the biggest difference. Use the learning plan below as your{" "}
+            <span className="font-extrabold text-[#4B35D6]">
+              starting point
+            </span>{" "}
+            for moving up.
+          </p>
+        </section>
       )}
 
       <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
