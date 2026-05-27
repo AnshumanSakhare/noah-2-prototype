@@ -51,6 +51,7 @@ const MIN_INTERACTIVE_QUESTION_COUNTS: Record<
   fitb: 2,
   drag_drop: 1,
 };
+const GRADE_TEST_VISUAL_QUESTION_RATIO = 0.3;
 
 declare global {
   // eslint-disable-next-line no-var
@@ -642,7 +643,13 @@ async function loadGradeQuestions(input: {
           generation_metadata,
           row_number() OVER (
             PARTITION BY difficulty_level, topic
-            ORDER BY random()
+            ORDER BY
+              CASE
+                WHEN question_svg IS NOT NULL AND btrim(question_svg) <> '' THEN 0
+                WHEN lower(btrim(COALESCE(visual_mode, ''))) = 'option_svg' THEN 0
+                ELSE 1
+              END,
+              random()
           ) AS topic_difficulty_rank
         FROM final_content_questions
         WHERE subject = $1
@@ -934,6 +941,24 @@ function isInteractiveQuestion(question: QuestionBankQuestion) {
   return INTERACTIVE_QUESTION_TYPES.includes(
     question.questionType as (typeof INTERACTIVE_QUESTION_TYPES)[number],
   );
+}
+
+function isVisualQuestion(question: QuestionBankQuestion) {
+  const payload = question.payload as
+    | {
+        questionSvg?: unknown;
+        options?: Array<{ svg?: unknown }>;
+      }
+    | undefined;
+
+  return (
+    typeof payload?.questionSvg === "string" ||
+    Boolean(payload?.options?.some((option) => typeof option.svg === "string"))
+  );
+}
+
+function getGradeVisualQuestionTarget(totalQuestions: number) {
+  return Math.ceil(totalQuestions * GRADE_TEST_VISUAL_QUESTION_RATIO);
 }
 
 function buildInteractiveQueues(
@@ -1344,6 +1369,104 @@ function buildBandQueuesByTopic(questions: QuestionBankQuestion[]) {
   return grouped;
 }
 
+function takeVisualQuestionsMatchingGradeTargets(input: {
+  questions: QuestionBankQuestion[];
+  selected: QuestionBankQuestion[];
+  targets: Record<DifficultyBand, number>;
+  total: number;
+  requestedCount: number;
+}) {
+  const selectedIds = new Set(input.selected.map((question) => question.id));
+  const visualQueues = buildBandQueuesByTopic(
+    input.questions.filter(
+      (question) => isVisualQuestion(question) && !selectedIds.has(question.id),
+    ),
+  );
+  let remainingVisualCount = Math.max(
+    0,
+    input.requestedCount - input.selected.filter(isVisualQuestion).length,
+  );
+
+  for (const band of ["easy", "medium", "hard"] as const) {
+    if (remainingVisualCount <= 0 || input.selected.length >= input.total) {
+      break;
+    }
+
+    const capacityWithinDifficultyTarget = Math.max(
+      0,
+      input.targets[band] - countSelectedQuestionsByBand(input.selected, band),
+    );
+    const requested = Math.min(
+      remainingVisualCount,
+      capacityWithinDifficultyTarget,
+      input.total - input.selected.length,
+    );
+    if (requested <= 0) continue;
+
+    const picked = takeRoundRobin(
+      visualQueues.get(band) ?? new Map(),
+      requested,
+    );
+    input.selected.push(...picked);
+    remainingVisualCount -= picked.length;
+  }
+}
+
+function buildGradeFillQueueTiers(
+  questions: QuestionBankQuestion[],
+  selectedIds: Set<string>,
+) {
+  const remaining = questions.filter(
+    (question) => !selectedIds.has(question.id),
+  );
+
+  return [
+    remaining.filter(
+      (question) =>
+        !isVisualQuestion(question) && !isInteractiveQuestion(question),
+    ),
+    remaining.filter(
+      (question) =>
+        !isVisualQuestion(question) && isInteractiveQuestion(question),
+    ),
+    remaining.filter(
+      (question) =>
+        isVisualQuestion(question) && !isInteractiveQuestion(question),
+    ),
+    remaining.filter(
+      (question) =>
+        isVisualQuestion(question) && isInteractiveQuestion(question),
+    ),
+  ].map(buildBandQueuesByTopic);
+}
+
+function takeGradeFillQuestions(
+  tiers: Array<Map<DifficultyBand, Map<string, QuestionBankQuestion[]>>>,
+  band: DifficultyBand,
+  count: number,
+) {
+  const selected: QuestionBankQuestion[] = [];
+
+  for (const tier of tiers) {
+    if (selected.length >= count) break;
+    selected.push(
+      ...takeRoundRobin(tier.get(band) ?? new Map(), count - selected.length),
+    );
+  }
+
+  return selected;
+}
+
+function countGradeRemainingQuestions(
+  tiers: Array<Map<DifficultyBand, Map<string, QuestionBankQuestion[]>>>,
+  band: DifficultyBand,
+) {
+  return tiers.reduce(
+    (sum, tier) => sum + countRemainingQuestions(tier, band),
+    0,
+  );
+}
+
 function selectQuestionsForGradeTest(
   questions: QuestionBankQuestion[],
   classLevel: ClassLevel,
@@ -1370,13 +1493,18 @@ function selectQuestionsForGradeTest(
       `Requested ${interactiveTarget} fitb/drag_drop questions but only found ${selected.length}.`,
     );
   }
-  const selectedIds = new Set(selected.map((question) => question.id));
-  const fillQuestions = getFillQuestionsAfterInteractiveQuota(
+
+  const visualTarget = getGradeVisualQuestionTarget(total);
+  takeVisualQuestionsMatchingGradeTargets({
     questions,
-    selectedIds,
-    total - selected.length,
-  );
-  const grouped = buildBandQueuesByTopic(fillQuestions);
+    selected,
+    targets,
+    total,
+    requestedCount: visualTarget,
+  });
+
+  const selectedIds = new Set(selected.map((question) => question.id));
+  const fillQueueTiers = buildGradeFillQueueTiers(questions, selectedIds);
 
   for (const band of ["easy", "medium", "hard"] as const) {
     const requested = Math.min(
@@ -1385,7 +1513,7 @@ function selectQuestionsForGradeTest(
     );
     if (requested <= 0) continue;
 
-    const picked = takeRoundRobin(grouped.get(band) ?? new Map(), requested);
+    const picked = takeGradeFillQuestions(fillQueueTiers, band, requested);
     selected.push(...picked);
     if (picked.length < requested) {
       warnings.push(
@@ -1396,12 +1524,19 @@ function selectQuestionsForGradeTest(
 
   while (selected.length < total) {
     const donor = (["easy", "medium", "hard"] as const)
-      .map((b) => ({ b, n: countRemainingQuestions(grouped, b) }))
+      .map((b) => ({ b, n: countGradeRemainingQuestions(fillQueueTiers, b) }))
       .sort((a, z) => z.n - a.n)[0];
     if (!donor || donor.n === 0) break;
-    const extra = takeRoundRobin(grouped.get(donor.b) ?? new Map(), 1);
+    const extra = takeGradeFillQuestions(fillQueueTiers, donor.b, 1);
     if (!extra.length) break;
     selected.push(...extra);
+  }
+
+  const selectedVisualCount = selected.filter(isVisualQuestion).length;
+  if (selectedVisualCount < visualTarget) {
+    warnings.push(
+      `Requested ${visualTarget} visual questions within the grade difficulty targets but only selected ${selectedVisualCount}; filled remaining slots with available questions.`,
+    );
   }
 
   if (selected.length < total) {
