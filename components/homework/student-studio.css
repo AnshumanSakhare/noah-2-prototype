@@ -16,10 +16,28 @@
 }
 
 /* When student runner is active, let it manage its own layout */
+.homework-studio:has(.student-runner-layout) {
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+}
 .homework-studio:has(.student-runner-layout) .hw-layout-container {
-  max-width: 100%;
-  padding: 0;
-  margin: 0;
+  max-width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+}
+.homework-studio:has(.student-runner-layout) .hw-layout-container > main {
+  height: 100vh !important;
+  max-height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+.homework-studio:has(.student-runner-layout) #appModeBar {
+  display: none !important;
 }
 
 /* Card wrapper — Smooth page transitions */
@@ -290,15 +308,59 @@
 
 /* Physics sandbox — minimal bordered panel */
 .homework-studio .sandbox-canvas-wrapper {
-  background: #f8fafc; border: 1.5px solid #e5e7eb; border-radius: 12px; margin: 10px 0; padding: 12px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.03); position: relative; overflow: hidden;
+  background: #ffffff; border: 1px solid var(--border); border-radius: 12px; margin: 10px 0; padding: 12px;
+  box-shadow: none; position: relative; overflow: hidden;
 }
 .homework-studio .sandbox-chalkboard {
-  background: #1e293b; border: 2px solid #334155; border-radius: 10px; padding: 12px; color: #f1f5f9;
-  font-family: 'Inter', 'Nunito', sans-serif; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; color: var(--text);
+  font-family: 'Inter', 'Nunito', sans-serif; box-shadow: none;
   min-height: 140px; position: relative;
 }
-.homework-studio .sandbox-title { font-family: 'Inter', 'Nunito', sans-serif; font-size: 0.9rem; font-weight: 700; color: #93c5fd; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; letter-spacing: 0.02em; text-transform: uppercase; }
+.homework-studio .sandbox-title { font-family: 'Inter', 'Nunito', sans-serif; font-size: 0.78rem; font-weight: 800; color: var(--accent); margin-bottom: 8px; border-bottom: 1px dashed var(--border); padding-bottom: 6px; letter-spacing: 0.03em; text-transform: uppercase; }
+
+/* Sandbox-specific clean minimal buttons */
+.homework-studio .sandbox-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  font-family: 'Inter', 'Nunito', sans-serif !important;
+  font-size: 0.74rem !important;
+  font-weight: 600 !important;
+  padding: 5px 12px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  height: 28px !important;
+  box-sizing: border-box !important;
+  text-decoration: none !important;
+  border: 1px solid var(--border) !important;
+  background: var(--surface) !important;
+  color: var(--text-dim) !important;
+  box-shadow: none !important;
+}
+.homework-studio .sandbox-btn:hover {
+  background: var(--surface-2) !important;
+  color: var(--text) !important;
+  border-color: #9ca3af !important;
+}
+.homework-studio .sandbox-btn:active {
+  transform: scale(0.97) !important;
+}
+.homework-studio .sandbox-btn.primary {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: #ffffff !important;
+}
+.homework-studio .sandbox-btn.primary:hover {
+  background: #1e3fb0 !important;
+  border-color: #1e3fb0 !important;
+  color: #ffffff !important;
+}
+.homework-studio .sandbox-btn:disabled {
+  opacity: 0.4 !important;
+  pointer-events: none !important;
+}
 
 /* Self test challenge drawer — clean modern accordion */
 .homework-studio .self-test-drawer { margin-top: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background: #f8fafc; overflow: hidden; }
@@ -1689,7 +1751,7 @@
 
 .runner-main-content {
   flex: 1;
-  max-width: 740px;
+  max-width: 860px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -1848,10 +1910,23 @@
 .homework-studio.hw-runner-page {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: #ffffff;
   color: var(--text);
   font-family: 'Inter', 'Nunito', sans-serif;
+}
+
+/* ── Override any conflicting student-runner-layout styles when combined ── */
+.homework-studio.hw-runner-page.student-runner-layout {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  background: #ffffff !important;
+  height: 100vh !important;
+  overflow: hidden !important;
 }
 
 /* ── Top header bar ─────────────────────────────────────────────────────── */
@@ -1865,6 +1940,9 @@
   position: sticky;
   top: 0;
   z-index: 50;
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .hwrh-left {
@@ -1943,7 +2021,8 @@
   flex: 1;
   align-items: stretch;
   gap: 0;
-  height: calc(100vh - 42px);
+  height: auto;
+  min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -1963,16 +2042,16 @@
 
 /* card-wrapper: handles slide transitions */
 .hw-runner-content .card-wrapper {
-  width: 98%;
-  max-width: 1300px; /* Width almost full! */
-  margin: 0 auto;
+  width: 100% !important;
+  max-width: 860px !important; /* Lock wrapper to premium fixed width */
+  margin: 0 auto !important;
   height: 98%;
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
-/* hw-card in the new flat layout: lock height and enable internal scrolling */
+/* hw-card in the new flat layout: fills card-wrapper which controls width */
 .hw-runner-page .hw-card {
   height: 100% !important;
   max-height: calc(100vh - 75px) !important;
@@ -1982,6 +2061,9 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Fill the centered card-wrapper — wrapper controls the width */
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 /* hw-card-body: scrollable inside the card */

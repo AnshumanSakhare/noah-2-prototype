@@ -90,12 +90,23 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
   // Question number for current step
   let currentQuestionNum = 0;
   let totalQuestions = 0;
+  let questionsPassed = 0;
   homeworkSteps.forEach((s, idx) => {
     if (isQuestionType(s)) {
       totalQuestions++;
-      if (idx === hwIndex) currentQuestionNum = totalQuestions;
+      if (idx <= hwIndex) {
+        questionsPassed++;
+      }
+      if (idx === hwIndex) {
+        currentQuestionNum = totalQuestions;
+      }
     }
   });
+
+  if (currentQuestionNum === 0 && totalQuestions > 0) {
+    // For non-question steps, show the next upcoming question context
+    currentQuestionNum = Math.min(questionsPassed + 1, totalQuestions);
+  }
 
   // Per-step question number index (for the map bubbles)
   const stepQuestionNumbers: Record<number, number> = {};
@@ -302,7 +313,7 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div id="hwUI" className="homework-studio hw-runner-page">
+    <div id="hwUI" className="homework-studio hw-runner-page student-runner-layout">
 
       {/* ── Top header bar ── */}
       <div className="hwrh-bar">
@@ -345,32 +356,6 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
         {/* Right panel: topics + question map */}
         <div className="hw-runner-map">
 
-          {/* Overall Progress Hero */}
-          <div className="hwmap-section hwmap-progress-hero">
-            <div className="hwmap-section-label">OVERALL PROGRESS</div>
-            <div className="hwmap-progress-stats">
-              <div className="hwmap-progress-stat">
-                <span className="hwmap-stat-num">{currentGroupIdx + 1} / {topicGroups.length}</span>
-                <span className="hwmap-stat-label">Topic Active</span>
-              </div>
-              <div className="hwmap-progress-stat">
-                <span className="hwmap-stat-num">
-                  {totalQuestions > 0 ? `${currentQuestionNum || '—'} / ${totalQuestions}` : '—'}
-                </span>
-                <span className="hwmap-stat-label">Questions</span>
-              </div>
-            </div>
-            <div className="hwmap-progress-bar-wrap">
-              <div 
-                className="hwmap-progress-bar-fill" 
-                style={{ width: `${Math.round(((hwIndex) / homeworkSteps.length) * 100)}%` }}
-              />
-            </div>
-            <div className="hwmap-progress-pct">
-              {Math.round(((hwIndex) / homeworkSteps.length) * 100)}% Completed
-            </div>
-          </div>
-
           {/* Topic progress section */}
           <div className="hwmap-section">
             <div className="hwmap-section-label">TOPICS</div>
@@ -401,7 +386,7 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
             <div className="hwmap-section-label">
               QUESTION MAP
               <span className="hwmap-qcount">
-                {isQuestionType(step) ? currentQuestionNum : '—'}/{totalQuestions}
+                {currentQuestionNum}/{totalQuestions}
               </span>
             </div>
             <div className="hwmap-grid">

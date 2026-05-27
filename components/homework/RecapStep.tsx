@@ -229,8 +229,8 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
       return (
         <div className="sandbox-canvas-wrapper" style={{ margin: '8px 0', padding: '10px' }}>
           <div className="sandbox-chalkboard" style={{ padding: '10px', minHeight: '120px' }}>
-            <div className="sandbox-title" style={{ fontSize: '0.8rem', marginBottom: '6px', paddingBottom: '4px' }}>Chalkboard: Newton's Laws Explorer</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '12px', alignItems: 'center' }}>
+            <div className="sandbox-title" style={{ fontSize: '0.75rem', marginBottom: '6px', paddingBottom: '4px' }}>Newton's Laws Explorer</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '12px', alignItems: 'center' }}>
               <div>
                 {(['inertia', 'fma', 'reaction'] as const).map(law => (
                   <button 
@@ -238,10 +238,13 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
                     className={`mini-btn lo1-tab ${selectedLaw === law ? 'selected' : ''}`}
                     onClick={() => setSelectedLaw(law)}
                     style={{
-                      fontFamily: 'var(--chalk-font)', fontSize: '0.74rem',
-                      background: selectedLaw === law ? '#ffd54f' : '#1e352f',
-                      borderColor: '#8e623b', color: selectedLaw === law ? '#223a31' : '#ffca28',
-                      padding: '4px 8px', borderRadius: '5px', cursor: 'pointer', display: 'block', width: '100%', marginBottom: '4px', textAlign: 'center'
+                      fontFamily: 'inherit', fontSize: '0.74rem', fontWeight: 700,
+                      background: selectedLaw === law ? 'var(--accent)' : 'var(--surface)',
+                      borderColor: selectedLaw === law ? 'var(--accent)' : 'var(--border)', 
+                      color: selectedLaw === law ? '#ffffff' : 'var(--text-dim)',
+                      borderWidth: '1px', borderStyle: 'solid',
+                      padding: '5px 8px', borderRadius: '6px', cursor: 'pointer', display: 'block', width: '100%', marginBottom: '4px', textAlign: 'center',
+                      transition: 'all 0.2s ease', boxShadow: 'none'
                     }}
                   >
                     {law === 'inertia' ? '1st Law' : law === 'fma' ? '2nd Law' : '3rd Law'}
@@ -249,10 +252,10 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
                 ))}
               </div>
               <div id="lo1ChalkboardContent" style={{ padding: '2px 0' }}>
-                <h4 style={{ color: '#ffd54f', fontFamily: 'var(--chalk-font)', fontSize: '0.95rem', margin: '0 0 4px' }}>
+                <h4 style={{ color: 'var(--text)', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.88rem', margin: '0 0 4px' }}>
                   {lawsInfo[selectedLaw].title}
                 </h4>
-                <p style={{ fontSize: '0.82rem', lineHeight: 1.4, color: '#fbf7eb', margin: '0' }}>
+                <p style={{ fontSize: '0.8rem', lineHeight: 1.4, color: 'var(--text-dim)', margin: '0' }}>
                   {lawsInfo[selectedLaw].desc}
                 </p>
               </div>
@@ -267,15 +270,15 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
 
       return (
         <div className="sandbox-canvas-wrapper" style={{ margin: '8px 0', padding: '10px' }}>
-          <div style={{ fontFamily: 'var(--chalk-font)', fontSize: '0.86rem', fontWeight: 700, color: '#5c5545', marginBottom: '6px' }}>
+          <div className="sandbox-title" style={{ fontSize: '0.75rem', marginBottom: '6px', paddingBottom: '4px' }}>
             Tactile Push Cart Runway
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '12px', alignItems: 'center' }}>
             {/* Left Column: runway, sliders, launch button */}
             <div>
-              <div style={{ background: '#fdfcf9', border: '2px solid #e1dbcf', borderRadius: '10px', height: '64px', position: 'relative', overflow: 'hidden', marginBottom: '8px' }}>
-                <div style={{ position: 'absolute', left: 0, right: 0, bottom: '10px', height: '2px', background: '#e1dbcf' }} />
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', height: '64px', position: 'relative', overflow: 'hidden', marginBottom: '8px' }}>
+                <div style={{ position: 'absolute', left: 0, right: 0, bottom: '10px', height: '1px', background: 'var(--border)' }} />
                 <div 
                   id="sandboxCart" 
                   style={{ 
@@ -290,8 +293,8 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', fontWeight: 700, color: '#5c5545' }}>
-                  <span style={{ minWidth: '55px' }}>Mass: <strong style={{ color: 'var(--accent)' }}>{cartMass} kg</strong></span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)' }}>
+                  <span style={{ minWidth: '60px' }}>Mass: <strong style={{ color: 'var(--accent)' }}>{cartMass} kg</strong></span>
                   <input 
                     type="range" 
                     min="2" 
@@ -301,31 +304,30 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
                     style={{ flex: 1, margin: '0 8px', accentColor: 'var(--accent)', height: '4px' }} 
                   />
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', fontWeight: 700, color: '#5c5545' }}>
-                  <span style={{ minWidth: '55px' }}>Force: <strong style={{ color: 'var(--accent-3)' }}>{cartForce} N</strong></span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)' }}>
+                  <span style={{ minWidth: '60px' }}>Force: <strong style={{ color: 'var(--correct)' }}>{cartForce} N</strong></span>
                   <input 
                     type="range" 
                     min="5" 
                     max="50" 
                     value={cartForce} 
                     onChange={(e) => setCartForce(parseInt(e.target.value))} 
-                    style={{ flex: 1, margin: '0 8px', accentColor: 'var(--accent-3)', height: '4px' }} 
+                    style={{ flex: 1, margin: '0 8px', accentColor: 'var(--correct)', height: '4px' }} 
                   />
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed #e1dbcf' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed var(--border)' }}>
                 <button 
-                  className="nav-btn primary" 
+                  className="sandbox-btn primary" 
                   onClick={launchCart} 
                   disabled={pushing}
-                  style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: '6px', height: 'auto' }}
                 >
                   {pushing ? 'Pushing…' : 'Push Cart! 🚀'}
                 </button>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)' }}>Accel Rate</div>
-                  <div style={{ fontFamily: 'Space Mono', fontSize: '1rem', fontWeight: 800, color: 'var(--hw-deep)' }}>
+                  <div style={{ fontSize: '0.58rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)' }}>Accel Rate</div>
+                  <div style={{ fontFamily: 'Space Mono', fontSize: '1rem', fontWeight: 800, color: 'var(--accent)' }}>
                     {calculatedAccel} m/s²
                   </div>
                 </div>
@@ -333,18 +335,18 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
             </div>
 
             {/* Right Column: Instrument Panel */}
-            <div style={{ background: '#1e352f', border: '3px solid #795548', borderRadius: '10px', padding: '8px', color: '#fdfaf2', display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px', color: 'var(--text)', display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'space-between' }}>
               {/* Live Speedometer */}
               <div style={{ textAlign: 'center', flex: '1' }}>
-                <div style={{ fontSize: '0.58rem', color: '#81c784', fontFamily: 'var(--chalk-font)', marginBottom: '2px' }}>Speedometer</div>
+                <div style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.02em', fontFamily: 'inherit', marginBottom: '4px' }}>Speedometer</div>
                 <svg width="60" height="60" style={{ background: 'transparent' }}>
-                  <circle cx="30" cy="30" r="26" fill="rgba(0,0,0,0.2)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-                  <path d="M 12,46 A 22,22 0 1,1 48,46" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="2.5" strokeLinecap="round" />
+                  <circle cx="30" cy="30" r="26" fill="var(--surface)" stroke="var(--border)" strokeWidth="0.5" />
+                  <path d="M 12,46 A 22,22 0 1,1 48,46" fill="none" stroke="var(--border)" strokeWidth="2" strokeLinecap="round" />
                   <g transform={`rotate(${speedNeedleRot} 30 30)`}>
-                    <line x1="30" y1="30" x2="30" y2="10" stroke="#ff5252" strokeWidth="1.5" strokeLinecap="round" />
-                    <circle cx="30" cy="30" r="2.5" fill="#ff5252" />
+                    <line x1="30" y1="30" x2="30" y2="10" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" />
+                    <circle cx="30" cy="30" r="2.5" fill="var(--accent)" />
                   </g>
-                  <text x="30" y="52" fill="#fff" fontFamily="'Space Mono', monospace" fontSize="7" fontWeight="700" textAnchor="middle">
+                  <text x="30" y="52" fill="var(--text)" fontFamily="'Space Mono', monospace" fontSize="7.5" fontWeight="700" textAnchor="middle">
                     {liveSpeed.toFixed(1)} m/s
                   </text>
                 </svg>
@@ -352,23 +354,23 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
 
               {/* live v-t graph */}
               <div style={{ textAlign: 'center', flex: '1.2' }}>
-                <div style={{ fontSize: '0.58rem', color: '#81c784', fontFamily: 'var(--chalk-font)', marginBottom: '2px' }}>v-t Graph</div>
-                <svg width="80" height="60" style={{ background: '#152822', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', fontFamily: "'Space Mono', monospace", fontSize: '5px' }}>
-                  <line x1="10" y1="10" x2="74" y2="10" stroke="rgba(255,255,255,0.06)" strokeDasharray="2 2" />
-                  <line x1="10" y1="24" x2="74" y2="24" stroke="rgba(255,255,255,0.06)" strokeDasharray="2 2" />
-                  <line x1="10" y1="38" x2="74" y2="38" stroke="rgba(255,255,255,0.06)" strokeDasharray="2 2" />
+                <div style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.02em', fontFamily: 'inherit', marginBottom: '4px' }}>v-t Graph</div>
+                <svg width="80" height="60" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '4px', fontFamily: "'Space Mono', monospace", fontSize: '5px' }}>
+                  <line x1="10" y1="10" x2="74" y2="10" stroke="var(--border)" strokeWidth="0.5" strokeDasharray="2 2" />
+                  <line x1="10" y1="24" x2="74" y2="24" stroke="var(--border)" strokeWidth="0.5" strokeDasharray="2 2" />
+                  <line x1="10" y1="38" x2="74" y2="38" stroke="var(--border)" strokeWidth="0.5" strokeDasharray="2 2" />
                   
-                  <line x1="10" y1="4" x2="10" y2="48" stroke="rgba(255,255,255,0.3)" />
-                  <line x1="10" y1="48" x2="74" y2="48" stroke="rgba(255,255,255,0.3)" />
-                  <polyline points={graphPoints} stroke="#ffd54f" strokeWidth="1.5" fill="none" />
+                  <line x1="10" y1="4" x2="10" y2="48" stroke="var(--text-dim)" strokeWidth="0.5" />
+                  <line x1="10" y1="48" x2="74" y2="48" stroke="var(--text-dim)" strokeWidth="0.5" />
+                  <polyline points={graphPoints} stroke="var(--correct)" strokeWidth="1.5" fill="none" />
                 </svg>
               </div>
 
               {/* Calculations widget */}
-              <div style={{ textAlign: 'center', flex: '1', border: '1px dashed rgba(255,255,255,0.2)', padding: '4px', borderRadius: '6px', background: 'rgba(0,0,0,0.15)' }}>
-                <div style={{ fontSize: '0.55rem', textTransform: 'uppercase', color: '#a1887f', fontFamily: 'var(--chalk-font)' }}>Math</div>
-                <div style={{ fontFamily: 'var(--chalk-font)', fontSize: '0.8rem', color: '#ffca28', lineHeight: '12px' }}>F = m &middot; a</div>
-                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.58rem', color: '#81c784', marginTop: '2px', whiteSpace: 'nowrap' }}>
+              <div style={{ textAlign: 'center', flex: '1', border: '1px dashed var(--border)', padding: '4px', borderRadius: '6px', background: 'var(--surface)' }}>
+                <div style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.02em', fontFamily: 'inherit' }}>Math</div>
+                <div style={{ fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 800, color: 'var(--accent)', lineHeight: '14px', margin: '2px 0' }}>F = m &middot; a</div>
+                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.58rem', color: 'var(--correct)', whiteSpace: 'nowrap' }}>
                   {cartForce}N={cartMass}kg &middot; {calculatedAccel}
                 </div>
               </div>
@@ -381,14 +383,14 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
     if (topicId === 'lo3') {
       return (
         <div className="sandbox-canvas-wrapper" style={{ margin: '8px 0', padding: '10px' }}>
-          <div style={{ fontFamily: 'var(--chalk-font)', fontSize: '0.86rem', fontWeight: 700, color: '#5c5545', marginBottom: '6px' }}>
+          <div className="sandbox-title" style={{ fontSize: '0.75rem', marginBottom: '6px', paddingBottom: '4px' }}>
             Zero-G Recoil Simulator
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'center' }}>
-            <div style={{ background: '#111c24', border: '2px solid #2d3e4f', borderRadius: '10px', height: '70px', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', width: '2px', height: '2px', background: '#fff', top: '15px', left: '30px', opacity: 0.6 }} />
-              <div style={{ position: 'absolute', width: '2px', height: '2px', background: '#fff', top: '40px', left: '150px', opacity: 0.8 }} />
-              <div style={{ position: 'absolute', width: '3px', height: '3px', background: '#fff', top: '20px', left: '280px', opacity: 0.5 }} />
+            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '8px', height: '70px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', width: '2.5px', height: '2.5px', background: '#cbd5e1', borderRadius: '50%', top: '15px', left: '30px', opacity: 0.8 }} />
+              <div style={{ position: 'absolute', width: '2px', height: '2px', background: '#94a3b8', borderRadius: '50%', top: '40px', left: '150px', opacity: 0.8 }} />
+              <div style={{ position: 'absolute', width: '3px', height: '3px', background: '#cbd5e1', borderRadius: '50%', top: '20px', left: '280px', opacity: 0.8 }} />
               
               <div style={{ position: 'absolute', top: '15px', left: `${astroLeft}px`, fontSize: '1.8rem', lineHeight: 1, zIndex: 3 }}>🧑‍🚀</div>
               <div style={{ position: 'absolute', top: '24px', left: `${rockLeft}px`, fontSize: '0.9rem', lineHeight: 1, zIndex: 4 }}>☄️</div>
@@ -415,20 +417,18 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
               </div>
             </div>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
               <button 
-                className="nav-btn primary" 
+                className="sandbox-btn primary" 
                 onClick={launchRecoil} 
                 disabled={recoilActive}
-                style={{ padding: '6px 0', fontSize: '0.78rem', borderRadius: '6px', height: 'auto', justifyContent: 'center' }}
               >
                 Throw Space-Rock! ☄️
               </button>
               {(astroLeft !== 140 || rockLeft !== 190) && (
                 <button 
-                  className="nav-btn secondary" 
+                  className="sandbox-btn" 
                   onClick={resetRecoil}
-                  style={{ padding: '6px 0', fontSize: '0.78rem', borderRadius: '6px', height: 'auto', justifyContent: 'center' }}
                 >
                   Reset 🔄
                 </button>
@@ -442,31 +442,31 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
     if (topicId === 'lo4') {
       return (
         <div className="sandbox-canvas-wrapper" style={{ margin: '8px 0', padding: '10px' }}>
-          <div style={{ fontFamily: 'var(--chalk-font)', fontSize: '0.86rem', fontWeight: 700, color: '#5c5545', marginBottom: '6px' }}>
+          <div className="sandbox-title" style={{ fontSize: '0.75rem', marginBottom: '6px', paddingBottom: '4px' }}>
             First Law Friction Highway
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'center' }}>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#5c5545' }}>Surface:</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text)', fontFamily: 'inherit' }}>Surface:</span>
                 <select 
                   value={surface} 
                   onChange={(e) => setSurface(e.target.value as 'ice' | 'gravel')}
-                  style={{ padding: '4px 8px', fontFamily: "'Nunito'", fontWeight: 700, fontSize: '0.75rem', border: '1px solid var(--border)', borderRadius: '6px', background: '#fff', outline: 'none', cursor: 'pointer' }}
+                  style={{ padding: '4px 8px', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.75rem', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--surface)', color: 'var(--text)', outline: 'none', cursor: 'pointer' }}
                 >
                   <option value="ice">❄️ Frictionless Ice</option>
                   <option value="gravel">🪨 Rough Gravel</option>
                 </select>
               </div>
               
-              <div style={{ background: '#fdfcf9', border: '2px solid #e1dbcf', borderRadius: '10px', height: '64px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', height: '64px', position: 'relative', overflow: 'hidden' }}>
                 <div 
                   id="runwayTrackBg" 
                   style={{ 
                     position: 'absolute', left: '45px', right: 0, bottom: '10px', height: '8px', 
                     background: surface === 'gravel' 
-                      ? 'repeating-linear-gradient(90deg, #d35400, #d35400 10px, #e67e22 10px, #e67e22 20px)' 
+                      ? 'repeating-linear-gradient(90deg, #94a3b8, #94a3b8 10px, #cbd5e1 10px, #cbd5e1 20px)' 
                       : 'linear-gradient(90deg, #e0f7fa, #b2ebf2)', 
                     transition: 'background 0.3s' 
                   }} 
@@ -476,10 +476,10 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
                   id="frictionArrow" 
                   style={{ 
                     position: 'absolute', bottom: '26px', left: `${frictionArrowLeft}px`, fontSize: '0.9rem', 
-                    opacity: frictionArrowOpacity, transition: 'opacity 0.2s, left 0.1s linear', color: '#d94a4a' 
+                    opacity: frictionArrowOpacity, transition: 'opacity 0.2s, left 0.1s linear', color: 'var(--wrong)' 
                   }}
                 >
-                  ⬅️ <span style={{ fontSize: '0.55rem', fontFamily: "'Space Mono'", fontWeight: 800, verticalAlign: 'middle', background: '#fff', border: '1px solid #d94a4a', padding: '0 2px', borderRadius: '2px' }}>
+                  ⬅️ <span style={{ fontSize: '0.55rem', fontFamily: "'Space Mono'", fontWeight: 800, verticalAlign: 'middle', background: 'var(--surface)', border: '1px solid var(--wrong)', padding: '0 2px', borderRadius: '2px' }}>
                     Friction
                   </span>
                 </div>
@@ -491,9 +491,9 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
                   className="screech-alert" 
                   style={{ 
                     position: 'absolute', top: '15px', left: '50%', transform: 'translateX(-50%)', 
-                    background: '#d94a4a', color: '#fff', fontFamily: 'var(--chalk-font)', fontSize: '0.75rem', 
-                    fontWeight: 'bold', padding: '1px 6px', borderRadius: '4px', opacity: screechOpacity, 
-                    transition: 'opacity 0.2s', border: '1.5px solid #fff' 
+                    background: 'var(--wrong)', color: '#fff', fontFamily: 'inherit', fontSize: '0.75rem', 
+                    fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', opacity: screechOpacity, 
+                    transition: 'opacity 0.2s', border: '1px solid var(--border)' 
                   }}
                 >
                   SKRRRRT! 🛑
@@ -501,12 +501,11 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
               </div>
             </div>
 
-            <div>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
               <button 
-                className="nav-btn primary" 
+                className="sandbox-btn primary" 
                 onClick={launchGlide} 
                 disabled={gliding}
-                style={{ width: '100%', padding: '8px 0', fontSize: '0.78rem', borderRadius: '6px', height: 'auto', justifyContent: 'center' }}
               >
                 {gliding ? 'Gliding… 📦' : 'Launch Crate! 🚀'}
               </button>
