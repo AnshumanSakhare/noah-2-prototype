@@ -1912,7 +1912,7 @@
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  background: #ffffff;
+  background: #f3f4f6;
   color: var(--text);
   font-family: 'Inter', 'Nunito', sans-serif;
 }
@@ -1924,7 +1924,7 @@
   justify-content: flex-start !important;
   gap: 0 !important;
   padding: 0 !important;
-  background: #ffffff !important;
+  background: #f3f4f6 !important;
   height: 100vh !important;
   overflow: hidden !important;
 }
@@ -2038,6 +2038,7 @@
   align-items: center;
   height: 100%;
   overflow: hidden;
+  background: #f3f4f6;
 }
 
 /* card-wrapper: handles slide transitions */
@@ -2056,8 +2057,10 @@
   height: 100% !important;
   max-height: calc(100vh - 75px) !important;
   min-height: 0 !important;
-  border: 1px solid #f0f1f3 !important;
-  box-shadow: none !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 
+              0 10px 20px -3px rgba(0, 0, 0, 0.04), 
+              0 0 0 1px rgba(0, 0, 0, 0.01) !important;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2079,28 +2082,200 @@
   border-top: 1px solid #f3f4f6;
   background: #ffffff;
   flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-/* ── Right panel ────────────────────────────────────────────────────────── */
-.hw-runner-map {
+.footer-step-indicator {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-align: center;
+  align-self: center;
+  user-select: none;
+}
+
+/* ── Left Sidebar ────────────────────────────────────────────────────────── */
+.hw-runner-sidebar {
   width: 260px;
   flex-shrink: 0;
-  border-left: 1px solid #f3f4f6;
+  border-right: 1px solid #f3f4f6;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  height: 100%;
+  background: #ffffff;
+  box-sizing: border-box;
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+}
+
+/* Sidebar collapsed state: slide left offscreen */
+.hw-runner-body.sidebar-collapsed .hw-runner-sidebar {
+  margin-left: -260px;
+}
+
+/* Scroll content container inside the sidebar */
+.hw-sidebar-scroll-content {
+  flex: 1;
+  overflow-y: auto;
   padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  position: sticky;
-  top: 42px; /* height of hwrh-bar */
-  height: 100%;
-  overflow-y: auto;
-  background: #ffffff;
-  box-sizing: border-box;
-  scrollbar-width: none;
+  gap: 20px;
   scrollbar-width: none;
 }
+.hw-sidebar-scroll-content::-webkit-scrollbar {
+  display: none;
+}
 
-.hw-runner-map::-webkit-scrollbar { display: none; }
+/* Align save & exit pause button inside sidebar footer nicely */
+.hw-runner-sidebar .hw-pause-btn {
+  margin: 0 14px 14px 14px;
+  width: calc(100% - 28px);
+  flex-shrink: 0;
+}
+
+/* ── Protruding Curved Vertical Tabs ────────────────────────────────────────── */
+.hw-sidebar-tabs {
+  position: absolute;
+  top: 40px;
+  left: 100%; /* Sits exactly on the right edge of the sidebar */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 100;
+  pointer-events: auto;
+}
+
+/* White mask to hide the straight sidebar border behind the curved fillets */
+.hw-sidebar-tabs::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: -16px;
+  bottom: -16px;
+  width: 3px;
+  background: #ffffff;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* White tab base structure sticking out */
+.hw-sidebar-tab-base {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  background: #ffffff;
+  border-radius: 0 16px 16px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 4px 2px 8px rgba(0, 0, 0, 0.04);
+  margin-left: -1px;
+  z-index: 10; /* Sit above the mask */
+}
+
+/* Top fillet (concave curve above the tab) */
+.hw-sidebar-tab-base::before {
+  content: '';
+  position: absolute;
+  top: -16px;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  background: radial-gradient(circle at 100% 0%, transparent 16px, #ffffff 16px);
+  pointer-events: none;
+}
+
+/* Bottom fillet (concave curve below the tab) */
+.hw-sidebar-tab-base::after {
+  content: '';
+  position: absolute;
+  bottom: -16px;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  background: radial-gradient(circle at 100% 100%, transparent 16px, #ffffff 16px);
+  pointer-events: none;
+}
+
+/* Interactive pills inside the bases */
+.hw-sidebar-tab-pill {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Topics Pill: Concept review (Orange) */
+.hw-sidebar-tab-pill.pill-topics {
+  background: #fdf2f0;
+  color: #c2410c;
+}
+
+.hw-sidebar-tab-pill.pill-topics:hover {
+  background: #ffedd5;
+  color: #ea580c;
+  transform: scale(1.05);
+}
+
+.hw-sidebar-tab-pill.pill-topics.active {
+  background: #f2994a;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(242, 153, 74, 0.35);
+}
+
+/* Orange pill corner active indicator (matching screenshot brown dot) */
+.hw-sidebar-tab-pill.pill-topics.active::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #7c2d12;
+  border: 1.5px solid #ffffff;
+}
+
+/* Map Pill: Question Map (Grey/Indigo) */
+.hw-sidebar-tab-pill.pill-map {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.hw-sidebar-tab-pill.pill-map:hover {
+  background: #e5e7eb;
+  color: #1f2937;
+  transform: scale(1.05);
+}
+
+.hw-sidebar-tab-pill.pill-map.active {
+  background: #4b5563;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(75, 85, 99, 0.3);
+}
+
+/* Custom SVG icon formatting inside pills */
+.hw-sidebar-tab-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s ease;
+}
+
+.hw-sidebar-tab-pill:active .hw-sidebar-tab-icon-wrap {
+  transform: scale(0.9);
+}
 
 /* ── Map section ─────────────────────────────────────────────────────────── */
 .hwmap-section {
@@ -2354,18 +2529,28 @@
     flex-direction: column;
   }
 
-  .hw-runner-map {
-    width: 100%;
+  .hw-sidebar-tabs {
+    display: none !important;
+  }
+
+  .hw-runner-sidebar {
+    width: 100% !important;
+    margin-left: 0 !important;
+    border-right: none;
+    border-bottom: 1px solid #f3f4f6;
+    height: auto !important;
     position: relative;
     top: 0;
-    height: auto;
-    border-left: none;
-    border-top: 1px solid #f3f4f6;
-    flex-direction: row;
+    padding: 12px 16px;
+    box-sizing: border-box;
+  }
+
+  .hw-sidebar-scroll-content {
+    flex-direction: row !important;
     flex-wrap: wrap;
-    gap: 16px;
-    padding: 16px 20px;
-    order: -1;
+    gap: 16px !important;
+    padding: 0 !important;
+    overflow-y: visible;
   }
 
   .hwmap-section {
@@ -2377,6 +2562,7 @@
     margin-top: 0;
     width: auto;
     align-self: flex-end;
+    margin: 0 !important;
   }
 
   .hwrh-bar {

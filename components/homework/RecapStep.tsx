@@ -9,11 +9,15 @@ interface RecapStepProps {
   onBack: () => void;
   onContinue: () => void;
   isFirst: boolean;
+  stepProgressText?: string;
 }
 
-export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, isFirst }) => {
+export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, isFirst, stepProgressText }) => {
   const topicId = step.topic || '';
   const content = step.content;
+
+  const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo4';
+  const isInteractive = step.type === 'flashcard' || (step.type === 'recap' && hasSimulation);
 
   // Accordion drawer for self-test
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
@@ -538,9 +542,27 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
       <div className="hw-card-body">
         <div className="hw-notebook-sheet">
           <div className="hw-notebook-sheet-content">
-            <h3 className="notebook-title">📖 {content?.title}</h3>
-            <p style={{ fontSize: '0.8rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', marginBottom: '12px', letterSpacing: '0.04em' }}>
-              📝 {content?.sub}
+            <h3 className="notebook-title" style={{ display: 'inline-flex', alignItems: 'center' }}>
+              {isInteractive ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px', color: '#0d9488', flexShrink: 0 }}>
+                  <rect x="3" y="9" width="14" height="12" rx="2" />
+                  <path d="M7 5h14v12" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px', color: 'var(--accent)', flexShrink: 0 }}>
+                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+                  <path d="M6 6h10" />
+                  <path d="M6 10h10" />
+                </svg>
+              )}
+              {content?.title}
+            </h3>
+            <p style={{ fontSize: '0.8rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', marginBottom: '12px', letterSpacing: '0.04em', display: 'flex', alignItems: 'center' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px', color: 'var(--text-dim)', flexShrink: 0 }}>
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg>
+              {content?.sub}
             </p>
             <div 
               style={{ fontSize: '0.95rem', lineHeight: '22px', marginBottom: '12px' }}
@@ -556,6 +578,7 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
         <button className="nav-btn secondary" onClick={onBack} disabled={isFirst}>
           ← Back
         </button>
+        {stepProgressText && <span className="footer-step-indicator">{stepProgressText}</span>}
         <button className="nav-btn primary" onClick={onContinue}>
           Got it ✓
         </button>

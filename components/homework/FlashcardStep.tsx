@@ -8,16 +8,23 @@ interface FlashcardStepProps {
   onBack: () => void;
   onContinue: () => void;
   isFirst: boolean;
+  stepProgressText?: string;
 }
 
-export const FlashcardStep: React.FC<FlashcardStepProps> = ({ step, onBack, onContinue, isFirst }) => {
+export const FlashcardStep: React.FC<FlashcardStepProps> = ({ step, onBack, onContinue, isFirst, stepProgressText }) => {
   const [flipped, setFlipped] = useState<boolean>(false);
 
   return (
     <div className="hw-card hw-card-flashcard">
       <div className="hw-card-top" style={{ background: 'linear-gradient(90deg,#5b8c6f,#d4a03c)' }}></div>
       <div className="hw-card-body">
-        <span className="q-type-badge blanks">🃏 Flashcard</span>
+        <span className="q-type-badge blanks" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M3 9h18" />
+          </svg>
+          Flashcard
+        </span>
         <div 
           className={`hw-flashcard ${flipped ? 'flipped' : ''}`} 
           id="hwFlash" 
@@ -43,7 +50,8 @@ export const FlashcardStep: React.FC<FlashcardStepProps> = ({ step, onBack, onCo
         <button className="nav-btn secondary" onClick={onBack} disabled={isFirst}>
           ← Back
         </button>
-        {flipped && (
+        {stepProgressText && <span className="footer-step-indicator">{stepProgressText}</span>}
+        {flipped ? (
           <button 
             className="nav-btn primary" 
             id="flashContinue" 
@@ -51,6 +59,8 @@ export const FlashcardStep: React.FC<FlashcardStepProps> = ({ step, onBack, onCo
           >
             Continue →
           </button>
+        ) : (
+          <div style={{ width: '80px' }}></div> /* Maintain space balance when Continue is hidden */
         )}
       </div>
     </div>

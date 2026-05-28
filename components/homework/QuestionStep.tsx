@@ -10,10 +10,11 @@ interface QuestionStepProps {
   onBack: () => void;
   onContinue: () => void;
   isFirst: boolean;
+  stepProgressText?: string;
 }
 
 // ─── 1. MCQ QUESTION ───
-export const MCQStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, onBack, onContinue, isFirst }) => {
+export const MCQStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, onBack, onContinue, isFirst, stepProgressText }) => {
   const [selectedIdx, setSelectedIdx] = useState<number | undefined>(answer?.answer);
 
   const selectMCQ = (idx: number) => {
@@ -62,6 +63,7 @@ export const MCQStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, o
         <button className="nav-btn secondary" onClick={onBack} disabled={isFirst}>
           ← Back
         </button>
+        {stepProgressText && <span className="footer-step-indicator">{stepProgressText}</span>}
         <button 
           className="nav-btn primary" 
           onClick={onContinue} 
@@ -75,7 +77,7 @@ export const MCQStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, o
 };
 
 // ─── 2. FILL-IN QUESTION ───
-export const FillStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, onBack, onContinue, isFirst }) => {
+export const FillStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, onBack, onContinue, isFirst, stepProgressText }) => {
   const [val, setVal] = useState<string>(answer?.answer || '');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,7 +119,14 @@ export const FillStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, 
             }}
           />
           <div className="fill-hint">
-            <span>💡 Hint:</span>
+            <span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: 'text-bottom', marginRight: '4px', color: '#f59e0b' }}>
+                <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A5.5 5.5 0 0 0 7.5 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5" />
+                <path d="M9 18h6" />
+                <path d="M10 22h4" />
+              </svg>
+              Hint:
+            </span>
             <span>{step.hint}</span>
           </div>
         </div>
@@ -127,6 +136,7 @@ export const FillStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, 
         <button className="nav-btn secondary" onClick={onBack} disabled={isFirst}>
           ← Back
         </button>
+        {stepProgressText && <span className="footer-step-indicator">{stepProgressText}</span>}
         <button 
           className="nav-btn primary" 
           onClick={submitFill} 
@@ -140,7 +150,7 @@ export const FillStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, 
 };
 
 // ─── 3. BLANKS TAP-TO-PLACE QUESTION ───
-export const BlanksStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, onBack, onContinue, isFirst }) => {
+export const BlanksStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, onBack, onContinue, isFirst, stepProgressText }) => {
   const blankCount = step.answers?.length || 0;
   const [filledBlanks, setFilledBlanks] = useState<Array<string | null>>(
     answer?.filledBlanks || new Array(blankCount).fill(null)
@@ -244,6 +254,7 @@ export const BlanksStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer
         <button className="nav-btn secondary" onClick={onBack} disabled={isFirst}>
           ← Back
         </button>
+        {stepProgressText && <span className="footer-step-indicator">{stepProgressText}</span>}
         <button 
           className="nav-btn primary" 
           onClick={submitBlanks} 
@@ -257,7 +268,7 @@ export const BlanksStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer
 };
 
 // ─── 4. DRAG & DROP MATCHING QUESTION ───
-export const DragStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, onBack, onContinue, isFirst }) => {
+export const DragStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, onBack, onContinue, isFirst, stepProgressText }) => {
   const [placements, setPlacements] = useState<Record<string, string>>(answer?.placements || {});
   const [selectedDrag, setSelectedDrag] = useState<string | null>(null);
 
@@ -397,6 +408,7 @@ export const DragStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, 
         <button className="nav-btn secondary" onClick={onBack} disabled={isFirst}>
           ← Back
         </button>
+        {stepProgressText && <span className="footer-step-indicator">{stepProgressText}</span>}
         <button 
           className="nav-btn primary" 
           onClick={submitDrag} 

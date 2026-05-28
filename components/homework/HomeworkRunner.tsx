@@ -59,6 +59,38 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
   const [transitionDir, setTransitionDir] = useState<'forward' | 'backward'>('forward');
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'topics' | 'map'>('topics');
+  const sidebarContentRef = useRef<HTMLDivElement>(null);
+
+  const handleTabClick = (tab: 'topics' | 'map') => {
+    if (sidebarCollapsed) {
+      setSidebarCollapsed(false);
+      setActiveTab(tab);
+      setTimeout(() => {
+        scrollToSection(tab);
+      }, 100);
+    } else {
+      if (activeTab === tab) {
+        setSidebarCollapsed(true);
+      } else {
+        setActiveTab(tab);
+        scrollToSection(tab);
+      }
+    }
+  };
+
+  const scrollToSection = (section: 'topics' | 'map') => {
+    if (!sidebarContentRef.current) return;
+    const topicsEl = sidebarContentRef.current.querySelector('.hwmap-section-topics');
+    const mapEl = sidebarContentRef.current.querySelector('.hwmap-section-map');
+    if (section === 'topics' && topicsEl) {
+      topicsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (section === 'map' && mapEl) {
+      mapEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   useEffect(() => {
     if (!hwStartTime) {
       setHwStartTime(Date.now());
@@ -148,19 +180,45 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
   const currentTopicId = step.topic || step.lo?.id || 'general';
   const currentGroupIdx = topicGroups.findIndex(g => g.topicId === currentTopicId);
 
-  // Map bubble status
+  // Map bubble status (hiding correctness during the session)
   const getMapStatus = (s: HomeworkStep, idx: number): string => {
     if (idx === hwIndex) return 'current';
-    if (idx < hwIndex) {
-      if (isQuestionType(s)) {
-        const ans = hwAnswers[idx];
-        if (ans?.correct) return 'correct';
-        if (ans) return 'wrong';
-        return 'done';
-      }
-      return 'done';
-    }
+    if (idx < hwIndex) return 'done';
     return 'pending';
+  };
+
+  const renderStepIcon = (s: HomeworkStep) => {
+    const size = 12;
+    const topicId = s.topic || s.lo?.id || '';
+    
+    // lo1 (Laws Explorer), lo2 (Tactile Cart), lo4 (Friction Highway) have interactive sandboxes/simulations.
+    const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo4';
+    const isInteractive = s.type === 'flashcard' || s.type === 'animation' || (s.type === 'recap' && hasSimulation);
+
+    if (s.type === 'topic-complete') {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      );
+    }
+
+    if (isInteractive) {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: '#0d9488' }}>
+          <rect x="3" y="9" width="14" height="12" rx="2" />
+          <path d="M7 5h14v12" />
+        </svg>
+      );
+    } else {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: 'var(--accent)' }}>
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+          <path d="M6 6h10" />
+          <path d="M6 10h10" />
+        </svg>
+      );
+    }
   };
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -217,6 +275,8 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
     const isFirst = hwIndex === 0;
     const activeAnswer = hwAnswers[hwIndex];
 
+    const stepProgressText = `Step ${hwIndex + 1} of ${homeworkSteps.length}`;
+
     switch (step.type) {
       case 'topic-intro':
         return (
@@ -235,6 +295,7 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
             </div>
             <div className="hw-card-footer">
               <button className="nav-btn secondary" onClick={handleBack} disabled={isFirst}>← Back</button>
+              <span className="footer-step-indicator">{stepProgressText}</span>
               <button className="nav-btn primary" onClick={handleContentContinue}>Let's go →</button>
             </div>
           </div>
@@ -261,6 +322,7 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
             </div>
             <div className="hw-card-footer">
               <button className="nav-btn secondary" onClick={handleBack} disabled={isFirst}>← Back</button>
+              <span className="footer-step-indicator">{stepProgressText}</span>
               <button className="nav-btn primary" onClick={handleContentContinue}>
                 {step.isLast ? 'See results →' : 'Next topic →'}
               </button>
@@ -269,22 +331,22 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
         );
 
       case 'recap':
-        return <RecapStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} />;
+        return <RecapStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
 
       case 'flashcard':
-        return <FlashcardStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} />;
+        return <FlashcardStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
 
       case 'mcq':
-        return <MCQStep step={step} answer={activeAnswer} onAnswer={handleAnswer} onBack={handleBack} onContinue={handleContinue} isFirst={isFirst} />;
+        return <MCQStep step={step} answer={activeAnswer} onAnswer={handleAnswer} onBack={handleBack} onContinue={handleContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
 
       case 'fill':
-        return <FillStep step={step} answer={activeAnswer} onAnswer={handleAnswer} onBack={handleBack} onContinue={handleContinue} isFirst={isFirst} />;
+        return <FillStep step={step} answer={activeAnswer} onAnswer={handleAnswer} onBack={handleBack} onContinue={handleContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
 
       case 'blanks':
-        return <BlanksStep step={step} answer={activeAnswer} onAnswer={handleAnswer} onBack={handleBack} onContinue={handleContinue} isFirst={isFirst} />;
+        return <BlanksStep step={step} answer={activeAnswer} onAnswer={handleAnswer} onBack={handleBack} onContinue={handleContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
 
       case 'drag':
-        return <DragStep step={step} answer={activeAnswer} onAnswer={handleAnswer} onBack={handleBack} onContinue={handleContinue} isFirst={isFirst} />;
+        return <DragStep step={step} answer={activeAnswer} onAnswer={handleAnswer} onBack={handleBack} onContinue={handleContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
 
       default:
         return (
@@ -292,6 +354,7 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
             <div className="hw-card-body"><p>Step type {step.type} not implemented yet.</p></div>
             <div className="hw-card-footer">
               <button className="nav-btn secondary" onClick={handleBack} disabled={isFirst}>← Back</button>
+              <span className="footer-step-indicator">{stepProgressText}</span>
               <button className="nav-btn primary" onClick={() => handleContinue()}>Continue →</button>
             </div>
           </div>
@@ -318,18 +381,8 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
       {/* ── Top header bar ── */}
       <div className="hwrh-bar">
         <div className="hwrh-left">
-          {topicName && (
-            <div className="hwrh-breadcrumb">
-              <span className="hwrh-subject">HOMEWORK</span>
-              <span className="hwrh-sep"> / </span>
-              <span className="hwrh-topic">{topicName}</span>
-            </div>
-          )}
-          <div className="hwrh-step-title">
-            {isQuestionType(step)
-              ? `Question ${currentQuestionNum} of ${totalQuestions}`
-              : `Step ${hwIndex + 1} of ${homeworkSteps.length}`
-            }
+          <div className="hwrh-step-title" style={{ fontSize: '1.25rem', fontWeight: 850, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+            Homework Agent
           </div>
         </div>
         <div className="hwrh-right">
@@ -343,77 +396,134 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
         </div>
       </div>
 
-      {/* ── Body: main content + right panel ── */}
-      <div className="hw-runner-body">
+      {/* ── Body: sidebar on left + main content ── */}
+      <div className={`hw-runner-body ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
 
-        {/* Main question card area */}
-        <div className="hw-runner-content">
-          <div className={`card-wrapper ${cardTransitionClass}`}>
-            {renderActiveCard()}
-          </div>
-        </div>
+        {/* Left panel: topics + question map */}
+        <div className="hw-runner-sidebar">
 
-        {/* Right panel: topics + question map */}
-        <div className="hw-runner-map">
-
-          {/* Topic progress section */}
-          <div className="hwmap-section">
-            <div className="hwmap-section-label">TOPICS</div>
-            {topicGroups.map((group, i) => {
-              const pct = group.stepIndices.length > 0
-                ? Math.round((group.completedCount / group.stepIndices.length) * 100)
-                : 0;
-              const isActive = i === currentGroupIdx;
-              return (
-                <div key={i} className={`hwmap-topic-row ${isActive ? 'active' : ''}`}>
-                  <div className="hwmap-topic-info">
-                    <span className="hwmap-topic-name">{group.name}</span>
-                    <span className="hwmap-topic-count">{group.completedCount}/{group.stepIndices.length}</span>
-                  </div>
-                  <div className="hwmap-topic-track">
-                    <div
-                      className="hwmap-topic-fill"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
+          {/* Protruding minimal toggle tab base */}
+          <div className="hw-sidebar-tabs">
+            <div className="hw-sidebar-tab-base">
+              <button
+                className={`hw-sidebar-tab-pill pill-map ${sidebarCollapsed ? 'collapsed' : ''}`}
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+              >
+                <div className="hw-sidebar-tab-icon-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'transform 0.3s ease', transform: sidebarCollapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
                 </div>
-              );
-            })}
+              </button>
+            </div>
           </div>
 
-          {/* Question map grid */}
-          <div className="hwmap-section">
-            <div className="hwmap-section-label">
-              QUESTION MAP
-              <span className="hwmap-qcount">
-                {currentQuestionNum}/{totalQuestions}
-              </span>
-            </div>
-            <div className="hwmap-grid">
-              {homeworkSteps.map((s, idx) => {
-                const status = getMapStatus(s, idx);
-                const isQ = isQuestionType(s);
-                const qN = stepQuestionNumbers[idx];
+          <div className="hw-sidebar-scroll-content" ref={sidebarContentRef}>
+            {/* Topic progress section */}
+            <div className="hwmap-section hwmap-section-topics">
+              <div className="hwmap-section-label">TOPICS</div>
+              {topicGroups.map((group, i) => {
+                const pct = group.stepIndices.length > 0
+                  ? Math.round((group.completedCount / group.stepIndices.length) * 100)
+                  : 0;
+                const isActive = i === currentGroupIdx;
                 return (
-                  <div
-                    key={idx}
-                    className={`hwmap-bubble hwmap-${status} ${isQ ? 'hwmap-is-question' : 'hwmap-is-content'}`}
-                    title={`Step ${idx + 1}: ${STEP_TYPE_LABELS[s.type] || s.type}`}
-                  >
-                    {isQ ? (qN || idx + 1) : (STEP_ICONS[s.type] || '·')}
+                  <div key={i} className={`hwmap-topic-row ${isActive ? 'active' : ''}`}>
+                    <div className="hwmap-topic-info">
+                      <span className="hwmap-topic-name">{group.name}</span>
+                      <span className="hwmap-topic-count">{group.completedCount}/{group.stepIndices.length}</span>
+                    </div>
+                    <div className="hwmap-topic-track">
+                      <div
+                        className="hwmap-topic-fill"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
                   </div>
                 );
               })}
             </div>
-            <div className="hwmap-legend" style={{ borderTop: '1px solid #f3f4f6', paddingTop: '12px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                <span className="hwmap-leg" style={{ color: 'var(--text-dim)' }}>📖 Study Concept</span>
-                <span className="hwmap-leg" style={{ color: 'var(--text-dim)' }}>🔢 Practice Q</span>
+
+            {/* Question map grid */}
+            <div className="hwmap-section hwmap-section-map">
+              <div className="hwmap-section-label">
+                STEP MAP
+                <span className="hwmap-qcount">
+                  {hwIndex + 1}/{homeworkSteps.length}
+                </span>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', fontSize: '0.64rem' }}>
-                <span className="hwmap-leg hwmap-leg-current">● Current</span>
-                <span className="hwmap-leg hwmap-leg-correct">● Correct Q</span>
-                <span className="hwmap-leg hwmap-leg-pending">● Upcoming</span>
+              <div className="hwmap-grid">
+                {homeworkSteps.map((s, idx) => {
+                  const status = getMapStatus(s, idx);
+                  const isQ = isQuestionType(s);
+                  const qN = stepQuestionNumbers[idx];
+                  
+                  const topicId = s.topic || s.lo?.id || '';
+                  const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo4';
+                  const isInteractive = s.type === 'flashcard' || s.type === 'animation' || (s.type === 'recap' && hasSimulation);
+
+                  // Compute dynamic border and background styles for non-questions to match the legend beautifully
+                  let bubbleStyle: React.CSSProperties = {};
+                  if (!isQ) {
+                    if (status === 'current') {
+                      bubbleStyle = {
+                        borderColor: '#f59e0b',
+                        background: '#fffbeb',
+                        color: '#b45309',
+                      };
+                    } else if (isInteractive) {
+                      bubbleStyle = {
+                        borderColor: '#0d9488',
+                        background: 'rgba(13, 148, 136, 0.06)',
+                        color: '#0d9488',
+                      };
+                    } else {
+                      bubbleStyle = {
+                        borderColor: 'var(--accent)',
+                        background: 'rgba(37, 99, 235, 0.06)',
+                        color: 'var(--accent)',
+                      };
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`hwmap-bubble hwmap-${status} ${isQ ? 'hwmap-is-question' : 'hwmap-is-content'}`}
+                      style={bubbleStyle}
+                      title={`Step ${idx + 1}: ${STEP_TYPE_LABELS[s.type] || s.type}`}
+                    >
+                      {isQ ? (qN || idx + 1) : renderStepIcon(s)}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hwmap-legend" style={{ borderTop: '1px solid #f3f4f6', paddingTop: '12px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                  <span className="hwmap-leg" style={{ color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <div className="hwmap-bubble hwmap-is-content" style={{ width: '18px', height: '18px', border: '1px solid var(--accent)', background: 'rgba(37, 99, 235, 0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px' }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)' }}>
+                        <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+                      </svg>
+                    </div>
+                    Concept Card
+                  </span>
+                  <span className="hwmap-leg" style={{ color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <div className="hwmap-bubble hwmap-is-content" style={{ width: '18px', height: '18px', border: '1px solid #0d9488', background: 'rgba(13, 148, 136, 0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px' }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#0d9488' }}>
+                        <rect x="3" y="9" width="14" height="12" rx="2" />
+                        <path d="M7 5h14v12" />
+                      </svg>
+                    </div>
+                    Interactive Card
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', fontSize: '0.64rem' }}>
+                  <span className="hwmap-leg hwmap-leg-current">● Current</span>
+                  <span className="hwmap-leg hwmap-leg-pending" style={{ color: '#9ca3af' }}>● Completed</span>
+                  <span className="hwmap-leg hwmap-leg-pending">● Upcoming</span>
+                </div>
               </div>
             </div>
           </div>
@@ -422,6 +532,14 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
             ⏸ Save &amp; Exit
           </button>
         </div>
+
+        {/* Main question card area */}
+        <div className="hw-runner-content">
+          <div className={`card-wrapper ${cardTransitionClass}`}>
+            {renderActiveCard()}
+          </div>
+        </div>
+
       </div>
     </div>
   );

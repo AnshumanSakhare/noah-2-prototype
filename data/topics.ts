@@ -16,7 +16,7 @@ export interface TopicContentFlashcard {
 }
 
 export interface TopicContentAnimation {
-  type: 'cart' | 'ball';
+  type: 'cart' | 'ball' | 'laws';
   caption: string;
 }
 
@@ -49,8 +49,11 @@ export const topicContent: Record<string, TopicContentItem> = {
       front: "Can you name all three of Newton's Laws and what each one is about?",
       back: "<strong>1st Law:</strong> Inertia — objects resist changes in motion<br><strong>2nd Law:</strong> F = ma — force equals mass × acceleration<br><strong>3rd Law:</strong> Action–Reaction — equal and opposite forces"
     },
-    animation: null,
-    motivational: "Let's start with the big picture! 🌟"
+    animation: {
+      type: 'laws',
+      caption: "Explore Newton's Laws with interactive chalkboard demonstrations."
+    },
+    motivational: "Let's start with the big picture!"
   },
   lo2: {
     recap: {
