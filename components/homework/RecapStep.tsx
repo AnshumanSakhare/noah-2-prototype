@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { HomeworkStep } from './context';
 import { topicContent } from '../../data/topics';
 
@@ -16,7 +16,7 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
   const topicId = step.topic || '';
   const content = step.content;
 
-  const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo4';
+  const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo3' || topicId === 'lo4';
   const isInteractive = step.type === 'flashcard' || (step.type === 'recap' && hasSimulation);
 
   // Accordion drawer for self-test
@@ -26,171 +26,38 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
   // ─── lo1: Laws Chalkboard State ───
   const [selectedLaw, setSelectedLaw] = useState<'inertia' | 'fma' | 'reaction'>('inertia');
 
-  // ─── lo2: Push Cart State ───
+  // ─── lo2: F = ma Calculator State (reactive — no animation) ───
   const [cartMass, setCartMass] = useState<number>(5);
   const [cartForce, setCartForce] = useState<number>(20);
-  const [pushing, setPushing] = useState<boolean>(false);
-  const [cartLeft, setCartLeft] = useState<number>(10);
-  const [liveSpeed, setLiveSpeed] = useState<number>(0);
-  const [speedNeedleRot, setSpeedNeedleRot] = useState<number>(-140);
-  const [graphPoints, setGraphPoints] = useState<string>("12,60");
-  const cartAnimRef = useRef<number | null>(null);
 
-  // ─── lo3: Recoil Space State ───
-  const [recoilActive, setRecoilActive] = useState<boolean>(false);
-  const [astroLeft, setAstroLeft] = useState<number>(140);
-  const [rockLeft, setRockLeft] = useState<number>(190);
-  const [vectorWidth, setVectorWidth] = useState<number>(0);
-  const [vectorOpacity, setVectorOpacity] = useState<number>(0);
-  const recoilAnimRef = useRef<number | null>(null);
+  // ─── lo3: Action-Reaction State (CSS transitions) ───
+  const [throwItem, setThrowItem] = useState<'apple' | 'bowling' | 'anvil'>('apple');
+  const [launched, setLaunched] = useState<boolean>(false);
+  const [noTransition, setNoTransition] = useState<boolean>(false);
 
-  // ─── lo4: Friction Highway State ───
-  const [surface, setSurface] = useState<'ice' | 'gravel'>('ice');
-  const [crateLeft, setCrateLeft] = useState<number>(10);
-  const [gliding, setGliding] = useState<boolean>(false);
-  const [screechOpacity, setScreechOpacity] = useState<number>(0);
-  const [frictionArrowLeft, setFrictionArrowLeft] = useState<number>(60);
-  const [frictionArrowOpacity, setFrictionArrowOpacity] = useState<number>(0);
-  const glideAnimRef = useRef<number | null>(null);
+  // ─── lo4: Friction Race State (CSS transitions) ───
+  const [raceStarted, setRaceStarted] = useState<boolean>(false);
+  const [raceNoTransition, setRaceNoTransition] = useState<boolean>(false);
+  const [showScreech, setShowScreech] = useState<boolean>(false);
 
-  // Clean animations on unmount
-  useEffect(() => {
-    return () => {
-      if (cartAnimRef.current) cancelAnimationFrame(cartAnimRef.current);
-      if (recoilAnimRef.current) cancelAnimationFrame(recoilAnimRef.current);
-      if (glideAnimRef.current) cancelAnimationFrame(glideAnimRef.current);
-    };
-  }, []);
-
-  // ─── lo2: Cart Simulator Push Function ───
-  const launchCart = () => {
-    if (pushing) return;
-    setPushing(true);
-    setCartLeft(10);
-    setLiveSpeed(0);
-    setSpeedNeedleRot(-140);
-    setGraphPoints("12,60");
-
-    const accel = cartForce / cartMass;
-    let pos = 10;
-    let vel = 0;
-    const dt = 0.16;
-    let timeElapsed = 0;
-    const points = ["12,60"];
-
-    const frame = () => {
-      vel += accel * dt;
-      pos += vel * dt;
-      timeElapsed += dt;
-
-      // Update speedometer gauge
-      const dialRot = -140 + Math.min(280, vel * 12);
-      setSpeedNeedleRot(dialRot);
-      setLiveSpeed(vel);
-
-      // v-t Graph calculations
-      const gx = 12 + Math.min(86, timeElapsed * 8);
-      const gy = 60 - Math.min(52, vel * 2.2);
-      points.push(`${gx.toFixed(1)},${gy.toFixed(1)}`);
-      setGraphPoints(points.join(" "));
-
-      setCartLeft(pos);
-
-      if (pos < 310) {
-        cartAnimRef.current = requestAnimationFrame(frame);
-      } else {
-        setPushing(false);
-        setTimeout(() => {
-          setCartLeft(10);
-          setLiveSpeed(0);
-          setSpeedNeedleRot(-140);
-          setGraphPoints("12,60");
-        }, 1200);
-      }
-    };
-    frame();
+  // ─── lo3 handlers ───
+  const handleLaunch = () => setLaunched(true);
+  const handleResetLaunch = () => {
+    setNoTransition(true);
+    setLaunched(false);
+    setTimeout(() => setNoTransition(false), 50);
   };
 
-  // ─── lo3: Recoil simulator space launch ───
-  const launchRecoil = () => {
-    if (recoilActive) return;
-    setRecoilActive(true);
-    setAstroLeft(140);
-    setRockLeft(190);
-    setVectorWidth(70);
-    setVectorOpacity(1);
-
-    let posA = 140;
-    let posR = 190;
-    const velA = -1.2;
-    const velR = 4.0;
-
-    const frame = () => {
-      posA += velA;
-      posR += velR;
-      
-      setAstroLeft(posA);
-      setRockLeft(posR);
-
-      if (posR < 340 && posA > 10) {
-        recoilAnimRef.current = requestAnimationFrame(frame);
-      } else {
-        setRecoilActive(false);
-      }
-    };
-    frame();
+  // ─── lo4 handlers ───
+  const handleRace = () => {
+    setRaceStarted(true);
+    setTimeout(() => setShowScreech(true), 1900);
   };
-
-  const resetRecoil = () => {
-    setAstroLeft(140);
-    setRockLeft(190);
-    setVectorWidth(0);
-    setVectorOpacity(0);
-  };
-
-  // ─── lo4: Friction Highway launch ───
-  const launchGlide = () => {
-    if (gliding) return;
-    setGliding(true);
-    setCrateLeft(10);
-    setScreechOpacity(0);
-    
-    const hasFriction = surface === 'gravel';
-    let pos = 10;
-    let vel = 12;
-    const frictionDecel = 0.28;
-
-    if (hasFriction) {
-      setFrictionArrowOpacity(1);
-      setFrictionArrowLeft(60);
-    } else {
-      setFrictionArrowOpacity(0);
-    }
-
-    const frame = () => {
-      if (hasFriction) {
-        vel = Math.max(0, vel - frictionDecel);
-        setFrictionArrowLeft(pos + 30);
-      }
-      pos += vel;
-      setCrateLeft(pos);
-
-      if (vel > 0 && pos < 340) {
-        glideAnimRef.current = requestAnimationFrame(frame);
-      } else {
-        setFrictionArrowOpacity(0);
-        if (vel === 0) {
-          setScreechOpacity(1);
-        }
-        
-        setTimeout(() => {
-          setGliding(false);
-          setCrateLeft(10);
-          setScreechOpacity(0);
-        }, 1800);
-      }
-    };
-    frame();
+  const handleResetRace = () => {
+    setRaceNoTransition(true);
+    setRaceStarted(false);
+    setShowScreech(false);
+    setTimeout(() => setRaceNoTransition(false), 50);
   };
 
   // ─── Highlights Parser ───
@@ -198,7 +65,7 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
     if (!raw) return '';
     let t = raw;
     const words = [
-      "First Law \\(Inertia\\)", "Second Law \\(F = ma\\)", "Third Law", 
+      "First Law \\(Inertia\\)", "Second Law \\(F = ma\\)", "Third Law",
       "Force equals mass times acceleration", "F = ma", "equal and opposite reaction",
       "action force", "reaction force", "resists changing its motion", "inertia"
     ];
@@ -209,315 +76,424 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
     return t;
   };
 
-  // Physics Sandboxes templates
+  // ─── Physics Sandboxes ───
   const renderSandbox = () => {
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // lo1: Newton's Laws Explorer (tab selector — unchanged)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (topicId === 'lo1') {
       const lawsInfo = {
         inertia: {
           title: "Newton's First Law: Inertia 📦",
           desc: "An object resists changes in motion. A heavy cardboard box won't move until you pull it, and once moving, it would glide forever without friction!",
-          sketch: "📦 ➔ 🛑 (friction stops it)"
         },
         fma: {
           title: "Newton's Second Law: F = ma ⚡",
           desc: "Acceleration happens when force acts on a mass. More force = faster speed-up. More mass = harder to speed up!",
-          sketch: "🏃 ➔ 🏃💨 (more force = speed!)"
         },
         reaction: {
           title: "Newton's Third Law: Pairs 🤝",
           desc: "Forces always come in matched pairs! When you push a wall, it pushes back at you with the exact same force, in the opposite direction.",
-          sketch: "🤜 💥 🤛 (equal & opposite)"
         }
       };
 
       return (
-        <div className="sandbox-canvas-wrapper" style={{ margin: '8px 0', padding: '10px' }}>
-          <div className="sandbox-chalkboard" style={{ padding: '10px', minHeight: '120px' }}>
-            <div className="sandbox-title" style={{ fontSize: '0.75rem', marginBottom: '6px', paddingBottom: '4px' }}>Newton's Laws Explorer</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '12px', alignItems: 'center' }}>
-              <div>
-                {(['inertia', 'fma', 'reaction'] as const).map(law => (
-                  <button 
+        <div className="sandbox-canvas-wrapper" style={{ margin: '48px 0 16px 0', padding: '16px 20px', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px' }}>
+          <div className="sandbox-title" style={{ fontSize: '0.75rem', marginBottom: '16px', paddingBottom: '6px', borderBottom: '1px dashed #e2e8f0', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Newton&apos;s Laws Explorer
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '20px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {(['inertia', 'fma', 'reaction'] as const).map(law => {
+                const isActive = selectedLaw === law;
+                return (
+                  <button
                     key={law}
-                    className={`mini-btn lo1-tab ${selectedLaw === law ? 'selected' : ''}`}
                     onClick={() => setSelectedLaw(law)}
                     style={{
-                      fontFamily: 'inherit', fontSize: '0.74rem', fontWeight: 700,
-                      background: selectedLaw === law ? 'var(--accent)' : 'var(--surface)',
-                      borderColor: selectedLaw === law ? 'var(--accent)' : 'var(--border)', 
-                      color: selectedLaw === law ? '#ffffff' : 'var(--text-dim)',
+                      fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 750,
+                      background: isActive ? '#0284c7' : '#ffffff',
+                      borderColor: isActive ? '#0284c7' : '#cbd5e1',
+                      color: isActive ? '#ffffff' : '#475569',
                       borderWidth: '1px', borderStyle: 'solid',
-                      padding: '5px 8px', borderRadius: '6px', cursor: 'pointer', display: 'block', width: '100%', marginBottom: '4px', textAlign: 'center',
-                      transition: 'all 0.2s ease', boxShadow: 'none'
+                      padding: '8px 16px', borderRadius: '30px',
+                      cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center',
+                      transition: 'all 0.2s ease',
+                      boxShadow: isActive ? '0 3px 6px rgba(2, 132, 199, 0.15)' : 'none',
+                      outline: 'none'
                     }}
+                    onMouseOver={(e) => { if (!isActive) { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#94a3b8'; } }}
+                    onMouseOut={(e) => { if (!isActive) { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#cbd5e1'; } }}
                   >
                     {law === 'inertia' ? '1st Law' : law === 'fma' ? '2nd Law' : '3rd Law'}
                   </button>
-                ))}
-              </div>
-              <div id="lo1ChalkboardContent" style={{ padding: '2px 0' }}>
-                <h4 style={{ color: 'var(--text)', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.88rem', margin: '0 0 4px' }}>
-                  {lawsInfo[selectedLaw].title}
-                </h4>
-                <p style={{ fontSize: '0.8rem', lineHeight: 1.4, color: 'var(--text-dim)', margin: '0' }}>
-                  {lawsInfo[selectedLaw].desc}
-                </p>
-              </div>
+                );
+              })}
+            </div>
+
+            <div
+              id="lo1ChalkboardContent"
+              style={{
+                background: '#ffffff', border: '1.5px solid #e2e8f0', borderRadius: '16px',
+                padding: '24px 28px',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 10px 15px -3px rgba(0, 0, 0, 0.04)',
+                display: 'flex', flexDirection: 'column', gap: '8px',
+                minHeight: '120px', justifyContent: 'center'
+              }}
+            >
+              <h4 style={{ color: '#1e293b', fontFamily: 'inherit', fontWeight: 850, fontSize: '1.2rem', margin: 0, letterSpacing: '-0.015em' }}>
+                {lawsInfo[selectedLaw].title}
+              </h4>
+              <p style={{ fontSize: '0.92rem', lineHeight: '1.6', color: '#475569', margin: 0, fontWeight: 500 }}>
+                {lawsInfo[selectedLaw].desc}
+              </p>
             </div>
           </div>
         </div>
       );
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // lo2: F = ma Live Calculator (pure reactive — NO animation)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (topicId === 'lo2') {
-      const calculatedAccel = (cartForce / cartMass).toFixed(1);
+      const accel = cartForce / cartMass;
+      const accelDisplay = accel.toFixed(1);
+      const massPct = ((cartMass - 1) / (20 - 1)) * 100;
+      const forcePct = ((cartForce - 5) / (50 - 5)) * 100;
+      const barWidth = Math.min(100, accel * 4);
+
+      const massEmoji = cartMass <= 3 ? '🪶' : cartMass <= 8 ? '📦' : cartMass <= 14 ? '🧱' : '🐘';
+      const forceEmoji = cartForce <= 15 ? '💨' : cartForce <= 30 ? '🏃' : '🚀';
+      const speedLabel = accel < 2 ? 'Slow 🐌' : accel < 5 ? 'Medium 🚶' : accel < 10 ? 'Fast 🏎️' : 'Blazing! 🚀';
 
       return (
-        <div className="sandbox-canvas-wrapper" style={{ margin: '8px 0', padding: '10px' }}>
-          <div className="sandbox-title" style={{ fontSize: '0.75rem', marginBottom: '6px', paddingBottom: '4px' }}>
-            Tactile Push Cart Runway
+        <div className="sandbox-canvas-wrapper" style={{ margin: '48px 0 16px 0', padding: '16px 20px', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px' }}>
+          <div className="sandbox-title" style={{ fontSize: '0.75rem', marginBottom: '16px', paddingBottom: '6px', borderBottom: '1px dashed #e2e8f0', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            F = ma Explorer
           </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '12px', alignItems: 'center' }}>
-            {/* Left Column: runway, sliders, launch button */}
-            <div>
-              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', height: '64px', position: 'relative', overflow: 'hidden', marginBottom: '8px' }}>
-                <div style={{ position: 'absolute', left: 0, right: 0, bottom: '10px', height: '1px', background: 'var(--border)' }} />
-                <div 
-                  id="sandboxCart" 
-                  style={{ 
-                    position: 'absolute', bottom: '12px', left: `${cartLeft}px`, width: '32px', height: '20px', 
-                    borderRadius: '4px', background: 'linear-gradient(135deg,var(--accent),#7a85d8)', 
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)', zIndex: 2 
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'stretch' }}>
+            {/* Left: Sliders */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Mass Slider */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>
+                  <span>Mass</span>
+                  <span style={{ color: '#0284c7', fontSize: '0.95rem' }}>{cartMass} kg {massEmoji}</span>
+                </div>
+                <input
+                  type="range" min="1" max="20" value={cartMass}
+                  onChange={(e) => setCartMass(parseInt(e.target.value))}
+                  style={{
+                    width: '100%', accentColor: '#0284c7', height: '6px', borderRadius: '3px',
+                    background: `linear-gradient(to right, #0284c7 ${massPct}%, #e2e8f0 ${massPct}%)`,
+                    WebkitAppearance: 'none', appearance: 'none', outline: 'none', cursor: 'pointer'
                   }}
-                >
-                  <div style={{ position: 'absolute', bottom: '-4px', left: '2px', width: '8px', height: '8px', borderRadius: '50%', background: '#2d2a26', border: '1.5px solid #fff' }} />
-                  <div style={{ position: 'absolute', bottom: '-4px', right: '2px', width: '8px', height: '8px', borderRadius: '50%', background: '#2d2a26', border: '1.5px solid #fff' }} />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)' }}>
-                  <span style={{ minWidth: '60px' }}>Mass: <strong style={{ color: 'var(--accent)' }}>{cartMass} kg</strong></span>
-                  <input 
-                    type="range" 
-                    min="2" 
-                    max="15" 
-                    value={cartMass} 
-                    onChange={(e) => setCartMass(parseInt(e.target.value))} 
-                    style={{ flex: 1, margin: '0 8px', accentColor: 'var(--accent)', height: '4px' }} 
-                  />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)' }}>
-                  <span style={{ minWidth: '60px' }}>Force: <strong style={{ color: 'var(--correct)' }}>{cartForce} N</strong></span>
-                  <input 
-                    type="range" 
-                    min="5" 
-                    max="50" 
-                    value={cartForce} 
-                    onChange={(e) => setCartForce(parseInt(e.target.value))} 
-                    style={{ flex: 1, margin: '0 8px', accentColor: 'var(--correct)', height: '4px' }} 
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed var(--border)' }}>
-                <button 
-                  className="sandbox-btn primary" 
-                  onClick={launchCart} 
-                  disabled={pushing}
-                >
-                  {pushing ? 'Pushing…' : 'Push Cart! 🚀'}
-                </button>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.58rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)' }}>Accel Rate</div>
-                  <div style={{ fontFamily: 'Space Mono', fontSize: '1rem', fontWeight: 800, color: 'var(--accent)' }}>
-                    {calculatedAccel} m/s²
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column: Instrument Panel */}
-            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px', color: 'var(--text)', display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'space-between' }}>
-              {/* Live Speedometer */}
-              <div style={{ textAlign: 'center', flex: '1' }}>
-                <div style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.02em', fontFamily: 'inherit', marginBottom: '4px' }}>Speedometer</div>
-                <svg width="60" height="60" style={{ background: 'transparent' }}>
-                  <circle cx="30" cy="30" r="26" fill="var(--surface)" stroke="var(--border)" strokeWidth="0.5" />
-                  <path d="M 12,46 A 22,22 0 1,1 48,46" fill="none" stroke="var(--border)" strokeWidth="2" strokeLinecap="round" />
-                  <g transform={`rotate(${speedNeedleRot} 30 30)`}>
-                    <line x1="30" y1="30" x2="30" y2="10" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" />
-                    <circle cx="30" cy="30" r="2.5" fill="var(--accent)" />
-                  </g>
-                  <text x="30" y="52" fill="var(--text)" fontFamily="'Space Mono', monospace" fontSize="7.5" fontWeight="700" textAnchor="middle">
-                    {liveSpeed.toFixed(1)} m/s
-                  </text>
-                </svg>
-              </div>
-
-              {/* live v-t graph */}
-              <div style={{ textAlign: 'center', flex: '1.2' }}>
-                <div style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.02em', fontFamily: 'inherit', marginBottom: '4px' }}>v-t Graph</div>
-                <svg width="80" height="60" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '4px', fontFamily: "'Space Mono', monospace", fontSize: '5px' }}>
-                  <line x1="10" y1="10" x2="74" y2="10" stroke="var(--border)" strokeWidth="0.5" strokeDasharray="2 2" />
-                  <line x1="10" y1="24" x2="74" y2="24" stroke="var(--border)" strokeWidth="0.5" strokeDasharray="2 2" />
-                  <line x1="10" y1="38" x2="74" y2="38" stroke="var(--border)" strokeWidth="0.5" strokeDasharray="2 2" />
-                  
-                  <line x1="10" y1="4" x2="10" y2="48" stroke="var(--text-dim)" strokeWidth="0.5" />
-                  <line x1="10" y1="48" x2="74" y2="48" stroke="var(--text-dim)" strokeWidth="0.5" />
-                  <polyline points={graphPoints} stroke="var(--correct)" strokeWidth="1.5" fill="none" />
-                </svg>
-              </div>
-
-              {/* Calculations widget */}
-              <div style={{ textAlign: 'center', flex: '1', border: '1px dashed var(--border)', padding: '4px', borderRadius: '6px', background: 'var(--surface)' }}>
-                <div style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.02em', fontFamily: 'inherit' }}>Math</div>
-                <div style={{ fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 800, color: 'var(--accent)', lineHeight: '14px', margin: '2px 0' }}>F = m &middot; a</div>
-                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.58rem', color: 'var(--correct)', whiteSpace: 'nowrap' }}>
-                  {cartForce}N={cartMass}kg &middot; {calculatedAccel}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (topicId === 'lo3') {
-      return (
-        <div className="sandbox-canvas-wrapper" style={{ margin: '8px 0', padding: '10px' }}>
-          <div className="sandbox-title" style={{ fontSize: '0.75rem', marginBottom: '6px', paddingBottom: '4px' }}>
-            Zero-G Recoil Simulator
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'center' }}>
-            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '8px', height: '70px', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', width: '2.5px', height: '2.5px', background: '#cbd5e1', borderRadius: '50%', top: '15px', left: '30px', opacity: 0.8 }} />
-              <div style={{ position: 'absolute', width: '2px', height: '2px', background: '#94a3b8', borderRadius: '50%', top: '40px', left: '150px', opacity: 0.8 }} />
-              <div style={{ position: 'absolute', width: '3px', height: '3px', background: '#cbd5e1', borderRadius: '50%', top: '20px', left: '280px', opacity: 0.8 }} />
-              
-              <div style={{ position: 'absolute', top: '15px', left: `${astroLeft}px`, fontSize: '1.8rem', lineHeight: 1, zIndex: 3 }}>🧑‍🚀</div>
-              <div style={{ position: 'absolute', top: '24px', left: `${rockLeft}px`, fontSize: '0.9rem', lineHeight: 1, zIndex: 4 }}>☄️</div>
-              
-              {/* Vectors */}
-              <div 
-                style={{ 
-                  position: 'absolute', top: '29px', right: `calc(100% - ${astroLeft - 5}px)`, 
-                  width: `${vectorWidth}px`, height: '3px', background: '#d94a4a', 
-                  opacity: vectorOpacity, transition: 'all 0.1s', transformOrigin: 'right center' 
-                }}
-              >
-                <div style={{ position: 'absolute', left: 0, top: '-3px', width: 0, height: 0, borderTop: '5px solid transparent', borderBottom: '5px solid transparent', borderRight: '6px solid #d94a4a' }} />
-              </div>
-              
-              <div 
-                style={{ 
-                  position: 'absolute', top: '29px', left: `${rockLeft + 16}px`, 
-                  width: `${vectorWidth}px`, height: '3px', background: '#3baa6f', 
-                  opacity: vectorOpacity, transition: 'all 0.1s', transformOrigin: 'left center' 
-                }}
-              >
-                <div style={{ position: 'absolute', right: 0, top: '-3px', width: 0, height: 0, borderTop: '5px solid transparent', borderBottom: '5px solid transparent', borderLeft: '6px solid #3baa6f' }} />
-              </div>
-            </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
-              <button 
-                className="sandbox-btn primary" 
-                onClick={launchRecoil} 
-                disabled={recoilActive}
-              >
-                Throw Space-Rock! ☄️
-              </button>
-              {(astroLeft !== 140 || rockLeft !== 190) && (
-                <button 
-                  className="sandbox-btn" 
-                  onClick={resetRecoil}
-                >
-                  Reset 🔄
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (topicId === 'lo4') {
-      return (
-        <div className="sandbox-canvas-wrapper" style={{ margin: '8px 0', padding: '10px' }}>
-          <div className="sandbox-title" style={{ fontSize: '0.75rem', marginBottom: '6px', paddingBottom: '4px' }}>
-            First Law Friction Highway
-          </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'center' }}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text)', fontFamily: 'inherit' }}>Surface:</span>
-                <select 
-                  value={surface} 
-                  onChange={(e) => setSurface(e.target.value as 'ice' | 'gravel')}
-                  style={{ padding: '4px 8px', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.75rem', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--surface)', color: 'var(--text)', outline: 'none', cursor: 'pointer' }}
-                >
-                  <option value="ice">❄️ Frictionless Ice</option>
-                  <option value="gravel">🪨 Rough Gravel</option>
-                </select>
-              </div>
-              
-              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', height: '64px', position: 'relative', overflow: 'hidden' }}>
-                <div 
-                  id="runwayTrackBg" 
-                  style={{ 
-                    position: 'absolute', left: '45px', right: 0, bottom: '10px', height: '8px', 
-                    background: surface === 'gravel' 
-                      ? 'repeating-linear-gradient(90deg, #94a3b8, #94a3b8 10px, #cbd5e1 10px, #cbd5e1 20px)' 
-                      : 'linear-gradient(90deg, #e0f7fa, #b2ebf2)', 
-                    transition: 'background 0.3s' 
-                  }} 
                 />
-                
-                <div 
-                  id="frictionArrow" 
-                  style={{ 
-                    position: 'absolute', bottom: '26px', left: `${frictionArrowLeft}px`, fontSize: '0.9rem', 
-                    opacity: frictionArrowOpacity, transition: 'opacity 0.2s, left 0.1s linear', color: 'var(--wrong)' 
-                  }}
-                >
-                  ⬅️ <span style={{ fontSize: '0.55rem', fontFamily: "'Space Mono'", fontWeight: 800, verticalAlign: 'middle', background: 'var(--surface)', border: '1px solid var(--wrong)', padding: '0 2px', borderRadius: '2px' }}>
-                    Friction
-                  </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: '#94a3b8', fontWeight: 600, marginTop: '2px' }}>
+                  <span>🪶 Light</span><span>🐘 Heavy</span>
                 </div>
-                
-                <div style={{ position: 'absolute', bottom: '16px', left: `${crateLeft}px`, fontSize: '1.4rem', lineHeight: 1, zIndex: 2 }}>📦</div>
-                
-                {/* Screech Alert */}
-                <div 
-                  className="screech-alert" 
-                  style={{ 
-                    position: 'absolute', top: '15px', left: '50%', transform: 'translateX(-50%)', 
-                    background: 'var(--wrong)', color: '#fff', fontFamily: 'inherit', fontSize: '0.75rem', 
-                    fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', opacity: screechOpacity, 
-                    transition: 'opacity 0.2s', border: '1px solid var(--border)' 
+              </div>
+
+              {/* Force Slider */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>
+                  <span>Force</span>
+                  <span style={{ color: '#10b981', fontSize: '0.95rem' }}>{cartForce} N {forceEmoji}</span>
+                </div>
+                <input
+                  type="range" min="5" max="50" value={cartForce}
+                  onChange={(e) => setCartForce(parseInt(e.target.value))}
+                  style={{
+                    width: '100%', accentColor: '#10b981', height: '6px', borderRadius: '3px',
+                    background: `linear-gradient(to right, #10b981 ${forcePct}%, #e2e8f0 ${forcePct}%)`,
+                    WebkitAppearance: 'none', appearance: 'none', outline: 'none', cursor: 'pointer'
                   }}
-                >
-                  SKRRRRT! 🛑
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: '#94a3b8', fontWeight: 600, marginTop: '2px' }}>
+                  <span>💨 Gentle</span><span>🚀 Powerful</span>
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <button 
-                className="sandbox-btn primary" 
-                onClick={launchGlide} 
-                disabled={gliding}
-              >
-                {gliding ? 'Gliding… 📦' : 'Launch Crate! 🚀'}
-              </button>
+            {/* Right: Result Card */}
+            <div style={{
+              background: '#ffffff', border: '1.5px solid #e2e8f0', borderRadius: '16px',
+              padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', gap: '8px',
+              boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02), 0 10px 15px -3px rgba(0,0,0,0.04)'
+            }}>
+              <div style={{ fontSize: '0.6rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Acceleration
+              </div>
+              <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#0284c7', lineHeight: 1.1, fontFamily: "'Inter', sans-serif" }}>
+                {accelDisplay} <span style={{ fontSize: '1rem', fontWeight: 700 }}>m/s²</span>
+              </div>
+
+              {/* Visual bar */}
+              <div style={{ width: '100%', height: '10px', background: '#f1f5f9', borderRadius: '5px', overflow: 'hidden' }}>
+                <div style={{
+                  width: `${barWidth}%`, height: '100%', borderRadius: '5px',
+                  background: accel < 5
+                    ? 'linear-gradient(90deg, #93c5fd, #3b82f6)'
+                    : accel < 15
+                      ? 'linear-gradient(90deg, #6ee7b7, #10b981)'
+                      : 'linear-gradient(90deg, #fbbf24, #f59e0b)',
+                  transition: 'width 0.3s ease, background 0.3s ease'
+                }} />
+              </div>
+
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#475569' }}>
+                {speedLabel}
+              </div>
+            </div>
+          </div>
+
+          {/* Math sticky note */}
+          <div style={{
+            marginTop: '14px', background: '#fefcbf', border: '1px solid #fef08a', borderRadius: '10px',
+            padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap'
+          }}>
+            <div style={{ fontSize: '0.6rem', fontWeight: 850, color: '#a16207', textTransform: 'uppercase' }}>Math</div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e3a8a' }}>
+              F = m × a &rarr; <span style={{ fontFamily: "'Space Mono', monospace" }}>{cartForce}N = {cartMass}kg × {accelDisplay}m/s²</span>
             </div>
           </div>
         </div>
       );
     }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // lo3: Action-Reaction Launcher (CSS transitions)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (topicId === 'lo3') {
+      const throwConfig = {
+        apple:   { emoji: '🍎', label: 'Light',  itemEnd: '85%', astroEnd: '36%', dur: '0.8s', insight: 'The light apple flies fast — you barely move!' },
+        bowling: { emoji: '🎳', label: 'Medium', itemEnd: '72%', astroEnd: '15%', dur: '1.0s', insight: 'Both move! Equal forces act on different masses.' },
+        anvil:   { emoji: '🏗️', label: 'Heavy',  itemEnd: '52%', astroEnd: '2%',  dur: '1.0s', insight: 'The heavy anvil barely moves — YOU fly backward! 😱' },
+      };
+      const cfg = throwConfig[throwItem];
+      const transStyle = noTransition ? 'none' : `left ${cfg.dur} ease-out`;
+
+      return (
+        <div className="sandbox-canvas-wrapper" style={{ margin: '48px 0 16px 0', padding: '16px 20px', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px' }}>
+          <div className="sandbox-title" style={{ fontSize: '0.75rem', marginBottom: '12px', paddingBottom: '6px', borderBottom: '1px dashed #e2e8f0', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Action–Reaction Launcher
+          </div>
+
+          {/* Item selector pills */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+            {(['apple', 'bowling', 'anvil'] as const).map(item => {
+              const c = throwConfig[item];
+              const active = throwItem === item;
+              return (
+                <button
+                  key={item}
+                  onClick={() => { if (!launched) setThrowItem(item); }}
+                  disabled={launched}
+                  style={{
+                    flex: 1, padding: '8px 4px', borderRadius: '12px',
+                    border: `1.5px solid ${active ? '#0284c7' : '#e2e8f0'}`,
+                    background: active ? '#eff6ff' : '#ffffff',
+                    color: active ? '#0284c7' : '#64748b',
+                    fontWeight: 750, fontSize: '0.78rem',
+                    cursor: launched ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
+                    fontFamily: 'inherit', outline: 'none', opacity: launched && !active ? 0.4 : 1
+                  }}
+                >
+                  <span style={{ fontSize: '1.3rem' }}>{c.emoji}</span>
+                  <span>{c.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Space stage */}
+          <div style={{
+            background: 'linear-gradient(135deg, #0f172a, #1e293b)', borderRadius: '14px',
+            height: '90px', position: 'relative', overflow: 'hidden', marginBottom: '12px'
+          }}>
+            {/* Stars */}
+            <div style={{ position: 'absolute', width: '2px', height: '2px', background: '#fff', borderRadius: '50%', top: '12px', left: '20%', opacity: 0.5 }} />
+            <div style={{ position: 'absolute', width: '1.5px', height: '1.5px', background: '#fff', borderRadius: '50%', top: '55px', left: '65%', opacity: 0.4 }} />
+            <div style={{ position: 'absolute', width: '2.5px', height: '2.5px', background: '#fff', borderRadius: '50%', top: '18px', left: '82%', opacity: 0.6 }} />
+            <div style={{ position: 'absolute', width: '1.5px', height: '1.5px', background: '#fff', borderRadius: '50%', top: '40px', left: '10%', opacity: 0.3 }} />
+
+            {/* Astronaut */}
+            <div style={{
+              position: 'absolute', top: '20px',
+              left: launched ? cfg.astroEnd : '40%',
+              fontSize: '2rem', lineHeight: 1, zIndex: 2,
+              transition: transStyle
+            }}>🧑‍🚀</div>
+
+            {/* Thrown item */}
+            <div style={{
+              position: 'absolute', top: '30px',
+              left: launched ? cfg.itemEnd : '48%',
+              fontSize: '1.3rem', lineHeight: 1, zIndex: 2,
+              transition: transStyle
+            }}>{cfg.emoji}</div>
+
+            {/* Force labels — appear after launch */}
+            {launched && (
+              <>
+                <div style={{
+                  position: 'absolute', bottom: '8px', left: '12px',
+                  color: '#ef4444', fontSize: '0.62rem', fontWeight: 800,
+                  background: 'rgba(239,68,68,0.15)', padding: '2px 6px', borderRadius: '4px'
+                }}>
+                  ◀ Reaction
+                </div>
+                <div style={{
+                  position: 'absolute', bottom: '8px', right: '12px',
+                  color: '#22c55e', fontSize: '0.62rem', fontWeight: 800,
+                  background: 'rgba(34,197,94,0.15)', padding: '2px 6px', borderRadius: '4px'
+                }}>
+                  Action ▶
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Insight text */}
+          <div style={{ fontSize: '0.82rem', fontWeight: 500, color: '#64748b', textAlign: 'center', marginBottom: '12px', lineHeight: 1.5, minHeight: '20px' }}>
+            {launched ? cfg.insight : 'Pick an object and throw it in space!'}
+          </div>
+
+          {/* Buttons */}
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            {!launched ? (
+              <button
+                onClick={handleLaunch}
+                style={{
+                  borderRadius: '30px', background: '#0284c7', color: '#fff', fontWeight: 750,
+                  fontSize: '0.85rem', padding: '9px 24px', border: 'none', cursor: 'pointer',
+                  transition: 'all 0.2s ease', boxShadow: '0 3px 6px rgba(2,132,199,0.2)',
+                  fontFamily: 'inherit'
+                }}
+              >
+                Throw! 🚀
+              </button>
+            ) : (
+              <button
+                onClick={handleResetLaunch}
+                style={{
+                  borderRadius: '30px', background: '#ffffff', color: '#475569', fontWeight: 700,
+                  fontSize: '0.85rem', padding: '9px 24px', border: '1.5px solid #cbd5e1', cursor: 'pointer',
+                  transition: 'all 0.2s ease', fontFamily: 'inherit'
+                }}
+              >
+                Try Again 🔄
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // lo4: Friction Race (side-by-side CSS transitions)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (topicId === 'lo4') {
+      const iceTransition = raceNoTransition ? 'none' : 'left 3s linear';
+      const gravelTransition = raceNoTransition ? 'none' : 'left 1.8s cubic-bezier(0.0, 0.7, 0.3, 1.0)';
+
+      return (
+        <div className="sandbox-canvas-wrapper" style={{ margin: '48px 0 16px 0', padding: '16px 20px', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px' }}>
+          <div className="sandbox-title" style={{ fontSize: '0.75rem', marginBottom: '12px', paddingBottom: '6px', borderBottom: '1px dashed #e2e8f0', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Friction Race
+          </div>
+
+          {/* Two lanes */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
+            {/* Ice lane */}
+            <div>
+              <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#0ea5e9', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                ❄️ Frictionless Ice
+              </div>
+              <div style={{
+                background: 'linear-gradient(90deg, #e0f7fa, #b2ebf2)', borderRadius: '10px',
+                height: '48px', position: 'relative', overflow: 'hidden', border: '1px solid #b2ebf2'
+              }}>
+                <div style={{
+                  position: 'absolute', top: '10px', fontSize: '1.4rem', lineHeight: 1, zIndex: 2,
+                  left: raceStarted ? '88%' : '4%', transition: iceTransition
+                }}>📦</div>
+              </div>
+            </div>
+
+            {/* Gravel lane */}
+            <div>
+              <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#78716c', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                🪨 Rough Gravel
+              </div>
+              <div style={{
+                background: 'repeating-linear-gradient(90deg, #d6d3d1, #d6d3d1 8px, #e7e5e4 8px, #e7e5e4 16px)',
+                borderRadius: '10px', height: '48px', position: 'relative', overflow: 'hidden',
+                border: '1px solid #d6d3d1'
+              }}>
+                <div style={{
+                  position: 'absolute', top: '10px', fontSize: '1.4rem', lineHeight: 1, zIndex: 2,
+                  left: raceStarted ? '35%' : '4%', transition: gravelTransition
+                }}>📦</div>
+
+                {/* Screech label */}
+                {showScreech && (
+                  <div style={{
+                    position: 'absolute', top: '14px', left: '44%', fontSize: '0.7rem', fontWeight: 800,
+                    background: '#ef4444', color: '#fff', padding: '2px 8px', borderRadius: '4px'
+                  }}>
+                    STOPPED! 🛑
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Insight text */}
+          <div style={{ fontSize: '0.82rem', fontWeight: 500, color: '#64748b', textAlign: 'center', marginBottom: '12px', lineHeight: 1.5 }}>
+            {raceStarted
+              ? "❄️ No friction → crate keeps sliding! 🪨 Friction slows it down. That's Newton's First Law!"
+              : 'Same crate, same push, different surfaces. What will happen?'}
+          </div>
+
+          {/* Buttons */}
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            {!raceStarted ? (
+              <button
+                onClick={handleRace}
+                style={{
+                  borderRadius: '30px', background: '#0284c7', color: '#fff', fontWeight: 750,
+                  fontSize: '0.85rem', padding: '9px 24px', border: 'none', cursor: 'pointer',
+                  transition: 'all 0.2s ease', boxShadow: '0 3px 6px rgba(2,132,199,0.2)',
+                  fontFamily: 'inherit'
+                }}
+              >
+                Race! 🏁
+              </button>
+            ) : (
+              <button
+                onClick={handleResetRace}
+                style={{
+                  borderRadius: '30px', background: '#ffffff', color: '#475569', fontWeight: 700,
+                  fontSize: '0.85rem', padding: '9px 24px', border: '1.5px solid #cbd5e1', cursor: 'pointer',
+                  transition: 'all 0.2s ease', fontFamily: 'inherit'
+                }}
+              >
+                Reset 🔄
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -539,36 +515,40 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
 
   return (
     <div className={`hw-card hw-card-recap hw-card-recap-handwritten ${noteColorClass}`}>
+      {/* ── Card Header Navbar ── */}
+      <div className="hw-card-header">
+        <h3 className="hw-card-header-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.25rem', fontWeight: 850, color: 'var(--text)' }}>
+          {isInteractive ? (
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#0d9488', flexShrink: 0 }}>
+              <rect x="3" y="9" width="14" height="12" rx="2" />
+              <path d="M7 5h14v12" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)', flexShrink: 0 }}>
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+              <path d="M6 6h10" />
+              <path d="M6 10h10" />
+            </svg>
+          )}
+          {step.lo?.name || step.topic || "General"}
+        </h3>
+        <div className="hw-card-header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-dim)', flexShrink: 0 }}>
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+          {isInteractive ? "Interactive Sandbox" : "30-Second Recap"}
+        </div>
+      </div>
+
       <div className="hw-card-body">
         <div className="hw-notebook-sheet">
           <div className="hw-notebook-sheet-content">
-            <h3 className="notebook-title" style={{ display: 'inline-flex', alignItems: 'center' }}>
-              {isInteractive ? (
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px', color: '#0d9488', flexShrink: 0 }}>
-                  <rect x="3" y="9" width="14" height="12" rx="2" />
-                  <path d="M7 5h14v12" />
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px', color: 'var(--accent)', flexShrink: 0 }}>
-                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
-                  <path d="M6 6h10" />
-                  <path d="M6 10h10" />
-                </svg>
-              )}
-              {content?.title}
-            </h3>
-            <p style={{ fontSize: '0.8rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', marginBottom: '12px', letterSpacing: '0.04em', display: 'flex', alignItems: 'center' }}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px', color: 'var(--text-dim)', flexShrink: 0 }}>
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-              </svg>
-              {content?.sub}
-            </p>
-            <div 
-              style={{ fontSize: '0.95rem', lineHeight: '22px', marginBottom: '12px' }}
+            <div
+              style={{ fontSize: '1.05rem', lineHeight: '1.75', marginBottom: '32px', color: '#475569' }}
               dangerouslySetInnerHTML={{ __html: hlText(content?.text, hlClass) }}
             />
-            
+
             {/* Visual physics sandbox */}
             {renderSandbox()}
           </div>

@@ -190,9 +190,9 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
   const renderStepIcon = (s: HomeworkStep) => {
     const size = 12;
     const topicId = s.topic || s.lo?.id || '';
-    
-    // lo1 (Laws Explorer), lo2 (Tactile Cart), lo4 (Friction Highway) have interactive sandboxes/simulations.
-    const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo4';
+
+    // lo1 (Laws Explorer), lo2 (F=ma), lo3 (Recoil), lo4 (Friction) have interactive sandboxes.
+    const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo3' || topicId === 'lo4';
     const isInteractive = s.type === 'flashcard' || s.type === 'animation' || (s.type === 'recap' && hasSimulation);
 
     if (s.type === 'topic-complete') {
@@ -281,16 +281,27 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
       case 'topic-intro':
         return (
           <div className="hw-card hw-card-intro">
+            {/* ── Card Header Navbar ── */}
+            <div className="hw-card-header">
+              <h3 className="hw-card-header-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.25rem', fontWeight: 850, color: 'var(--text)' }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)', flexShrink: 0 }}>
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+                {step.lo?.name || step.topic || "General"}
+              </h3>
+              <div className="hw-card-header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
+                <span>▶</span> Topic Introduction &bull; Topic {(step.topicIdx || 0) + 1} of {step.totalTopics || 1}
+              </div>
+            </div>
+
             <div className="hw-card-body">
               <div className="topic-intro-inner">
-                <span className="ti-num">Topic {(step.topicIdx || 0) + 1} of {step.totalTopics || 1}</span>
-                <span className="ti-icon">
+                <span className="ti-icon" style={{ marginTop: '10px' }}>
                   {step.lo?.name?.includes('Inertia') ? '🎯'
                     : step.lo?.name?.includes('Force') ? '⚡'
-                    : step.lo?.name?.includes('Action') ? '🤝' : '🌟'}
+                      : step.lo?.name?.includes('Action') ? '🤝' : '🌟'}
                 </span>
-                <h2>{step.lo?.name}</h2>
-                <p>{step.motivational || "Let's dive in!"}</p>
+                <p style={{ marginTop: '16px', fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-dim)' }}>{step.motivational || "Let's dive in!"}</p>
               </div>
             </div>
             <div className="hw-card-footer">
@@ -304,6 +315,19 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
       case 'topic-complete':
         return (
           <div className="hw-card hw-card-complete">
+            {/* ── Card Header Navbar ── */}
+            <div className="hw-card-header">
+              <h3 className="hw-card-header-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.25rem', fontWeight: 850, color: 'var(--text)' }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--correct)', flexShrink: 0 }}>
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                {step.lo?.name || step.topic || "General"}
+              </h3>
+              <div className="hw-card-header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
+                <span>✓</span> Topic Completed
+              </div>
+            </div>
+
             <div className="hw-card-body">
               <div className="topic-complete-inner" style={{ textAlign: 'center', padding: '32px 12px' }}>
                 <div style={{
@@ -312,8 +336,8 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
                   fontSize: '2rem', display: 'grid', placeItems: 'center',
                   margin: '0 auto 20px', border: '2px solid var(--correct)', fontWeight: 900
                 }}>✓</div>
-                <h2 style={{ fontSize: '1.6rem', fontWeight: 900, marginBottom: '10px', color: 'var(--text)' }}>
-                  {step.lo?.name} — Done! 🎉
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '10px', color: 'var(--text)' }}>
+                  Topic Completed! 🎉
                 </h2>
                 <p style={{ color: 'var(--text-dim)', fontSize: '0.95rem', fontWeight: 500, maxWidth: '440px', margin: '0 auto 24px', lineHeight: 1.6 }}>
                   {step.isLast ? "That was the last topic! Let's see how you did." : "Great work! Ready for the next topic?"}
@@ -458,9 +482,9 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
                   const status = getMapStatus(s, idx);
                   const isQ = isQuestionType(s);
                   const qN = stepQuestionNumbers[idx];
-                  
+
                   const topicId = s.topic || s.lo?.id || '';
-                  const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo4';
+                  const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo3' || topicId === 'lo4';
                   const isInteractive = s.type === 'flashcard' || s.type === 'animation' || (s.type === 'recap' && hasSimulation);
 
                   // Compute dynamic border and background styles for non-questions to match the legend beautifully

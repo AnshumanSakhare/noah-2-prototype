@@ -2069,9 +2069,21 @@
   box-sizing: border-box !important;
 }
 
+/* hw-card-header: clean navigation bar at the top of each card */
+.hw-runner-page .hw-card-header {
+  padding: 18px 24px 14px !important;
+  border-bottom: 1.5px solid #f1f5f9;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-shrink: 0;
+  margin-bottom: 8px; /* Added spacing after the card header */
+}
+
 /* hw-card-body: scrollable inside the card */
 .hw-runner-page .hw-card-body {
-  padding: 16px 20px 10px !important;
+  padding: 24px 28px 20px !important;
   overflow-y: auto !important;
   flex: 1;
 }

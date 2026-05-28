@@ -35,9 +35,22 @@ export const MCQStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, o
 
   return (
     <div className="hw-card hw-card-question">
-      <div className="hw-card-top" style={{ background: 'var(--hw)' }}></div>
+      {/* ── Card Header Navbar ── */}
+      <div className="hw-card-header">
+        <h3 className="hw-card-header-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.25rem', fontWeight: 850, color: 'var(--text)' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)', flexShrink: 0 }}>
+            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          {step.lo?.name || step.topic || "General"}
+        </h3>
+        <div className="hw-card-header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
+          <span>📝</span> Practice Question &bull; Multiple Choice
+        </div>
+      </div>
+
       <div className="hw-card-body">
-        <span className="q-type-badge mcq">Multiple Choice</span>
         <div className="q-text">{step.text}</div>
         
         <div className="options">
@@ -102,9 +115,22 @@ export const FillStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, 
 
   return (
     <div className="hw-card hw-card-question">
-      <div className="hw-card-top" style={{ background: 'var(--path)' }}></div>
+      {/* ── Card Header Navbar ── */}
+      <div className="hw-card-header">
+        <h3 className="hw-card-header-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.25rem', fontWeight: 850, color: 'var(--text)' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)', flexShrink: 0 }}>
+            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          {step.lo?.name || step.topic || "General"}
+        </h3>
+        <div className="hw-card-header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
+          <span>📝</span> Practice Question &bull; Fill in the Blank
+        </div>
+      </div>
+
       <div className="hw-card-body">
-        <span className="q-type-badge fill">Fill in the blank</span>
         <div className="q-text" style={{ marginBottom: '16px' }}>{step.text}</div>
         
         <div className="fill-wrap">
@@ -217,9 +243,22 @@ export const BlanksStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer
 
   return (
     <div className="hw-card hw-card-question">
-      <div className="hw-card-top" style={{ background: 'var(--accent-4)' }}></div>
+      {/* ── Card Header Navbar ── */}
+      <div className="hw-card-header">
+        <h3 className="hw-card-header-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.25rem', fontWeight: 850, color: 'var(--text)' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)', flexShrink: 0 }}>
+            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          {step.lo?.name || step.topic || "General"}
+        </h3>
+        <div className="hw-card-header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
+          <span>📝</span> Practice Question &bull; Fill the Gaps
+        </div>
+      </div>
+
       <div className="hw-card-body">
-        <span className="q-type-badge blanks">Mixed drag blanks</span>
         {renderSentence()}
         
         <div className="word-bank">
@@ -345,9 +384,22 @@ export const DragStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, 
 
   return (
     <div className="hw-card hw-card-question">
-      <div className="hw-card-top" style={{ background: 'var(--accent)' }}></div>
+      {/* ── Card Header Navbar ── */}
+      <div className="hw-card-header">
+        <h3 className="hw-card-header-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.25rem', fontWeight: 850, color: 'var(--text)' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)', flexShrink: 0 }}>
+            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          {step.lo?.name || step.topic || "General"}
+        </h3>
+        <div className="hw-card-header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
+          <span>📝</span> Practice Question &bull; Drag &amp; Drop Match
+        </div>
+      </div>
+
       <div className="hw-card-body">
-        <span className="q-type-badge drag">Drag &amp; Drop</span>
         <div className="q-text">{step.text}</div>
         <div className="drag-instruction">🖱️ Drag items to matching zones, or tap item then tap zone</div>
         
