@@ -43,6 +43,8 @@ import {
   TOAST_TRIGGERS,
   toErrorMessage,
   toRomanNumeral,
+  buildRandomAnswer,
+  buildRandomQuizSubmission,
 } from "./diagnostic-demo";
 import { MultiStageLoadingScreen } from "./loading-screen";
 
@@ -528,6 +530,26 @@ export function PlacementDemo({
     );
   };
 
+  const answerAllRandomly = useCallback(() => {
+    const activeQuiz = quizRef.current;
+    if (!activeQuiz || isBusy) return;
+
+    const { randomAnswers, randomResponseMeta } =
+      buildRandomQuizSubmission(activeQuiz);
+
+    answersRef.current = randomAnswers;
+    responseMetaRef.current = randomResponseMeta;
+    setAnswers(randomAnswers);
+    setResponseMeta(randomResponseMeta);
+    setCurrentAnswer(
+      activeQuiz.questions[currentIndexRef.current]
+        ? (randomAnswers[activeQuiz.questions[currentIndexRef.current].id] ??
+            "")
+        : "",
+    );
+    finalizeQuiz(randomAnswers, randomResponseMeta);
+  }, [isBusy]);
+
   const canSubmitCurrent =
     !isBusy &&
     !!currentQuestion &&
@@ -757,7 +779,15 @@ export function PlacementDemo({
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-3 border-t border-[rgba(0,0,0,0.08)] px-3.5 py-3 sm:px-7 sm:py-4">
+                <div className="flex items-center justify-between gap-3 border-t border-[rgba(0,0,0,0.08)] px-3.5 py-3 sm:px-7 sm:py-4">
+                  <button
+                    type="button"
+                    onClick={answerAllRandomly}
+                    disabled={isBusy}
+                    className="flex items-center gap-1.5 rounded-full border border-dashed border-[#F5A623] bg-[#FFFBF4] px-4 py-2.5 text-[12px] font-extrabold text-[#F5A623] transition-all hover:bg-[#FFF7E6] disabled:opacity-55"
+                  >
+                    🎲 Complete Test Instantly
+                  </button>
                   <button
                     onClick={() => advanceRef.current(currentAnswer)}
                     disabled={!canSubmitCurrent || isBusy}

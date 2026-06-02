@@ -452,7 +452,7 @@ function randomItem<T>(items: T[]) {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-function buildRandomAnswer(question: DemoQuizQuestion) {
+export function buildRandomAnswer(question: DemoQuizQuestion) {
   if (question.questionType === "mcq") {
     const optionCount = Math.max(1, question.options?.length ?? 4);
     return OPTION_LABELS[randomInt(0, Math.min(optionCount, 4) - 1)] ?? "A";
@@ -505,7 +505,7 @@ function buildRandomAnswer(question: DemoQuizQuestion) {
   );
 }
 
-function buildRandomQuizSubmission(quiz: DemoLoadedQuiz) {
+export function buildRandomQuizSubmission(quiz: DemoLoadedQuiz) {
   const randomAnswers: Record<string, string> = {};
   const randomResponseMeta: Record<
     string,
@@ -956,7 +956,7 @@ function getStudentDisplayName(studentId?: string) {
   return normalized && normalized.length > 0 ? normalized : "Student";
 }
 
-function formatLearningObjectiveLabel(learningObjective?: string) {
+export function formatLearningObjectiveLabel(learningObjective?: string) {
   if (!learningObjective) return "General";
   const stripped = learningObjective.replace(/^Students can\s+/i, "").trim();
   if (!stripped) return "General";
@@ -5155,7 +5155,15 @@ export function DiagnosticDemo({
                 </div>
 
                 {/* Next button */}
-                <div className="flex items-center justify-end gap-3 border-t border-[rgba(0,0,0,0.08)] px-4 py-4 sm:px-7">
+                <div className="flex items-center justify-between gap-3 border-t border-[rgba(0,0,0,0.08)] px-4 py-4 sm:px-7">
+                  <button
+                    type="button"
+                    onClick={answerAllRandomly}
+                    disabled={isBusy}
+                    className="flex items-center gap-1.5 rounded-full border border-dashed border-[#F5A623] bg-[#FFFBF4] px-4 py-2.5 text-[12px] font-extrabold text-[#F5A623] transition-all hover:bg-[#FFF7E6] disabled:opacity-55"
+                  >
+                    🎲 Complete Test Instantly
+                  </button>
                   <button
                     onClick={() => advanceRef.current(currentAnswer)}
                     disabled={!canSubmitCurrent || isBusy}

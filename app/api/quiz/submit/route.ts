@@ -74,10 +74,12 @@ export async function POST(request: Request) {
         : diagnosticReport;
 
     const [resultNarrative, placementAIInsights] = await Promise.all([
-      generateResultNarrative(diagnosticReport).catch((error) => {
-        console.error("generateResultNarrative failed", error);
-        return undefined;
-      }),
+      testMode === "placement"
+        ? Promise.resolve(undefined)
+        : generateResultNarrative(diagnosticReport).catch((error) => {
+            console.error("generateResultNarrative failed", error);
+            return undefined;
+          }),
       testMode === "placement"
         ? generatePlacementAIInsights(diagnosticReport).catch((error) => {
             console.error("generatePlacementAIInsights failed", error);

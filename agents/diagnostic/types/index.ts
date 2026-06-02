@@ -326,7 +326,10 @@ export interface PlacementPlanInsights {
   placementSummary: string;
   nextGoal: string;
   planSummary: string;
-  focusAreas: PlacementFocusArea[];
+  generalFeedback?: string;
+  focusAreas?: PlacementFocusArea[];
+  consolidatedInsights?: string;
+  actionPlanSteps?: string[];
 }
 
 export interface ProgressComparison {
@@ -409,7 +412,7 @@ export interface DiagnosticReport {
   nextSteps?: string[];
   aiSummary: string;
   resultNarrative?: ResultNarrative;
-  placementTopicInsights?: Array<{ topic: string; insights: string[] }>;
+  placementTopicInsights?: Array<{ topic: string; insights?: string[] }>;
   placementPlanInsights?: PlacementPlanInsights;
   progressComparison?: ProgressComparison;
   stoppedBecause: "maxQuestions" | "noEligibleQuestions";
