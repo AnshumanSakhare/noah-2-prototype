@@ -1,10 +1,14 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import { useHomework, HomeworkStep, HomeworkAnswer } from './context';
+import { useHomework, HomeworkStep, HomeworkAnswer, getTopicName } from './context';
 import { RecapStep } from './RecapStep';
 import { FlashcardStep } from './FlashcardStep';
 import { MCQStep, FillStep, BlanksStep, DragStep } from './QuestionStep';
+import { MathRecapStep } from './math/MathRecapStep';
+import { MathConceptStep } from './math/MathConceptStep';
+import { MathExampleStep } from './math/MathExampleStep';
+import { KGGameStep } from './math/KGGameStep';
 
 interface HomeworkRunnerProps {
   onComplete: () => void;
@@ -14,18 +18,30 @@ const STEP_TYPE_LABELS: Record<string, string> = {
   'topic-intro': 'Introduction',
   'topic-complete': 'Topic Complete',
   'recap': 'Concept Review',
+  'math-concept': 'Math Concept',
+  'math-recap': 'Math Interactive',
+  'math-example': 'Worked Example',
   'flashcard': 'Flashcard',
   'mcq': 'Multiple Choice',
   'fill': 'Fill in the Blank',
   'blanks': 'Word Bank',
   'drag': 'Drag & Drop',
+  'game-tap': 'Tap the Bigger',
+  'game-compare': 'Feed Alligator',
+  'game-sort': 'Tower Sort',
 };
 
 const STEP_ICONS: Record<string, string> = {
   'recap': '📖',
+  'math-concept': '📖',
+  'math-recap': '⚙️',
+  'math-example': '📖',
   'flashcard': '🃏',
   'topic-intro': '▶',
   'topic-complete': '✓',
+  'game-tap': '🎮',
+  'game-compare': '🎮',
+  'game-sort': '🎮',
 };
 
 function formatElapsed(ms: number): string {
@@ -37,7 +53,7 @@ function formatElapsed(ms: number): string {
 }
 
 function isQuestionType(step: HomeworkStep) {
-  return ['mcq', 'fill', 'blanks', 'drag'].includes(step.type);
+  return ['mcq', 'fill', 'blanks', 'drag', 'game-tap', 'game-compare', 'game-sort'].includes(step.type);
 }
 
 export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) => {
@@ -161,7 +177,7 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
 
   homeworkSteps.forEach((s, idx) => {
     const topicId = s.topic || s.lo?.id || 'general';
-    const topicName = s.lo?.name || s.topic || 'General';
+    const topicName = getTopicName(s);
     if (!seenTopics.has(topicId)) {
       seenTopics.set(topicId, topicGroups.length);
       topicGroups.push({ topicId, name: topicName, stepIndices: [], completedCount: 0 });
@@ -192,8 +208,8 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
     const topicId = s.topic || s.lo?.id || '';
 
     // lo1 (Laws Explorer), lo2 (F=ma), lo3 (Recoil), lo4 (Friction) have interactive sandboxes.
-    const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo3' || topicId === 'lo4';
-    const isInteractive = s.type === 'flashcard' || s.type === 'animation' || (s.type === 'recap' && hasSimulation);
+    const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo3' || topicId === 'lo4' || topicId.startsWith('kg-') || topicId.startsWith('g3-') || topicId.startsWith('g7-');
+    const isInteractive = s.type === 'flashcard' || s.type === 'animation' || s.type === 'math-recap' || (s.type === 'recap' && hasSimulation);
 
     if (s.type === 'topic-complete') {
       return (
@@ -287,7 +303,7 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)', flexShrink: 0 }}>
                   <polygon points="5 3 19 12 5 21 5 3" />
                 </svg>
-                {step.lo?.name || step.topic || "General"}
+                {getTopicName(step)}
               </h3>
               <div className="hw-card-header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
                 <span>▶</span> Topic Introduction &bull; Topic {(step.topicIdx || 0) + 1} of {step.totalTopics || 1}
@@ -321,7 +337,7 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--correct)', flexShrink: 0 }}>
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
-                {step.lo?.name || step.topic || "General"}
+                {getTopicName(step)}
               </h3>
               <div className="hw-card-header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
                 <span>✓</span> Topic Completed
@@ -357,6 +373,15 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
       case 'recap':
         return <RecapStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
 
+      case 'math-concept':
+        return <MathConceptStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
+
+      case 'math-recap':
+        return <MathRecapStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
+
+      case 'math-example':
+        return <MathExampleStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
+
       case 'flashcard':
         return <FlashcardStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
 
@@ -371,6 +396,21 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
 
       case 'drag':
         return <DragStep step={step} answer={activeAnswer} onAnswer={handleAnswer} onBack={handleBack} onContinue={handleContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
+
+      case 'game-tap':
+      case 'game-compare':
+      case 'game-sort':
+        return (
+          <KGGameStep
+            step={step}
+            answer={activeAnswer}
+            onAnswer={handleAnswer}
+            onBack={handleBack}
+            onContinue={handleContinue}
+            isFirst={isFirst}
+            stepProgressText={stepProgressText}
+          />
+        );
 
       default:
         return (
@@ -395,7 +435,7 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
   }
 
   const stepTypeLabel = STEP_TYPE_LABELS[step.type] || step.type;
-  const topicName = step.lo?.name || step.topic || '';
+  const topicName = getTopicName(step);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -484,8 +524,8 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
                   const qN = stepQuestionNumbers[idx];
 
                   const topicId = s.topic || s.lo?.id || '';
-                  const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo3' || topicId === 'lo4';
-                  const isInteractive = s.type === 'flashcard' || s.type === 'animation' || (s.type === 'recap' && hasSimulation);
+                  const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo3' || topicId === 'lo4' || topicId.startsWith('kg-') || topicId.startsWith('g3-') || topicId.startsWith('g7-');
+                  const isInteractive = s.type === 'flashcard' || s.type === 'animation' || s.type === 'math-recap' || (s.type === 'recap' && hasSimulation);
 
                   // Compute dynamic border and background styles for non-questions to match the legend beautifully
                   let bubbleStyle: React.CSSProperties = {};

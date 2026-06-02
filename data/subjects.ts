@@ -8,6 +8,6 @@ export interface Subject {
 
 export const subjects: Subject[] = [
   { id: 'science', name: 'Science', icon: '🔬', color: '#5b8c6f' },
-  { id: 'math', name: 'Math', icon: '📐', color: '#5b6abf', comingSoon: true },
+  { id: 'math', name: 'Math', icon: '📐', color: '#5b6abf' },
   { id: 'english', name: 'English', icon: '📝', color: '#e8734a', comingSoon: true },
 ];

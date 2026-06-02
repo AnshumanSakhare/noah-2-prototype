@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { HomeworkStep } from './context';
+import { HomeworkStep, getTopicName } from './context';
 
 interface FlashcardStepProps {
   step: HomeworkStep;
@@ -23,7 +23,7 @@ export const FlashcardStep: React.FC<FlashcardStepProps> = ({ step, onBack, onCo
             <rect x="3" y="9" width="14" height="12" rx="2" />
             <path d="M7 5h14v12" />
           </svg>
-          {step.lo?.name || step.topic || "General"}
+          {getTopicName(step)}
         </h3>
         <div className="hw-card-header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
           <span>🃏</span> Concept Flashcard

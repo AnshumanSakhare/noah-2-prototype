@@ -53,9 +53,14 @@ export const PreviewScreen: React.FC<PreviewScreenProps> = ({ onBack, onPreviewS
   const getStepTitle = (s: HomeworkStep) => {
     if (s.type === 'topic-intro') return `Topic Start: ${s.lo?.name}`;
     if (s.type === 'recap') return `Study Sheet: ${s.content?.title}`;
+    if (s.type === 'math-concept') return `Study Sheet: ${s.lo?.name || s.topic || 'Concept'}`;
+    if (s.type === 'math-recap') return `Interactive Simulation: ${s.lo?.name || s.topic || 'Interactive'}`;
     if (s.type === 'flashcard') return `Self-Test Flashcard: ${s.lo?.short}`;
     if (s.type === 'animation') return `Interactive Experiment: ${s.lo?.short}`;
     if (s.type === 'topic-complete') return `${s.lo?.name} Objective Completed`;
+    if (s.type === 'game-tap') return `🧸 Game: Tap the Bigger Number`;
+    if (s.type === 'game-compare') return `🐊 Game: Feed the Alligator`;
+    if (s.type === 'game-sort') return `🏰 Game: Number Tower Sort`;
     
     const rawText = s.text || s.sentence || '';
     const cleanText = rawText.replace(/\{___\}/g, '_____');
@@ -65,15 +70,21 @@ export const PreviewScreen: React.FC<PreviewScreenProps> = ({ onBack, onPreviewS
   const getStepSubtitle = (s: HomeworkStep) => {
     if (s.type === 'topic-intro') return s.motivational || '';
     if (s.type === 'recap') return s.content?.sub || '';
+    if (s.type === 'math-concept') return 'Study & Review Concept';
+    if (s.type === 'math-recap') return 'Playground Sandbox';
     if (s.type === 'flashcard') return 'Rule Concept Flashcard';
     if (s.type === 'animation') return s.content?.caption || '';
     if (s.type === 'topic-complete') return s.isLast ? 'Last topic finished!' : 'Moving on…';
+    if (s.type === 'game-tap') return `Visual Comparison Game · Topic: ${s.lo?.short || 'Comparing'}`;
+    if (s.type === 'game-compare') return `Symbol Comparison Game · Topic: ${s.lo?.short || 'Comparing'}`;
+    if (s.type === 'game-sort') return `Order & Stack Tower Game · Topic: ${s.lo?.short || 'Comparing'}`;
     return `${s.type.toUpperCase()} question · Topic: ${s.lo?.short}`;
   };
 
   const getStepIcon = (s: HomeworkStep) => {
     if (s.type === 'topic-intro') return <Award size={16} className="text-indigo" />;
     if (s.type === 'topic-complete') return <CheckCircle2 size={16} className="text-correct" />;
+    if (s.type === 'math-recap') return <Eye size={16} className="text-teal" style={{ color: '#0d9488' }} />;
     if (s.isQuestion) return <HelpCircle size={16} className="text-indigo" />;
     return <BookOpen size={16} className="text-violet" />;
   };

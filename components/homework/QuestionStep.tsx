@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { HomeworkStep, HomeworkAnswer } from './context';
+import { HomeworkStep, HomeworkAnswer, getTopicName } from './context';
 
 interface QuestionStepProps {
   step: HomeworkStep;
@@ -43,7 +43,7 @@ export const MCQStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, o
             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
-          {step.lo?.name || step.topic || "General"}
+          {getTopicName(step)}
         </h3>
         <div className="hw-card-header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
           <span>📝</span> Practice Question &bull; Multiple Choice
@@ -123,7 +123,7 @@ export const FillStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, 
             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
-          {step.lo?.name || step.topic || "General"}
+          {getTopicName(step)}
         </h3>
         <div className="hw-card-header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
           <span>📝</span> Practice Question &bull; Fill in the Blank
@@ -251,7 +251,7 @@ export const BlanksStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer
             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
-          {step.lo?.name || step.topic || "General"}
+          {getTopicName(step)}
         </h3>
         <div className="hw-card-header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
           <span>📝</span> Practice Question &bull; Fill the Gaps
@@ -392,7 +392,7 @@ export const DragStep: React.FC<QuestionStepProps> = ({ step, answer, onAnswer, 
             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
-          {step.lo?.name || step.topic || "General"}
+          {getTopicName(step)}
         </h3>
         <div className="hw-card-header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
           <span>📝</span> Practice Question &bull; Drag &amp; Drop Match

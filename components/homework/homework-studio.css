@@ -1643,4 +1643,453 @@
   background-color: var(--accent);
 }
 
+/* ==========================================================================
+   INTERACTIVE MATH SANDBOXES STYLE SYSTEM
+   ========================================================================== */
+
+/* Math Recap Card Container Layout */
+.homework-studio .math-recap-card-layout {
+  border-top: 5px solid var(--accent);
+}
+
+/* Balance Scale KG Sandbox */
+.homework-studio .math-sandbox-balance {
+  width: 100%;
+}
+.homework-studio .math-balance-visualizer {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  margin: 10px auto;
+  background: var(--slate-50);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--slate-200);
+  padding: 10px;
+}
+.homework-studio .balance-scale-svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.homework-studio .math-balance-badge {
+  position: absolute;
+  top: 35%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  background: var(--surface);
+  border: 3.5px solid var(--accent);
+  box-shadow: 0 0 18px var(--accent-glow);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  opacity: 0;
+  pointer-events: none;
+}
+.homework-studio .math-balance-badge.show {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+.homework-studio .badge-symbol {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: var(--accent);
+  font-family: 'Inter', sans-serif;
+  line-height: 1;
+}
+.homework-studio .math-balance-grid {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--slate-200);
+  text-align: center;
+}
+.homework-studio .math-balance-grid .grid-label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+.homework-studio .numbers-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+.homework-studio .num-pill {
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--slate-300);
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text);
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+.homework-studio .num-pill:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+  transform: translateY(-1.5px);
+}
+.homework-studio .num-pill:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.homework-studio .num-pill.chosen {
+  background: var(--slate-200);
+  color: var(--text-dim);
+  border-color: var(--slate-300);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Pizza Slicer Fractions G3 Sandbox */
+.homework-studio .math-sandbox-pizza {
+  width: 100%;
+}
+.homework-studio .pizza-svg-canvas {
+  width: 100%;
+  max-width: 380px;
+  height: auto;
+  margin: 0 auto;
+  overflow: visible;
+}
+.homework-studio .pizza-slice-interactive {
+  cursor: pointer;
+  transition: fill 0.25s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.2s;
+  outline: none;
+}
+.homework-studio .pizza-slice-interactive:hover {
+  filter: brightness(1.05) saturate(1.1);
+  stroke-width: 2.2px;
+}
+.homework-studio .pizzas-visual-container {
+  background: var(--slate-50);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--slate-200);
+  padding: 14px;
+}
+.homework-studio .pizza-sliders-grid {
+  margin-top: 14px;
+}
+.homework-studio .pizza-ctrl-panel {
+  background: var(--surface);
+  border: 1px solid var(--slate-200);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
+}
+.homework-studio .pizza-ctrl-panel.border-rose {
+  border-color: rgba(244, 63, 94, 0.25);
+  background: rgba(244, 63, 94, 0.01);
+}
+.homework-studio .ctrl-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.homework-studio .pizza-label {
+  font-family: 'Nunito', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.homework-studio .pizza-label.yellow {
+  color: #d97706;
+}
+.homework-studio .pizza-label.rose {
+  color: #e11d48;
+}
+.homework-studio .pizza-percentage {
+  color: var(--text-dim);
+  font-family: monospace;
+}
+.homework-studio .small-action-btn {
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: var(--slate-100);
+  border: 1px solid var(--slate-200);
+  color: var(--text-dim);
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+}
+.homework-studio .small-action-btn:hover {
+  background: var(--slate-200);
+  color: var(--text);
+}
+.homework-studio .small-action-btn.rose:hover {
+  background: #ffe4e6;
+  color: #be123c;
+  border-color: rgba(244, 63, 94, 0.3);
+}
+.homework-studio .denom-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  font-weight: 700;
+  margin-top: 2px;
+}
+.homework-studio .equiv-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--slate-100);
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s;
+  outline: none;
+}
+.homework-studio .equiv-toggle-btn:hover {
+  background: var(--slate-200);
+  color: var(--text);
+  border-color: var(--slate-300);
+}
+
+/* Pythagoras Theorem G7 Sandbox */
+.homework-studio .math-sandbox-pythagoras {
+  width: 100%;
+}
+.homework-studio .pythagoras-canvas-container {
+  background: var(--slate-50);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--slate-200);
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+}
+.homework-studio .pythagoras-svg-canvas {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  overflow: visible;
+}
+
+/* Global Math Sandboxes Sub Elements */
+.homework-studio .math-sandbox-insight {
+  background: rgba(42, 77, 215, 0.02);
+  border: 1.2px solid rgba(42, 77, 215, 0.08);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text);
+  font-weight: 650;
+  text-align: center;
+  box-shadow: inset 0 2px 6px rgba(42, 77, 215, 0.01);
+}
+
+/* Pop/Scale micro animations */
+@keyframes pop {
+  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+  70% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+.homework-studio .animate-pop {
+  animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes pulseSlow {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.65; }
+}
+.homework-studio .text-animated-pulse {
+  animation: pulseSlow 2s infinite ease-in-out;
+}
+
+/* ────────────────────────────────────────────────────────── */
+/* Math Concept Card Premium Takeaway Widgets Styling        */
+/* ────────────────────────────────────────────────────────── */
+.homework-studio .math-concept-takeaway {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.homework-studio .takeaway-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--accent);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-bottom-left-radius: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.homework-studio .takeaway-tip {
+  margin: 12px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+/* A. Balance Scale takeaway style */
+.homework-studio .takeaway-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+.homework-studio .takeaway-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.homework-studio .takeaway-item:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.05);
+}
+.homework-studio .takeaway-item .symbol {
+  font-size: 1.8rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.homework-studio .takeaway-item.greater .symbol {
+  color: #10b981;
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+.homework-studio .takeaway-item.less .symbol {
+  color: #f59e0b;
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+.homework-studio .takeaway-item.equal .symbol {
+  color: #6366f1;
+  text-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+}
+.homework-studio .takeaway-item .label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.homework-studio .takeaway-item .example {
+  font-size: 0.85rem;
+  font-weight: 800;
+  font-family: monospace;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: var(--text);
+}
+
+/* B. Fraction Anatomy takeaway style */
+.homework-studio .fraction-anatomy-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 10px 0;
+}
+.homework-studio .anatomy-part {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120px;
+}
+.homework-studio .anatomy-part .val {
+  font-size: 2.2rem;
+  font-weight: 900;
+  font-family: monospace;
+  line-height: 1;
+}
+.homework-studio .numerator-part .val {
+  color: #0ea5e9;
+  text-shadow: 0 0 12px rgba(14, 165, 233, 0.3);
+}
+.homework-studio .denominator-part .val {
+  color: #ec4899;
+  text-shadow: 0 0 12px rgba(236, 72, 153, 0.3);
+}
+.homework-studio .anatomy-part .label {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  text-align: center;
+  margin-top: 4px;
+}
+.homework-studio .fraction-bar-symbol {
+  font-size: 2.5rem;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+/* C. Pythagoras Formula takeaway style */
+.homework-studio .pythagoras-formula-display {
+  display: flex;
+  justify-content: center;
+  margin: 10px 0;
+}
+.homework-studio .formula-box {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.homework-studio .formula-box .term {
+  font-size: 1.8rem;
+  font-weight: 900;
+  font-family: monospace;
+}
+.homework-studio .formula-box .term-a {
+  color: #3b82f6;
+  text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+}
+.homework-studio .formula-box .term-b {
+  color: #10b981;
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+.homework-studio .formula-box .term-c {
+  color: #8b5cf6;
+  text-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
+}
+.homework-studio .formula-box .operator {
+  font-size: 1.4rem;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+.homework-studio .pythagoras-labels {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 12px;
+}
+.homework-studio .pythagoras-labels p {
+  margin: 0;
+}
+
 

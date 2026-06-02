@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { HomeworkStep } from './context';
+import { HomeworkStep, getTopicName } from './context';
 import { topicContent } from '../../data/topics';
 
 interface RecapStepProps {
@@ -530,7 +530,7 @@ export const RecapStep: React.FC<RecapStepProps> = ({ step, onBack, onContinue, 
               <path d="M6 10h10" />
             </svg>
           )}
-          {step.lo?.name || step.topic || "General"}
+          {getTopicName(step)}
         </h3>
         <div className="hw-card-header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-dim)', flexShrink: 0 }}>

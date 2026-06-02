@@ -1,7 +1,7 @@
 export interface BaseQuestion {
   id: string;
   lo: string;
-  type: 'mcq' | 'fill' | 'blanks' | 'drag';
+  type: 'mcq' | 'fill' | 'blanks' | 'drag' | 'game-tap' | 'game-compare' | 'game-sort';
   explanation: string;
   text?: string;
 }
@@ -39,7 +39,34 @@ export interface DragQuestion extends BaseQuestion {
   pairs: DragQuestionPair[];
 }
 
-export type Question = MCQQuestion | FillQuestion | BlanksQuestion | DragQuestion;
+// KG Game: Tap the bigger number — two numbers, child picks the larger one
+export interface GameTapQuestion extends BaseQuestion {
+  type: 'game-tap';
+  text: string;
+  numberA: number;
+  numberB: number;
+  correctSide: 'A' | 'B';  // which side is bigger
+  hideNumbers?: boolean;   // whether to hide numeric digits initially
+}
+
+// KG Game: Feed the Alligator — pick >, <, or = between two numbers
+export interface GameCompareQuestion extends BaseQuestion {
+  type: 'game-compare';
+  text: string;
+  numberA: number;
+  numberB: number;
+  correctSymbol: '>' | '<' | '=';
+}
+
+// KG Game: Number Tower Sort — arrange numbers from smallest to biggest
+export interface GameSortQuestion extends BaseQuestion {
+  type: 'game-sort';
+  text: string;
+  numbers: number[];
+  correctOrder: number[];  // sorted smallest → biggest
+}
+
+export type Question = MCQQuestion | FillQuestion | BlanksQuestion | DragQuestion | GameTapQuestion | GameCompareQuestion | GameSortQuestion;
 
 export const questionBank: Question[] = [
   {
