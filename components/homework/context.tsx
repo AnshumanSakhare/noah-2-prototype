@@ -141,6 +141,8 @@ export interface HomeworkContextType {
   selectAssignment: (id: string) => void;
   selectedMathGrade: string;
   setSelectedMathGrade: React.Dispatch<React.SetStateAction<string>>;
+  activeTab: 'dynamic' | 'templates' | 'analytics';
+  setActiveTab: React.Dispatch<React.SetStateAction<'dynamic' | 'templates' | 'analytics'>>;
 }
 
 export function getTopicName(step: HomeworkStep): string {
@@ -705,6 +707,7 @@ export const HomeworkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [hwStartTime, setHwStartTime] = useState<number | null>(null);
   const [eventLog, setEventLog] = useState<any[]>([]);
   const [selectedMathGrade, setSelectedMathGrade] = useState<string>('KG');
+  const [activeTab, setActiveTab] = useState<'dynamic' | 'templates' | 'analytics'>('dynamic');
 
   // Toast notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -798,6 +801,8 @@ export const HomeworkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         selectAssignment,
         selectedMathGrade,
         setSelectedMathGrade,
+        activeTab,
+        setActiveTab,
       }}
     >
       {children}

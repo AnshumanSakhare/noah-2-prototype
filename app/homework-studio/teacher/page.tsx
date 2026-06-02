@@ -23,7 +23,9 @@ export default function TeacherPage() {
     showToast,
     assignments,
     setAssignments,
-    setActiveAssignmentId
+    setActiveAssignmentId,
+    activeTab,
+    setActiveTab
   } = useHomework();
   const [viewMode, setViewMode] = useState<'builder' | 'assembling' | 'preview'>('builder');
 
@@ -350,8 +352,15 @@ export default function TeacherPage() {
       {/* Dynamic Views */}
       {viewMode === 'builder' && (
         <>
-          <BuilderPanel onGenerate={handleGenerate} />
-          <AnalyticsDashboard />
+          {activeTab === 'analytics' ? (
+            <AnalyticsDashboard />
+          ) : (
+            <BuilderPanel 
+              onGenerate={handleGenerate} 
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+            />
+          )}
         </>
       )}
 
