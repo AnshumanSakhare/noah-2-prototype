@@ -95,6 +95,7 @@ export const comparingNumbersBundle: MathTopicBundle = {
       text: 'Sort the number blocks from SMALLEST to BIGGEST to build the tall tower!',
       numbers: [7, 2, 5],
       correctOrder: [2, 5, 7],
+      useDots: [true, false, true],
       explanation: 'In order from smallest to biggest, the numbers are 2, 5, and then 7.'
     },
     {
@@ -104,6 +105,7 @@ export const comparingNumbersBundle: MathTopicBundle = {
       text: 'Sort the number blocks from SMALLEST to BIGGEST to build the tall tower!',
       numbers: [9, 4, 6],
       correctOrder: [4, 6, 9],
+      useDots: [false, true, true],
       explanation: 'In order from smallest to biggest, the numbers are 4, 6, and then 9.'
     },
     {
@@ -111,9 +113,10 @@ export const comparingNumbersBundle: MathTopicBundle = {
       lo: 'kg-comparing-numbers',
       type: 'game-sort',
       text: 'Sort the number blocks from SMALLEST to BIGGEST to build the tall tower!',
-      numbers: [3, 8, 1],
-      correctOrder: [1, 3, 8],
-      explanation: 'In order from smallest to biggest, the numbers are 1, 3, and then 8.'
+      numbers: [6, 2, 8, 4],
+      correctOrder: [2, 4, 6, 8],
+      useDots: [true, false, true, false],
+      explanation: 'In order from smallest to biggest, the numbers are 2, 4, 6, and then 8.'
     }
   ]
 };

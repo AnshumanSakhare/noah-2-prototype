@@ -10,9 +10,7 @@ export const AppModeBar: React.FC = () => {
   const router = useRouter();
   const { activeTab, setActiveTab } = useHomework();
 
-  const isStudent = pathname.includes('/student');
-
-  if (pathname === '/homework-studio' || pathname === '/homework-studio/' || isStudent) {
+  if (pathname === '/homework-studio' || pathname === '/homework-studio/') {
     return null;
   }
 

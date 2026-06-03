@@ -10,6 +10,7 @@ interface KGGameStepProps {
   onBack: () => void;
   onContinue: () => void;
   isFirst: boolean;
+  isLast?: boolean;
   stepProgressText?: string;
 }
 
@@ -22,6 +23,7 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
   onBack,
   onContinue,
   isFirst,
+  isLast = false,
   stepProgressText
 }) => {
   const [selectedSide, setSelectedSide] = useState<'A' | 'B' | null>(null);
@@ -92,7 +94,9 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
       onAnswer({ type: step.type as any, answer: side, correct: false });
     }
 
-    startAutoAdvance(correct);
+    if (!isLast) {
+      startAutoAdvance(correct);
+    }
   };
 
   /* ── Game 2: Feed the Alligator ─────────────────────────────────── */
@@ -111,10 +115,14 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
       onAnswer({ type: step.type as any, answer: sym, correct: false });
     }
 
-    startAutoAdvance(correct);
+    if (!isLast) {
+      startAutoAdvance(correct);
+    }
   };
 
   /* ── Game 3: Number Tower Sort ───────────────────────────────────── */
+  const numBlocks = step.numbers?.length ?? 3;
+
   const handleBlockClick = (num: number) => {
     if (isAnswered) return;
     
@@ -122,12 +130,12 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
       setPlacedNumbers(prev => prev.filter(n => n !== num));
       return;
     }
-    if (placedNumbers.length >= 3) return;
+    if (placedNumbers.length >= numBlocks) return;
     
     const next = [...placedNumbers, num];
     setPlacedNumbers(next);
 
-    if (next.length === 3) {
+    if (next.length === numBlocks) {
       setIsAnswered(true);
       const correct = next.every((v, i) => v === step.correctOrder?.[i]);
       
@@ -139,8 +147,51 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
         onAnswer({ type: step.type as any, answer: next, correct: false });
       }
 
-      startAutoAdvance(correct);
+      if (!isLast) {
+        startAutoAdvance(correct);
+      }
     }
+  };
+
+  const getRankLabel = (idx: number, total: number) => {
+    if (idx === 0) return '1st (Smallest)';
+    if (idx === total - 1) {
+      const label = total === 3 ? '3rd' : total === 4 ? '4th' : `${total}th`;
+      return `${label} (Biggest)`;
+    }
+    if (total === 3 && idx === 1) return '2nd (Middle)';
+    if (idx === 1) return '2nd';
+    if (idx === 2) return '3rd';
+    return `${idx + 1}th`;
+  };
+
+  /* ── Block mini dot grid counting helper ─────────────────────────── */
+  const renderBlockDots = (count: number) => {
+    return (
+      <div 
+        style={{ 
+          display: 'grid', 
+          gridTemplateColumns: count <= 4 ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))', 
+          gap: '3px',
+          padding: '4px',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {Array.from({ length: count }).map((_, idx) => (
+          <div 
+            key={idx}
+            style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              backgroundColor: '#ffffff',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
+            }}
+          />
+        ))}
+      </div>
+    );
   };
 
   /* ── Dot-grid counting helper ────────────────────────────────────── */
@@ -212,7 +263,7 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
           flex-direction: column;
           gap: 6px;
           padding: 16px 20px 12px;
-          border-bottom: 1px solid rgba(255,255,255,0.06);
+          border-bottom: 1px solid rgba(26, 26, 46, 0.06);
         }
         .kg-header-top {
           display: flex;
@@ -259,8 +310,8 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
           flex: 1;
           max-width: 200px;
           min-width: 160px;
-          border: 3px solid rgba(255,255,255,0.08);
-          background: rgba(255,255,255,0.02);
+          border: 3px solid rgba(26, 26, 46, 0.08);
+          background: rgba(26, 26, 46, 0.02);
           border-radius: 18px;
           padding: 24px 16px;
           text-align: center;
@@ -330,8 +381,8 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
           color: var(--text);
           width: 90px;
           height: 90px;
-          border: 2px solid rgba(255,255,255,0.07);
-          background: rgba(255,255,255,0.03);
+          border: 2px solid rgba(26, 26, 46, 0.07);
+          background: rgba(26, 26, 46, 0.03);
           border-radius: 50%;
           display: grid;
           place-items: center;
@@ -340,7 +391,7 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
         .kg-alli-slot {
           width: 110px;
           height: 110px;
-          border: 3px dashed rgba(255,255,255,0.15);
+          border: 3px dashed rgba(26, 26, 46, 0.15);
           border-radius: 14px;
           display: grid;
           place-items: center;
@@ -361,7 +412,7 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
         }
         .kg-alli-empty-hint {
           font-size: 2.4rem;
-          color: rgba(255,255,255,0.12);
+          color: rgba(26, 26, 46, 0.12);
           font-weight: 900;
           user-select: none;
         }
@@ -396,8 +447,8 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
           display: flex;
           align-items: center;
           gap: 10px;
-          background: rgba(255,255,255,0.04);
-          border: 2px solid rgba(255,255,255,0.09);
+          background: rgba(26, 26, 46, 0.04);
+          border: 2px solid rgba(26, 26, 46, 0.09);
           border-radius: 12px;
           padding: 10px 18px;
           cursor: pointer;
@@ -516,19 +567,19 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
         }
         .kg-slot {
           height: 52px;
-          border: 2px dashed rgba(255,255,255,0.14);
+          border: 2px dashed rgba(26, 26, 46, 0.14);
           border-radius: 10px;
           display: flex;
           align-items: center;
           gap: 10px;
           padding: 0 14px;
-          background: rgba(255,255,255,0.015);
+          background: rgba(26, 26, 46, 0.015);
           cursor: pointer;
           transition: all 0.3s;
           min-width: 150px;
         }
         .kg-slot-empty-hint {
-          color: rgba(255,255,255,0.18);
+          color: rgba(26, 26, 46, 0.25);
           font-size: 0.75rem;
           font-weight: 600;
         }
@@ -546,8 +597,8 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
         }
         .kg-slot.slot-filled-pending {
           border-style: solid;
-          border-color: rgba(255,255,255,0.25);
-          background: rgba(255,255,255,0.04);
+          border-color: rgba(26, 26, 46, 0.25);
+          background: rgba(26, 26, 46, 0.04);
         }
         .kg-slot-num-display {
           font-size: 1.5rem;
@@ -560,7 +611,7 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.06em;
-          color: rgba(255,255,255,0.5);
+          color: rgba(26, 26, 46, 0.5);
           margin-left: auto;
         }
 
@@ -723,25 +774,28 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
             {/* Block Bank */}
             <div className="kg-block-bank">
               <span className="kg-block-bank-label">Tap to place</span>
-              {step.numbers?.map((num, i) => (
-                <div
-                  key={i}
-                  className={`kg-block ${placedNumbers.includes(num) ? 'kg-block-placed' : ''} ${isAnswered ? 'kg-block-disabled' : ''}`}
-                  onClick={() => handleBlockClick(num)}
-                >
-                  {num}
-                </div>
-              ))}
+              {step.numbers?.map((num, i) => {
+                const showDots = step.useDots?.[i] ?? false;
+                return (
+                  <div
+                    key={i}
+                    className={`kg-block ${placedNumbers.includes(num) ? 'kg-block-placed' : ''} ${isAnswered ? 'kg-block-disabled' : ''}`}
+                    onClick={() => handleBlockClick(num)}
+                  >
+                    {showDots ? renderBlockDots(num) : num}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Tower */}
             <div className="kg-tower">
               {isCorrect && <div className="kg-tower-star">⭐</div>}
               <span className="kg-tower-label">Build smallest → biggest</span>
-              {(['3rd (Biggest)', '2nd (Middle)', '1st (Smallest)'] as const).map((rankLabel, visualIdx) => {
-                const slotIdx = 2 - visualIdx; // slot 2 = biggest at top
+              {Array.from({ length: numBlocks }, (_, i) => numBlocks - 1 - i).map((slotIdx) => {
                 const num = placedNumbers[slotIdx];
                 const isFilled = num !== undefined;
+                const rankLabel = getRankLabel(slotIdx, numBlocks);
                 return (
                   <div
                     key={slotIdx}
@@ -754,7 +808,20 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
                   >
                     {isFilled ? (
                       <>
-                        <span className="kg-slot-num-display">{num}</span>
+                        <span className="kg-slot-num-display">
+                          {(() => {
+                            const originalIdx = step.numbers?.indexOf(num) ?? -1;
+                            const showDots = originalIdx !== -1 ? (step.useDots?.[originalIdx] ?? false) : false;
+                            if (showDots) {
+                              return (
+                                <div style={{ display: 'inline-flex', padding: '4px', background: 'rgba(255, 255, 255, 0.15)', borderRadius: '8px' }}>
+                                  {renderBlockDots(num)}
+                                </div>
+                              );
+                            }
+                            return num;
+                          })()}
+                        </span>
                         <span className="kg-slot-rank">{rankLabel}</span>
                       </>
                     ) : (
@@ -792,8 +859,8 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
         >
           {isAnswered ? (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-              <span>Next</span>
-              <span className="kg-loading-spinner" />
+              <span>{isLast ? 'See Results' : 'Next'}</span>
+              {!isLast && <span className="kg-loading-spinner" />}
             </span>
           ) : (
             "Next →"

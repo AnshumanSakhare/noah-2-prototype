@@ -1,6 +1,6 @@
 import React from 'react';
 import { HomeworkProvider } from '../../components/homework/context';
-import AppModeBar from '../../components/homework/AppModeBar';
+import LayoutInner from '../../components/homework/LayoutInner';
 import '../../components/homework/homework-studio.css';
 import '../../components/homework/student-studio.css';
 
@@ -25,12 +25,7 @@ export default function HomeworkStudioLayout({
         
         <div className="confetti-container" id="confetti" />
 
-        <div className="app hw-layout-container">
-          {/* Top mode switch bar */}
-          <AppModeBar />
-          
-          {children}
-        </div>
+        <LayoutInner>{children}</LayoutInner>
       </div>
     </HomeworkProvider>
   );

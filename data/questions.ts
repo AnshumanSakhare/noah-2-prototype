@@ -64,6 +64,7 @@ export interface GameSortQuestion extends BaseQuestion {
   text: string;
   numbers: number[];
   correctOrder: number[];  // sorted smallest → biggest
+  useDots?: boolean[];     // boolean flag per number indicating if it should render as dots
 }
 
 export type Question = MCQQuestion | FillQuestion | BlanksQuestion | DragQuestion | GameTapQuestion | GameCompareQuestion | GameSortQuestion;

@@ -11,6 +11,7 @@ import { MathExampleStep } from './math/MathExampleStep';
 import { KGGameStep } from './math/KGGameStep';
 import { MathRecapGuideStep } from './math/MathRecapGuideStep';
 import { MathCompareGuideStep } from './math/MathCompareGuideStep';
+import { MathSortGuideStep } from './math/MathSortGuideStep';
 
 interface HomeworkRunnerProps {
   onComplete: () => void;
@@ -23,6 +24,7 @@ const STEP_TYPE_LABELS: Record<string, string> = {
   'math-concept': 'Math Concept',
   'math-recap-guide': 'Playground Guide',
   'math-compare-guide': 'Playground Guide',
+  'math-sort-guide': 'Playground Guide',
   'math-recap': 'Math Interactive',
   'math-example': 'Worked Example',
   'flashcard': 'Flashcard',
@@ -40,6 +42,7 @@ const STEP_ICONS: Record<string, string> = {
   'math-concept': '📖',
   'math-recap-guide': 'ℹ️',
   'math-compare-guide': 'ℹ️',
+  'math-sort-guide': 'ℹ️',
   'math-recap': '⚙️',
   'math-example': '📖',
   'flashcard': '🃏',
@@ -215,7 +218,7 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
 
     // lo1 (Laws Explorer), lo2 (F=ma), lo3 (Recoil), lo4 (Friction) have interactive sandboxes.
     const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo3' || topicId === 'lo4' || topicId.startsWith('kg-') || topicId.startsWith('g3-') || topicId.startsWith('g7-');
-    const isInteractive = s.type === 'flashcard' || s.type === 'animation' || s.type === 'math-recap' || s.type === 'math-recap-guide' || s.type === 'math-compare-guide' || (s.type === 'recap' && hasSimulation);
+    const isInteractive = s.type === 'flashcard' || s.type === 'animation' || s.type === 'math-recap' || s.type === 'math-recap-guide' || s.type === 'math-compare-guide' || s.type === 'math-sort-guide' || (s.type === 'recap' && hasSimulation);
 
     if (s.type === 'topic-complete') {
       return (
@@ -388,6 +391,9 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
       case 'math-compare-guide':
         return <MathCompareGuideStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
 
+      case 'math-sort-guide':
+        return <MathSortGuideStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
+
       case 'math-recap':
         return <MathRecapStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
 
@@ -421,6 +427,7 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
             onBack={handleBack}
             onContinue={handleContinue}
             isFirst={isFirst}
+            isLast={hwIndex + 1 === homeworkSteps.length}
             stepProgressText={stepProgressText}
           />
         );
@@ -538,7 +545,7 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
 
                   const topicId = s.topic || s.lo?.id || '';
                   const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo3' || topicId === 'lo4' || topicId.startsWith('kg-') || topicId.startsWith('g3-') || topicId.startsWith('g7-');
-                  const isInteractive = s.type === 'flashcard' || s.type === 'animation' || s.type === 'math-recap' || (s.type === 'recap' && hasSimulation);
+                  const isInteractive = s.type === 'flashcard' || s.type === 'animation' || s.type === 'math-recap' || s.type === 'math-recap-guide' || s.type === 'math-compare-guide' || s.type === 'math-sort-guide' || (s.type === 'recap' && hasSimulation);
 
                   // Compute dynamic border and background styles for non-questions to match the legend beautifully
                   let bubbleStyle: React.CSSProperties = {};

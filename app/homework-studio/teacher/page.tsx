@@ -135,6 +135,7 @@ export default function TeacherPage() {
             correctSymbol: q.correctSymbol,
             numbers: q.numbers,
             correctOrder: q.correctOrder,
+            useDots: q.useDots,
           });
         });
       } else {
@@ -162,13 +163,27 @@ export default function TeacherPage() {
                 lo,
                 isQuestion: false,
               });
-              steps.push({
-                type: 'math-compare-guide',
-                topic: tId,
-                lo,
-                isQuestion: false,
-              });
+              let pushedCompareGuide = false;
+              let pushedSortGuide = false;
               qs.forEach(q => {
+                if (q.type === 'game-compare' && !pushedCompareGuide) {
+                  steps.push({
+                    type: 'math-compare-guide',
+                    topic: tId,
+                    lo,
+                    isQuestion: false,
+                  });
+                  pushedCompareGuide = true;
+                }
+                if (q.type === 'game-sort' && !pushedSortGuide) {
+                  steps.push({
+                    type: 'math-sort-guide',
+                    topic: tId,
+                    lo,
+                    isQuestion: false,
+                  });
+                  pushedSortGuide = true;
+                }
                 steps.push({
                   type: q.type,
                   topic: tId,
@@ -182,6 +197,7 @@ export default function TeacherPage() {
                   correctSymbol: q.correctSymbol,
                   numbers: q.numbers,
                   correctOrder: q.correctOrder,
+                  useDots: q.useDots,
                   explanation: q.explanation,
                 });
               });
