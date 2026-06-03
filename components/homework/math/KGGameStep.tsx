@@ -145,20 +145,38 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
 
   /* ── Dot-grid counting helper ────────────────────────────────────── */
   const dotColors = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6'];
-  const renderDots = (count: number) => (
-    <div className="kg-dot-grid">
-      {Array.from({ length: count }, (_, i) => (
-        <span
-          key={i}
-          className="kg-dot"
-          style={{
-            backgroundColor: dotColors[i % dotColors.length],
-            animationDelay: `${i * 40}ms`
-          }}
-        />
-      ))}
-    </div>
-  );
+  const renderDots = (count: number) => {
+    const scatterPositions = [
+      { left: '15%', top: '10%' },
+      { left: '65%', top: '15%' },
+      { left: '40%', top: '25%' },
+      { left: '20%', top: '40%' },
+      { left: '75%', top: '35%' },
+      { left: '50%', top: '50%' },
+      { left: '30%', top: '65%' },
+      { left: '68%', top: '60%' },
+      { left: '10%', top: '70%' },
+      { left: '85%', top: '70%' }
+    ];
+
+    return (
+      <div className="kg-dot-container" style={{ position: 'relative', width: '100%', height: '80px', minWidth: '110px' }}>
+        {scatterPositions.slice(0, count).map((pos, i) => (
+          <span
+            key={i}
+            className="kg-dot"
+            style={{
+              position: 'absolute',
+              left: pos.left,
+              top: pos.top,
+              backgroundColor: dotColors[i % dotColors.length],
+              animationDelay: `${i * 40}ms`
+            }}
+          />
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className={`hw-card kg-card ${
@@ -631,7 +649,7 @@ export const KGGameStep: React.FC<KGGameStepProps> = ({
                   className={`kg-tap-card ${cardStateClass} ${isAnswered ? 'kg-answered' : ''}`}
                   onClick={() => handleSideTap(side)}
                 >
-                  <div className="kg-big-num" style={{ color: (!step.hideNumbers || isAnswered) ? 'var(--text)' : 'rgba(255, 255, 255, 0.15)' }}>
+                  <div className="kg-big-num" style={{ color: (!step.hideNumbers || isAnswered) ? 'var(--text)' : 'var(--text-dim)' }}>
                     {(!step.hideNumbers || isAnswered) ? num : '?'}
                   </div>
                   {renderDots(num ?? 0)}

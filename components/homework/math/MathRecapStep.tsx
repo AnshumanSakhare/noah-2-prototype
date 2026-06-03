@@ -88,13 +88,6 @@ export const MathRecapStep: React.FC<MathRecapStepProps> = ({
 
       {/* Card Body */}
       <div className="hw-card-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '8px' }}>
-        {/* Sandbox Instruction Banner */}
-        <div className="math-sandbox-instruction-banner" style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '8px', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <p className="instruction-text" style={{ fontSize: '0.85rem', lineHeight: '1.4', color: 'var(--text-dim)', margin: 0, fontWeight: 550 }}>
-            {content.sandbox.caption}
-          </p>
-        </div>
-
         {/* Dynamic Math Sandbox */}
         <div className="recap-sandbox-section" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '4px' }}>
           {renderSandbox()}

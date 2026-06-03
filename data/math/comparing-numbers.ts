@@ -29,20 +29,21 @@ export const comparingNumbersBundle: MathTopicBundle = {
       type: 'game-tap',
       text: 'Which side has more? Tap the bigger number!',
       numberA: 8,
-      numberB: 3,
+      numberB: 7,
       correctSide: 'A',
-      explanation: '8 is bigger than 3. You can see 8 has more items!'
+      hideNumbers: true,
+      explanation: '8 is bigger than 7. You can see 8 has more items!'
     },
     {
       id: 'mq-kg-g1-2',
       lo: 'kg-comparing-numbers',
       type: 'game-tap',
       text: 'Count the dots! Which side has more?',
-      numberA: 4,
+      numberA: 8,
       numberB: 9,
       correctSide: 'B',
       hideNumbers: true,
-      explanation: '9 is bigger than 4. You can see 9 has more dots!'
+      explanation: '9 is bigger than 8. You can see 9 has more dots!'
     },
     {
       id: 'mq-kg-g1-3',
@@ -60,21 +61,21 @@ export const comparingNumbersBundle: MathTopicBundle = {
       id: 'mq-kg-g2-1',
       lo: 'kg-comparing-numbers',
       type: 'game-compare',
-      text: 'The alligator is hungry and wants to eat the bigger number! Which symbol goes between 5 and 2?',
+      text: 'The alligator is hungry and wants to eat the bigger number! Which symbol goes between 5 and 4?',
       numberA: 5,
-      numberB: 2,
+      numberB: 4,
       correctSymbol: '>',
-      explanation: '5 is bigger than 2! The symbol > points the open side toward 5 because the alligator eats 5.'
+      explanation: '5 is bigger than 4! The symbol > points the open side toward 5 because the alligator eats 5.'
     },
     {
       id: 'mq-kg-g2-2',
       lo: 'kg-comparing-numbers',
       type: 'game-compare',
-      text: 'The alligator is hungry and wants to eat the bigger number! Which symbol goes between 3 and 8?',
-      numberA: 3,
+      text: 'The alligator is hungry and wants to eat the bigger number! Which symbol goes between 7 and 8?',
+      numberA: 7,
       numberB: 8,
       correctSymbol: '<',
-      explanation: '8 is bigger than 3! The symbol < points the open side toward 8 because the alligator eats 8.'
+      explanation: '8 is bigger than 7! The symbol < points the open side toward 8 because the alligator eats 8.'
     },
     {
       id: 'mq-kg-g2-3',

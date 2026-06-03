@@ -9,6 +9,8 @@ import { MathRecapStep } from './math/MathRecapStep';
 import { MathConceptStep } from './math/MathConceptStep';
 import { MathExampleStep } from './math/MathExampleStep';
 import { KGGameStep } from './math/KGGameStep';
+import { MathRecapGuideStep } from './math/MathRecapGuideStep';
+import { MathCompareGuideStep } from './math/MathCompareGuideStep';
 
 interface HomeworkRunnerProps {
   onComplete: () => void;
@@ -19,6 +21,8 @@ const STEP_TYPE_LABELS: Record<string, string> = {
   'topic-complete': 'Topic Complete',
   'recap': 'Concept Review',
   'math-concept': 'Math Concept',
+  'math-recap-guide': 'Playground Guide',
+  'math-compare-guide': 'Playground Guide',
   'math-recap': 'Math Interactive',
   'math-example': 'Worked Example',
   'flashcard': 'Flashcard',
@@ -34,6 +38,8 @@ const STEP_TYPE_LABELS: Record<string, string> = {
 const STEP_ICONS: Record<string, string> = {
   'recap': '📖',
   'math-concept': '📖',
+  'math-recap-guide': 'ℹ️',
+  'math-compare-guide': 'ℹ️',
   'math-recap': '⚙️',
   'math-example': '📖',
   'flashcard': '🃏',
@@ -209,7 +215,7 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
 
     // lo1 (Laws Explorer), lo2 (F=ma), lo3 (Recoil), lo4 (Friction) have interactive sandboxes.
     const hasSimulation = topicId === 'lo1' || topicId === 'lo2' || topicId === 'lo3' || topicId === 'lo4' || topicId.startsWith('kg-') || topicId.startsWith('g3-') || topicId.startsWith('g7-');
-    const isInteractive = s.type === 'flashcard' || s.type === 'animation' || s.type === 'math-recap' || (s.type === 'recap' && hasSimulation);
+    const isInteractive = s.type === 'flashcard' || s.type === 'animation' || s.type === 'math-recap' || s.type === 'math-recap-guide' || s.type === 'math-compare-guide' || (s.type === 'recap' && hasSimulation);
 
     if (s.type === 'topic-complete') {
       return (
@@ -376,6 +382,12 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
       case 'math-concept':
         return <MathConceptStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
 
+      case 'math-recap-guide':
+        return <MathRecapGuideStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
+
+      case 'math-compare-guide':
+        return <MathCompareGuideStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
+
       case 'math-recap':
         return <MathRecapStep step={step} onBack={handleBack} onContinue={handleContentContinue} isFirst={isFirst} stepProgressText={stepProgressText} />;
 
@@ -402,6 +414,7 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
       case 'game-sort':
         return (
           <KGGameStep
+            key={hwIndex}
             step={step}
             answer={activeAnswer}
             onAnswer={handleAnswer}

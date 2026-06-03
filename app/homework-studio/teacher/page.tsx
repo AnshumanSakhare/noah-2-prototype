@@ -151,7 +151,19 @@ export default function TeacherPage() {
                 isQuestion: false,
               });
               steps.push({
+                type: 'math-recap-guide',
+                topic: tId,
+                lo,
+                isQuestion: false,
+              });
+              steps.push({
                 type: 'math-recap',
+                topic: tId,
+                lo,
+                isQuestion: false,
+              });
+              steps.push({
+                type: 'math-compare-guide',
                 topic: tId,
                 lo,
                 isQuestion: false,
