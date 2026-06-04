@@ -25,6 +25,8 @@ export type StepType =
   | 'math-recap-guide'
   | 'math-compare-guide'
   | 'math-sort-guide'
+  | 'math-fraction-guide'
+  | 'math-pythagoras-guide'
   | 'math-example'
   | 'flashcard' 
   | 'animation' 
@@ -563,6 +565,11 @@ const defaultDemoAssignments: HomeworkAssignment[] = [
         explanation: 'You ate 3 parts (numerator) out of a total of 8 parts (denominator), which is 3/8.'
       },
       {
+        type: 'math-fraction-guide',
+        topic: 'g3-intro-fractions',
+        isQuestion: false
+      },
+      {
         type: 'math-recap',
         topic: 'g3-intro-fractions',
         isQuestion: false
@@ -635,6 +642,16 @@ const defaultDemoAssignments: HomeworkAssignment[] = [
         isQuestion: false
       },
       {
+        type: 'math-pythagoras-guide',
+        topic: 'g7-pythagoras',
+        isQuestion: false
+      },
+      {
+        type: 'math-recap',
+        topic: 'g7-pythagoras',
+        isQuestion: false
+      },
+      {
         lo: { id: 'g7-pythagoras', name: 'Pythagoras Theorem', short: 'Pythagoras' },
         type: 'mcq',
         topic: 'g7-pythagoras',
@@ -643,11 +660,6 @@ const defaultDemoAssignments: HomeworkAssignment[] = [
         options: ['5', '7', '12', '25'],
         correct: 0,
         explanation: 'Using a² + b² = c² → 3² + 4² = 9 + 16 = 25. The square root of 25 is 5. So c = 5.'
-      },
-      {
-        type: 'math-recap',
-        topic: 'g7-pythagoras',
-        isQuestion: false
       },
       {
         lo: { id: 'g7-pythagoras', name: 'Pythagoras Theorem', short: 'Pythagoras' },

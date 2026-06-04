@@ -234,17 +234,41 @@ export default function TeacherPage() {
                 lo,
                 isQuestion: false,
               });
+              if (tId === 'g7-pythagoras') {
+                steps.push({
+                  type: 'math-pythagoras-guide',
+                  topic: tId,
+                  lo,
+                  isQuestion: false,
+                });
+                steps.push({
+                  type: 'math-recap',
+                  topic: tId,
+                  lo,
+                  isQuestion: false,
+                });
+              }
               mcqs.forEach(q => steps.push(mapQuestionStep(q)));
             }
 
             // 2. Interactive Sandbox -> Fills
             if (fills.length > 0) {
-              steps.push({
-                type: 'math-recap',
-                topic: tId,
-                lo,
-                isQuestion: false,
-              });
+              if (tId === 'g3-intro-fractions') {
+                steps.push({
+                  type: 'math-fraction-guide',
+                  topic: tId,
+                  lo,
+                  isQuestion: false,
+                });
+              }
+              if (tId !== 'g7-pythagoras') {
+                steps.push({
+                  type: 'math-recap',
+                  topic: tId,
+                  lo,
+                  isQuestion: false,
+                });
+              }
               fills.forEach(q => steps.push(mapQuestionStep(q)));
             }
 
