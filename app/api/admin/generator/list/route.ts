@@ -13,7 +13,8 @@ function getXlsxContext(grade: number, topic: string) {
     if (!fs.existsSync(filePath)) {
       return null;
     }
-    const workbook = XLSX.readFile(filePath);
+    const fileBuffer = fs.readFileSync(filePath);
+    const workbook = XLSX.read(fileBuffer, { type: "buffer" });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const data: any[] = XLSX.utils.sheet_to_json(worksheet);
 

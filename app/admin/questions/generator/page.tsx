@@ -64,6 +64,51 @@ export default function AIGeneratorPage() {
   const [customPrompt, setCustomPrompt] = useState("");
   const [previewItem, setPreviewItem] = useState<VariationSlot | null>(null);
 
+  // Brainstorm state
+  const [brainstorming, setBrainstorming] = useState(false);
+  const [ideas, setIdeas] = useState<any[]>([]);
+  const [selectedIdea, setSelectedIdea] = useState<any | null>(null);
+
+  // Close gen modal and reset brainstorm state
+  const closeGenModal = () => {
+    setOpenGenModal(false);
+    setIdeas([]);
+    setSelectedIdea(null);
+    setCustomPrompt("");
+  };
+
+  // Brainstorm Ideas
+  const handleBrainstormIdeas = async () => {
+    if (selectedGrade === "" || !selectedTopic || !activeSlot) return;
+    setBrainstorming(true);
+    setIdeas([]);
+    setSelectedIdea(null);
+    try {
+      const res = await fetch("/api/admin/generator/ideas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          grade: selectedGrade,
+          topic: selectedTopic,
+          difficulty: activeSlot.difficulty,
+          interactionArchetype,
+          customPrompt
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        setIdeas(json.ideas);
+      } else {
+        alert(`Failed to brainstorm: ${json.error}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error brainstorming ideas");
+    } finally {
+      setBrainstorming(false);
+    }
+  };
+
   // Grade Options Mapping
   const gradeOptions = useMemo(() => {
     return filterData.grades.map((g) => {
@@ -139,14 +184,14 @@ export default function AIGeneratorPage() {
           difficulty: activeSlot.difficulty,
           variationIndex: activeSlot.index,
           interactionArchetype,
-          customPrompt
+          customPrompt,
+          selectedIdea
         })
       });
       const json = await res.json();
       if (json.success) {
         alert("Success! Question slot generated and saved to DB.");
-        setOpenGenModal(false);
-        setCustomPrompt("");
+        closeGenModal();
         fetchSlots();
       } else {
         alert(`Failed to generate: ${json.error}`);
@@ -464,61 +509,117 @@ export default function AIGeneratorPage() {
       {/* MODAL 1: GENERATE EMPTY SLOT */}
       {openGenModal && activeSlot && (
         <div className="modal-backdrop">
-          <div className="modal-card">
+          <div className={`modal-card ${ideas.length > 0 ? "expanded-modal" : ""}`}>
             <div className="modal-header">
               <div className="modal-title-row">
                 <Sparkles size={18} className="text-grape" />
                 <h3>Generate {activeSlot.difficulty.toUpperCase()} Slot #{activeSlot.index}</h3>
               </div>
-              <button className="close-btn" onClick={() => setOpenGenModal(false)} disabled={generating}>
+              <button className="close-btn" onClick={closeGenModal} disabled={generating || brainstorming}>
                 <X size={18} />
               </button>
             </div>
 
             <div className="modal-body">
-              <div className="modal-field">
-                <label>Interaction Archetype</label>
-                <select
-                  value={interactionArchetype}
-                  onChange={(e) => setInteractionArchetype(e.target.value)}
-                  className="modal-select"
-                  disabled={generating}
-                >
-                  <option value="tap-select">tap-select (Comparing, MCQ, True/False)</option>
-                  <option value="drag-drop">drag-drop (Sorting into bins, matching)</option>
-                  <option value="fill-slot">fill-slot (Equation blanks, missing numbers)</option>
-                  <option value="sequence-order">sequence-order (Sorting in line, smallest to biggest)</option>
-                  <option value="build-count">build-count (Ten-frames, block counting)</option>
-                  <option value="number-line">number-line (Fraction plotting, estimation)</option>
-                  <option value="partition">partition (Equal sharing, fractional splits)</option>
-                </select>
-              </div>
+              <div className="modal-split-layout">
+                <div className="inputs-pane">
+                  <div className="modal-field">
+                    <label>Interaction Archetype</label>
+                    <select
+                      value={interactionArchetype}
+                      onChange={(e) => setInteractionArchetype(e.target.value)}
+                      className="modal-select"
+                      disabled={generating || brainstorming}
+                    >
+                      <option value="tap-select">tap-select (Comparing, MCQ, True/False)</option>
+                      <option value="drag-drop">drag-drop (Sorting into bins, matching)</option>
+                      <option value="fill-slot">fill-slot (Equation blanks, missing numbers)</option>
+                      <option value="sequence-order">sequence-order (Sorting in line, smallest to biggest)</option>
+                      <option value="build-count">build-count (Ten-frames, block counting)</option>
+                      <option value="number-line">number-line (Fraction plotting, estimation)</option>
+                      <option value="partition">partition (Equal sharing, fractional splits)</option>
+                    </select>
+                  </div>
 
-              <div className="modal-field">
-                <label>Custom Design Instructions (Optional)</label>
-                <textarea
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  rows={4}
-                  className="modal-textarea"
-                  placeholder="e.g. 'Use fruits emojis for counting', 'make the balance look like scales', 'focus on values between 1 and 20'..."
-                  disabled={generating}
-                />
-              </div>
+                  <div className="modal-field">
+                    <label>Custom Design Instructions (Optional)</label>
+                    <textarea
+                      value={customPrompt}
+                      onChange={(e) => setCustomPrompt(e.target.value)}
+                      rows={4}
+                      className="modal-textarea"
+                      placeholder="e.g. 'Use fruits emojis for counting', 'make the balance look like scales', 'focus on values between 1 and 20'..."
+                      disabled={generating || brainstorming}
+                    />
+                  </div>
 
-              {generating && (
-                <div className="generation-loader">
-                  <RefreshCw className="spin-icon text-grape" size={24} />
-                  <p>Engaging OpenAI to construct the game HTML, parameters schema, and variation assets...</p>
+                  <button
+                    className="btn-brainstorm"
+                    onClick={handleBrainstormIdeas}
+                    disabled={generating || brainstorming}
+                  >
+                    {brainstorming ? (
+                      <>
+                        <RefreshCw className="spin-icon" size={14} style={{ marginRight: 6 }} />
+                        Brainstorming Ideas...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={14} style={{ marginRight: 6 }} />
+                        {ideas.length > 0 ? "Re-brainstorm Ideas" : "Brainstorm Creative Ideas"}
+                      </>
+                    )}
+                  </button>
+
+                  {generating && (
+                    <div className="generation-loader" style={{ marginTop: 12 }}>
+                      <RefreshCw className="spin-icon text-grape" size={24} />
+                      <p>Engaging OpenAI to construct the game HTML, parameters schema, and variation assets...</p>
+                    </div>
+                  )}
                 </div>
-              )}
+
+                {ideas.length > 0 && (
+                  <div className="ideas-pane">
+                    <div className="ideas-pane-header">
+                      <h4>✨ Choose a Game Concept</h4>
+                      <p>Select one idea below as the blueprint for slot generation:</p>
+                    </div>
+                    <div className="ideas-list">
+                      {ideas.map((idea, idx) => {
+                        const isSelected = selectedIdea === idea;
+                        return (
+                          <div
+                            key={idx}
+                            className={`idea-card-item ${isSelected ? "selected" : ""}`}
+                            onClick={() => setSelectedIdea(idea)}
+                          >
+                            <div className="idea-card-header">
+                              <span className="idea-card-title">{idea.title}</span>
+                              <span className="idea-card-concept">{idea.concept}</span>
+                            </div>
+                            <p className="idea-card-desc">{idea.description}</p>
+                            <div className="idea-card-pedagogy">
+                              <strong>Pedagogy:</strong> {idea.pedagogy}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setOpenGenModal(false)} disabled={generating}>
+              <button className="btn-secondary" onClick={closeGenModal} disabled={generating || brainstorming}>
                 Cancel
               </button>
-              <button className="btn-primary" onClick={handleCreate} disabled={generating}>
+              <button
+                className="btn-primary"
+                onClick={handleCreate}
+                disabled={generating || brainstorming || (ideas.length > 0 && !selectedIdea)}
+              >
                 {generating ? "Generating..." : "Generate Game Slot"}
               </button>
             </div>
@@ -1301,6 +1402,142 @@ export default function AIGeneratorPage() {
         @keyframes fadein {
           from { opacity: 0; }
           to { opacity: 1; }
+        }
+
+        /* Brainstorm Layout & Cards */
+        .expanded-modal {
+          width: 960px !important;
+          max-width: 95vw !important;
+          transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .modal-split-layout {
+          display: flex;
+          gap: 20px;
+          width: 100%;
+        }
+
+        .inputs-pane {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .ideas-pane {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          border-left: 1.5px solid #F1F3FA;
+          padding-left: 20px;
+          max-height: 480px;
+        }
+
+        .ideas-pane-header h4 {
+          font-size: 0.88rem;
+          font-weight: 850;
+          color: #20243A;
+          margin: 0 0 2px 0;
+        }
+
+        .ideas-pane-header p {
+          font-size: 0.72rem;
+          color: #52586F;
+          margin: 0;
+        }
+
+        .ideas-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          overflow-y: auto;
+          padding-right: 6px;
+        }
+
+        .idea-card-item {
+          background: #F8F9FC;
+          border: 1.5px solid #E4E7F2;
+          border-radius: 12px;
+          padding: 12px;
+          cursor: pointer;
+          transition: all 0.2s;
+          text-align: left;
+        }
+
+        .idea-card-item:hover {
+          border-color: #6C5CE7;
+          background: rgba(108, 92, 231, 0.01);
+        }
+
+        .idea-card-item.selected {
+          border-color: #6C5CE7;
+          background: rgba(108, 92, 231, 0.04);
+          box-shadow: 0 0 0 1px #6C5CE7;
+        }
+
+        .idea-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: start;
+          gap: 8px;
+          margin-bottom: 6px;
+        }
+
+        .idea-card-title {
+          font-size: 0.78rem;
+          font-weight: 850;
+          color: #6C5CE7;
+        }
+
+        .idea-card-concept {
+          font-size: 0.62rem;
+          font-weight: 900;
+          color: #4A5568;
+          background: #E2E8F0;
+          padding: 2px 6px;
+          border-radius: 4px;
+          white-space: nowrap;
+        }
+
+        .idea-card-desc {
+          font-size: 0.72rem;
+          color: #2D3748;
+          margin: 0 0 6px 0;
+          line-height: 1.45;
+        }
+
+        .idea-card-pedagogy {
+          font-size: 0.66rem;
+          color: #718096;
+          line-height: 1.4;
+          border-top: 1px solid #EDF2F7;
+          padding-top: 6px;
+        }
+
+        .btn-brainstorm {
+          background: white;
+          border: 1.5px solid #6C5CE7;
+          color: #6C5CE7;
+          padding: 8px 16px;
+          border-radius: 8px;
+          font-size: 0.8rem;
+          font-weight: 800;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+          width: 100%;
+        }
+
+        .btn-brainstorm:hover:not(:disabled) {
+          background: rgba(108, 92, 231, 0.04);
+        }
+
+        .btn-brainstorm:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
       `}</style>
     </div>

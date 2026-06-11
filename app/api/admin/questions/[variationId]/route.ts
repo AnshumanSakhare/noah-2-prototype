@@ -128,3 +128,38 @@ export async function PUT(
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+
+// DELETE /api/admin/questions/:variationId - Permanently remove a variation
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ variationId: string }> }
+) {
+  try {
+    const { variationId } = await params;
+
+    // Verify it exists first
+    const check = await query(
+      `SELECT qv.id FROM public.question_variations qv WHERE qv.id = $1`,
+      [variationId]
+    );
+
+    if (check.rows.length === 0) {
+      return NextResponse.json({ success: false, error: "Question variation not found" }, { status: 404 });
+    }
+
+    // Nullify FK references in audit log before deletion (preserves history)
+    await query(
+      `UPDATE public.generation_runs SET variation_id = NULL WHERE variation_id = $1`,
+      [variationId]
+    );
+
+    // Delete the variation
+    await query(`DELETE FROM public.question_variations WHERE id = $1`, [variationId]);
+
+    return NextResponse.json({ success: true, message: `Variation deleted successfully` });
+
+  } catch (error: any) {
+    console.error("DELETE /api/admin/questions/[variationId] error:", error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}

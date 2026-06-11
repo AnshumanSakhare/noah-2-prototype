@@ -31,11 +31,8 @@ import {
 } from 'lucide-react';
 import mathTopics from '../../data/topic-grade_question_count.json';
 
-const getMathTopicId = (topicName: string, gradeName: string): string | null => {
-  if (topicName === "Comparing Numbers" && gradeName === "KG") return "kg-comparing-numbers";
-  if (topicName === "Introduction to Fractions" && gradeName === "G3") return "g3-intro-fractions";
-  if (topicName === "Pythagoras Theorem" && gradeName === "G7") return "g7-pythagoras";
-  return null;
+const getMathTopicId = (topicName: string, gradeName: string): string => {
+  return topicName;
 };
 
 interface BuilderPanelProps {
@@ -57,26 +54,33 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
     showToast,
     assignments,
     selectedMathGrade,
+    topicDbCounts,
   } = useHomework();
 
   const [loadingAgent, setLoadingAgent] = useState<boolean>(false);
   const [agentStep, setAgentStep] = useState<number>(-1);
   const [currentStep, setCurrentStep] = useState<number>(1);
 
+  const getDefaultMathTopic = (grade: string): string => {
+    const nextTopics = (mathTopics as any[])
+      .filter(t => t.grade === grade)
+      .map(t => getMathTopicId(t.topic, t.grade))
+      .filter(tId => tId !== null) as string[];
+    
+    const defaultTopic = nextTopics.find(t => (topicDbCounts[t] || 0) > 0) || nextTopics[0] || '';
+    return defaultTopic;
+  };
+
   // Sync Math topics for the selected grade automatically to prevent Science leak
   useEffect(() => {
     if (builderState.subject === 'math') {
-      const nextTopics = (mathTopics as any[])
-        .filter(t => t.grade === selectedMathGrade)
-        .map(t => getMathTopicId(t.topic, t.grade))
-        .filter(tId => tId !== null) as string[];
-      
+      const defaultTopic = getDefaultMathTopic(selectedMathGrade);
       setBuilderState(prev => ({
         ...prev,
-        topics: nextTopics
+        topics: defaultTopic ? [defaultTopic] : []
       }));
     }
-  }, [builderState.subject, selectedMathGrade]);
+  }, [builderState.subject, selectedMathGrade, topicDbCounts]);
 
   // Sync preset active state
   const getActivePresetId = () => {
@@ -110,22 +114,14 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
       setAgentReady(false); // Reset to show the beautiful connection animation every time!
       newBuilder.student = students[0].id;
       
-      const mathPicks = (mathTopics as any[])
-        .filter(t => t.grade === selectedMathGrade)
-        .map(t => getMathTopicId(t.topic, t.grade))
-        .filter(tId => tId !== null) as string[];
-
-      newBuilder.topics = builderState.subject === 'math' ? mathPicks : [...students[0].weak];
+      const defaultTopic = getDefaultMathTopic(selectedMathGrade);
+      newBuilder.topics = builderState.subject === 'math' ? (defaultTopic ? [defaultTopic] : []) : [...students[0].weak];
       fetchProfileAgent(students[0].id);
     } else {
       newBuilder.student = null;
       
-      const mathPicks = (mathTopics as any[])
-        .filter(t => t.grade === selectedMathGrade)
-        .map(t => getMathTopicId(t.topic, t.grade))
-        .filter(tId => tId !== null) as string[];
-
-      newBuilder.topics = builderState.subject === 'math' ? mathPicks : learningOutcomes.map(lo => lo.id);
+      const defaultTopic = getDefaultMathTopic(selectedMathGrade);
+      newBuilder.topics = builderState.subject === 'math' ? (defaultTopic ? [defaultTopic] : []) : learningOutcomes.map(lo => lo.id);
     }
 
     setBuilderState(newBuilder);
@@ -135,10 +131,10 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
   const pickSubject = (id: string) => {
     const nextTopics = id === 'science' 
       ? learningOutcomes.map(l => l.id) 
-      : (mathTopics as any[])
-          .filter(t => t.grade === selectedMathGrade)
-          .map(t => getMathTopicId(t.topic, t.grade))
-          .filter(tId => tId !== null) as string[];
+      : (() => {
+          const defaultTopic = getDefaultMathTopic(selectedMathGrade);
+          return defaultTopic ? [defaultTopic] : [];
+        })();
 
     setBuilderState(prev => ({
       ...prev,
@@ -151,10 +147,10 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
   const pickType = (type: 'general' | 'specific') => {
     if (type === 'general') {
       const nextTopics = builderState.subject === 'math'
-        ? (mathTopics as any[])
-            .filter(t => t.grade === selectedMathGrade)
-            .map(t => getMathTopicId(t.topic, t.grade))
-            .filter(tId => tId !== null) as string[]
+        ? (() => {
+            const defaultTopic = getDefaultMathTopic(selectedMathGrade);
+            return defaultTopic ? [defaultTopic] : [];
+          })()
         : learningOutcomes.map(l => l.id);
 
       setBuilderState(prev => ({
@@ -197,10 +193,10 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
       const s = students.find(x => x.id === studentId);
 
       const nextTopics = builderState.subject === 'math'
-        ? (mathTopics as any[])
-            .filter(t => t.grade === selectedMathGrade)
-            .map(t => getMathTopicId(t.topic, t.grade))
-            .filter(tId => tId !== null) as string[]
+        ? (() => {
+            const defaultTopic = getDefaultMathTopic(selectedMathGrade);
+            return defaultTopic ? [defaultTopic] : [];
+          })()
         : s && !builderState.manual ? [...s.weak] : builderState.topics;
 
       setBuilderState(prev => ({
@@ -217,10 +213,10 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
     if (!s) return;
 
     const nextTopics = builderState.subject === 'math'
-      ? (mathTopics as any[])
-          .filter(t => t.grade === selectedMathGrade)
-          .map(t => getMathTopicId(t.topic, t.grade))
-          .filter(tId => tId !== null) as string[]
+      ? (() => {
+          const defaultTopic = getDefaultMathTopic(selectedMathGrade);
+          return defaultTopic ? [defaultTopic] : [];
+        })()
       : !builderState.manual ? [...s.weak] : builderState.topics;
 
     setBuilderState(prev => ({
@@ -239,7 +235,7 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
       return {
         ...prev,
         manual: nextManual,
-        topics: !nextManual && s ? [...s.weak] : prev.topics,
+        topics: !nextManual && s && prev.subject !== 'math' ? [...s.weak] : prev.topics,
       };
     });
   };
@@ -249,6 +245,13 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
       let nextManual = prev.manual;
       if (prev.type === 'specific' && !prev.manual) {
         nextManual = true;
+      }
+      if (prev.subject === 'math') {
+        return {
+          ...prev,
+          manual: nextManual,
+          topics: [id],
+        };
       }
       const activeTopics = [...prev.topics];
       const idx = activeTopics.indexOf(id);
@@ -1271,40 +1274,36 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
                       {(mathTopics as any[])
                         .filter(t => t.grade === selectedMathGrade)
                         .map((t, idx) => {
-                          const mathTopicId = getMathTopicId(t.topic, t.grade);
-                          const isUnlocked = mathTopicId !== null;
-                          const isSelected = isUnlocked && builderState.topics.includes(mathTopicId);
+                          const mathTopicId = t.topic;
+                          const dbQuestionCount = topicDbCounts[t.topic] || 0;
+                          const isSelected = builderState.topics.includes(mathTopicId);
 
                           return (
                             <div 
                               key={idx}
-                              className={`math-capsule-item ${isUnlocked ? 'unlocked' : ''} ${isSelected ? 'selected' : ''}`}
-                              onClick={isUnlocked ? () => toggleTopic(mathTopicId) : undefined}
+                              className={`math-capsule-item unlocked ${isSelected ? 'selected' : ''}`}
+                              onClick={() => toggleTopic(mathTopicId)}
                             >
                               {isSelected ? (
                                 <Check size={10} className="stroke-[3]" style={{ color: '#ffffff' }} />
-                              ) : isUnlocked ? (
-                                <Sparkles size={10} style={{ color: 'var(--accent)' }} />
                               ) : (
-                                <Lock size={10} style={{ color: 'var(--text-dim)' }} />
+                                <Sparkles size={10} style={{ color: dbQuestionCount > 0 ? 'var(--accent)' : 'var(--text-dim)' }} />
                               )}
                               <span style={{ fontFamily: "'Nunito'" }}>{t.topic}</span>
                               <span style={{ fontSize: '0.68rem', fontWeight: 600, color: isSelected ? 'rgba(255,255,255,0.8)' : 'var(--text-dim)', background: isSelected ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.03)', padding: '1px 5px', borderRadius: '4px' }}>
-                                {t.question_bank_size} Qs
+                                {dbQuestionCount > 0 ? `${dbQuestionCount} DB Qs` : `No questions in DB`}
                               </span>
 
                               <div className="math-capsule-tooltip">
                                 <span style={{ fontWeight: 800, color: '#f8fafc', marginBottom: '2px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '3px' }}>
-                                  {isUnlocked ? '🔓' : '🔒'} {t.topic} Analysis
+                                  🔓 {t.topic} Analysis
                                 </span>
                                 <span>📁 Objectives: <strong className="mc-pill" style={{ color: '#60a5fa' }}>{t.learning_objectives} LOs</strong></span>
-                                <span>🗃️ DB Question Bank: <strong className="mc-pill" style={{ color: '#34d399' }}>{t.question_bank_size} Qs</strong></span>
+                                <span>🗃️ DB Question Bank: <strong className="mc-pill" style={{ color: dbQuestionCount > 0 ? '#34d399' : '#ef4444' }}>{dbQuestionCount > 0 ? `${dbQuestionCount} Qs` : 'No questions in DB'}</strong></span>
                                 <span>🔄 Safe Quiz Retakes: <strong className="mc-pill" style={{ color: '#fbbf24' }}>{t.recurring_tests_with_no_repeat} times</strong></span>
-                                {isUnlocked && (
-                                  <span style={{ color: '#a7f3d0', fontWeight: 700, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                    ✨ Click to select for Homework!
-                                  </span>
-                                )}
+                                <span style={{ color: '#a7f3d0', fontWeight: 700, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                  ✨ Click to select for Homework!
+                                </span>
                               </div>
                             </div>
                           );
@@ -1367,28 +1366,43 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
                   </div>
 
                   {/* Panel 2: Total Questions */}
-                  <div className="param-panel-card">
-                    <div className="ppc-icon"><CheckSquare size={18} /></div>
-                    <h4>Total Questions</h4>
-                    <div className="ppc-slider-container">
-                      <div className="slider-value-display">{builderState.length} Qs</div>
-                      <input 
-                        type="range" 
-                        min="3" 
-                        max="10" 
-                        value={builderState.length} 
-                        step="1" 
-                        className="ppc-range-slider" 
-                        onChange={updateLen} 
-                      />
-                      <div className="slider-ticks">
-                        <span>3</span>
-                        <span>5</span>
-                        <span>8</span>
-                        <span>10</span>
+                  {(() => {
+                    const selectedTopicId = builderState.topics[0];
+                    const isStaticDemo = selectedTopicId === "kg-comparing-numbers" || selectedTopicId === "g3-intro-fractions" || selectedTopicId === "g7-pythagoras";
+                    const dbCount = !isStaticDemo && selectedTopicId ? (topicDbCounts[selectedTopicId] || 0) : 0;
+                    
+                    const minSliderVal = dbCount > 0 ? Math.min(1, dbCount) : 3;
+                    const maxSliderVal = dbCount > 0 ? Math.min(10, dbCount) : 10;
+                    
+                    const currentLen = Math.min(maxSliderVal, Math.max(minSliderVal, builderState.length));
+
+                    return (
+                      <div className="param-panel-card">
+                        <div className="ppc-icon"><CheckSquare size={18} /></div>
+                        <h4>Total Questions</h4>
+                        <div className="ppc-slider-container">
+                          <div className="slider-value-display">{currentLen} Qs</div>
+                          <input 
+                            type="range" 
+                            min={minSliderVal} 
+                            max={maxSliderVal} 
+                            value={currentLen} 
+                            step="1" 
+                            className="ppc-range-slider" 
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              setBuilderState(prev => ({ ...prev, length: val }));
+                            }} 
+                          />
+                          <div className="slider-ticks">
+                            <span>{minSliderVal}</span>
+                            <span>{Math.round((minSliderVal + maxSliderVal) / 2)}</span>
+                            <span>{maxSliderVal}</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* Panel 3: Content Layout Flow */}
                   <div className="param-panel-card">

@@ -16,7 +16,8 @@ import {
   CheckSquare,
   Square,
   ChevronLeft,
-  ChevronsRight
+  ChevronsRight,
+  Trash2
 } from "lucide-react";
 
 interface QuestionVariation {
@@ -58,6 +59,9 @@ export default function AdminQuestionsPage() {
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Delete state
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Dynamic lists from plan filters JSON
   const grades = React.useMemo(() => {
@@ -163,6 +167,45 @@ export default function AdminQuestionsPage() {
     } catch (err) {
       console.error(err);
       alert("Error performing bulk action");
+    }
+  };
+
+  // Delete single variation
+  const handleDeleteQuestion = async (id: string, slug: string) => {
+    if (!confirm(`Are you sure you want to permanently delete variation\n"${slug}"?\n\nThis cannot be undone.`)) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/admin/questions/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.success) {
+        fetchQuestions();
+        setSelectedIds(prev => prev.filter(x => x !== id));
+      } else {
+        alert(`Delete failed: ${json.error}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting question");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // Bulk delete
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Permanently delete ${selectedIds.length} selected variation(s)?\n\nThis cannot be undone.`)) return;
+    try {
+      await Promise.all(
+        selectedIds.map(id =>
+          fetch(`/api/admin/questions/${id}`, { method: "DELETE" })
+        )
+      );
+      setSelectedIds([]);
+      fetchQuestions();
+    } catch (err) {
+      console.error(err);
+      alert("Error during bulk delete");
     }
   };
 
@@ -336,6 +379,10 @@ export default function AdminQuestionsPage() {
                 <button className="bulk-btn verify" onClick={() => handleBulkAction("flag_reverify")}>
                   Re-verify
                 </button>
+                <button className="bulk-btn delete" onClick={handleBulkDelete}>
+                  <Trash2 size={12} style={{ marginRight: 3 }} />
+                  Delete
+                </button>
               </div>
             )}
           </div>
@@ -428,10 +475,24 @@ export default function AdminQuestionsPage() {
                             </span>
                           </div>
                         </td>
-                        <td>
-                          <Link href={`/admin/questions/${q.id}`} className="row-action-btn">
-                            Edit <ChevronRight size={14} />
-                          </Link>
+                        <td style={{ whiteSpace: "nowrap", width: "1%" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <Link href={`/admin/questions/${q.id}`} className="row-action-btn">
+                              Edit <ChevronRight size={14} />
+                            </Link>
+                            <button
+                              className="row-delete-btn"
+                              title="Delete variation"
+                              disabled={deletingId === q.id}
+                              onClick={() => handleDeleteQuestion(q.id, `${q.template_slug} (${q.variation_index})`)}
+                            >
+                              {deletingId === q.id ? (
+                                <RefreshCw size={13} className="spin-icon" />
+                              ) : (
+                                <Trash2 size={13} />
+                              )}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -677,13 +738,42 @@ export default function AdminQuestionsPage() {
         .bulk-btn.good { background: #16B981; color: white; }
         .bulk-btn.bad { background: #F0556B; color: white; }
         .bulk-btn.verify { background: #FF9F43; color: white; }
+        .bulk-btn.delete { background: #DC2626; color: white; }
         .bulk-btn:hover { opacity: 0.9; transform: translateY(-0.5px); }
+
+        .row-delete-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border-radius: 6px;
+          border: 1.5px solid #FCA5A5;
+          background: rgba(220, 38, 38, 0.04);
+          color: #DC2626;
+          cursor: pointer;
+          transition: all 0.15s;
+          flex-shrink: 0;
+        }
+
+        .row-delete-btn:hover:not(:disabled) {
+          background: #DC2626;
+          border-color: #DC2626;
+          color: white;
+          transform: scale(1.05);
+        }
+
+        .row-delete-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
 
         .table-card {
           background: white;
           border: 1px solid #E4E7F2;
           border-radius: 16px;
           overflow: hidden;
+          overflow-x: auto;
         }
 
         .admin-table {

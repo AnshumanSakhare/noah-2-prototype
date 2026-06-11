@@ -70,15 +70,14 @@ export async function POST(request: Request) {
     const seenIds = seenRes.rows.map(r => r.question_id);
 
     // 3. Query Candidate Pool
-    // Filtered by: topic + difficulty + status = 'active' + verifier_status = 'verified'
     const candidateRes = await query(`
       SELECT qv.id
       FROM public.question_variations qv
       JOIN public.question_templates qt ON qv.template_id = qt.id
       WHERE qt.topic = $1
         AND qv.difficulty = $2
-        AND qv.status = 'active'
-        AND qv.verifier_status = 'verified'
+        AND qv.status != 'deprecated'
+        AND qv.verifier_status != 'failed'
     `, [topic, targetDifficulty]);
 
     let candidates = candidateRes.rows.map(r => r.id);
@@ -90,8 +89,8 @@ export async function POST(request: Request) {
         FROM public.question_variations qv
         JOIN public.question_templates qt ON qv.template_id = qt.id
         WHERE qt.topic = $1
-          AND qv.status = 'active'
-          AND qv.verifier_status = 'verified'
+          AND qv.status != 'deprecated'
+          AND qv.verifier_status != 'failed'
       `, [topic]);
       candidates = fallbackRes.rows.map(r => r.id);
     }
@@ -99,51 +98,23 @@ export async function POST(request: Request) {
     // Filter out seen questions
     let freshPool = candidates.filter(id => !seenIds.includes(id));
     let selectedIds: string[] = [];
+    const targetCount = Math.min(activity_count, candidates.length);
 
-    // Check if fresh pool is big enough
-    if (freshPool.length >= activity_count) {
-      // Shuffle fresh pool and take activity_count
-      selectedIds = freshPool.sort(() => 0.5 - Math.random()).slice(0, activity_count);
+    if (freshPool.length >= targetCount) {
+      // Shuffled subset of fresh pool
+      selectedIds = freshPool.sort(() => 0.5 - Math.random()).slice(0, targetCount);
     } else {
-      // Not enough fresh questions, take all fresh questions and backfill with oldest-seen questions
+      // Use all fresh ones
       selectedIds = [...freshPool];
-      const needed = activity_count - freshPool.length;
-      
-      // Fetch seen questions ordered by oldest attempt first to backfill
-      const backfillRes = await query(`
-        SELECT qv.id, MAX(ha.created_at) as last_seen
-        FROM public.question_variations qv
-        JOIN public.homework_attempts ha ON ha.question_id = qv.id
-        JOIN public.question_templates qt ON qv.template_id = qt.id
-        WHERE ha.student_id = $1 
-          AND qt.topic = $2
-          AND qv.id = ANY($3)
-        GROUP BY qv.id
-        ORDER BY last_seen ASC
-        LIMIT $4
-      `, [student_id, topic, candidates, needed]);
-      
-      const backfillIds = backfillRes.rows.map(r => r.id);
-      selectedIds = [...selectedIds, ...backfillIds];
-      
-      // If we still need more (e.g. very few questions total in DB), just repeat candidates
-      if (selectedIds.length < activity_count && candidates.length > 0) {
-        let loopSafety = 0;
-        while (selectedIds.length < activity_count && loopSafety < 100) {
-          const randId = candidates[Math.floor(Math.random() * candidates.length)];
-          if (!selectedIds.includes(randId)) {
-            selectedIds.push(randId);
-          } else {
-            // allow duplicate as fallback
-            selectedIds.push(randId);
-          }
-          loopSafety++;
-        }
-      }
+      // Backfill using seen ones, but without duplicating!
+      const remainingNeeded = targetCount - selectedIds.length;
+      const seenPool = candidates.filter(id => seenIds.includes(id));
+      const shuffledSeen = seenPool.sort(() => 0.5 - Math.random()).slice(0, remainingNeeded);
+      selectedIds = [...selectedIds, ...shuffledSeen];
     }
 
     // Shuffle final selection
-    selectedIds = selectedIds.sort(() => 0.5 - Math.random()).slice(0, activity_count);
+    selectedIds = selectedIds.sort(() => 0.5 - Math.random());
 
     if (selectedIds.length === 0) {
       return NextResponse.json({ 

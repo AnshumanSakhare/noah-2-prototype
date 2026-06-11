@@ -24,7 +24,8 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ onSeeTeacher }) =>
     hwElapsed, 
     showToast,
     setActiveAssignmentId,
-    activeAssignmentId
+    activeAssignmentId,
+    assignHomeworkDb
   } = useHomework();
 
   const [modalOpen, setModalOpen] = useState<boolean>(false);
@@ -499,8 +500,11 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ onSeeTeacher }) =>
                 <button 
                   className="lpm-practice-btn"
                   onClick={() => {
-                    setActiveAssignmentId(null);
-                    showToast(`🚀 Practice session compiled for: ${r.name}!`);
+                    assignHomeworkDb(r.name, 5, 'adaptive').then(id => {
+                      if (id) {
+                        showToast(`🚀 Practice session launched for: ${r.name}!`);
+                      }
+                    });
                   }}
                 >
                   Practice Subtopic

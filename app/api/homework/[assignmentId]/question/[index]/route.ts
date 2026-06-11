@@ -83,6 +83,10 @@ export async function GET(
       hydratedHtml = hydratedHtml.replaceAll(`{{${key}}}`, stringVal);
     }
 
+    // Inject Silent Mode — suppress in-game correct/incorrect feedback
+    // Games that honor SILENT_MODE will show neutral selection styles only
+    hydratedHtml = hydratedHtml.replace(/<head>/i, '<head>\n<script>window.SILENT_MODE = true;</script>');
+
     // Return hydrated HTML + clean metadata (exclude answer_key completely)
     return NextResponse.json({
       success: true,
@@ -95,7 +99,8 @@ export async function GET(
         learning_objective: question.learning_objective,
         difficulty: question.difficulty,
         template_slug: question.template_slug,
-        html: hydratedHtml
+        html: hydratedHtml,
+        variation_data: variationData
       }
     });
 

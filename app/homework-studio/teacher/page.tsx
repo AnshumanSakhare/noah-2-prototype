@@ -26,14 +26,23 @@ export default function TeacherPage() {
     setActiveAssignmentId,
     activeTab,
     setActiveTab,
-    assignHomeworkDb
+    assignHomeworkDb,
+    topicDbCounts
   } = useHomework();
   const [viewMode, setViewMode] = useState<'builder' | 'assembling' | 'preview'>('builder');
 
   const handleGenerate = async () => {
+    const topic = builderState.topics[0] || "Position & Direction";
+    if (builderState.subject === 'math') {
+      const dbCount = topicDbCounts[topic] || 0;
+      if (dbCount === 0) {
+        showToast(`❌ No questions available in DB for "${topic}". Please generate questions first!`);
+        return;
+      }
+    }
+
     setViewMode('assembling');
     // Call the dynamic DB assignment compilation
-    const topic = builderState.topics[0] || "Position & Direction";
     const assignedId = await assignHomeworkDb(topic, builderState.length, builderState.diff);
     if (assignedId) {
       setTimeout(() => {
@@ -437,6 +446,22 @@ export default function TeacherPage() {
         />
       )}
 
+      <ActiveToasts />
     </main>
   );
 }
+
+// Internal Toast component helper
+const ActiveToasts: React.FC = () => {
+  const { toastMessage, streakToastMessage } = useHomework();
+  return (
+    <>
+      <div className={`toast ${toastMessage ? 'show' : ''}`} id="toast">
+        {toastMessage}
+      </div>
+      <div className={`streak-toast ${streakToastMessage ? 'show' : ''}`} id="streakToast">
+        {streakToastMessage}
+      </div>
+    </>
+  );
+};

@@ -150,6 +150,7 @@ export interface HomeworkContextType {
   setSelectedMathGrade: React.Dispatch<React.SetStateAction<string>>;
   activeTab: 'dynamic' | 'templates' | 'analytics';
   setActiveTab: React.Dispatch<React.SetStateAction<'dynamic' | 'templates' | 'analytics'>>;
+  topicDbCounts: Record<string, number>;
 }
 
 export function getTopicName(step: HomeworkStep): string {
@@ -744,6 +745,63 @@ export const HomeworkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [eventLog, setEventLog] = useState<any[]>([]);
   const [selectedMathGrade, setSelectedMathGrade] = useState<string>('KG');
   const [activeTab, setActiveTab] = useState<'dynamic' | 'templates' | 'analytics'>('dynamic');
+  const [topicDbCounts, setTopicDbCounts] = useState<Record<string, number>>({});
+
+  // Fetch database assignments and topic counts on mount
+  useEffect(() => {
+    async function fetchDbAssignments() {
+      try {
+        const studentId = "00000000-0000-0000-0000-000000000001"; // Mock student
+        const res = await fetch(`/api/homework?student_id=${studentId}`);
+        const json = await res.json();
+        if (json.success && json.data) {
+          const dbAssignments: HomeworkAssignment[] = json.data.map((assignment: any) => {
+            const steps: HomeworkStep[] = [];
+            for (let i = 0; i < assignment.activity_count; i++) {
+              steps.push({
+                type: 'mcq', // Placeholder, will load dynamic details inside runner
+                topic: assignment.topic,
+                isQuestion: true
+              });
+            }
+            return {
+              id: assignment.id,
+              title: `Homework Set: ${assignment.topic.includes('lo') ? 'Science Journey' : assignment.topic}`,
+              topicSummary: `Topics: ${assignment.topic} (${assignment.difficulty_mode.toUpperCase()})`,
+              subject: assignment.topic.includes('lo') ? 'science' : 'math',
+              length: steps.length,
+              steps: steps,
+              isCustom: true,
+              isCompleted: assignment.status === 'completed'
+            };
+          });
+
+          setAssignments(prev => {
+            // Keep demo assignments, but overwrite custom DB ones to prevent duplicates on double-fetch
+            const demos = prev.filter(a => !a.isCustom);
+            return [...demos, ...dbAssignments];
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching DB assignments on mount:", err);
+      }
+    }
+
+    async function fetchTopicCounts() {
+      try {
+        const res = await fetch("/api/homework/topic-counts");
+        const json = await res.json();
+        if (json.success && json.counts) {
+          setTopicDbCounts(json.counts);
+        }
+      } catch (err) {
+        console.error("Error fetching topic counts on mount:", err);
+      }
+    }
+
+    fetchDbAssignments();
+    fetchTopicCounts();
+  }, []);
 
   // Toast notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -904,6 +962,7 @@ export const HomeworkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setSelectedMathGrade,
         activeTab,
         setActiveTab,
+        topicDbCounts,
       }}
     >
       {children}

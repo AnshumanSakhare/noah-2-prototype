@@ -224,3 +224,51 @@ const hydrateTemplate = (html: string, data: any) => {
 Because of this separation:
 1. **Changing Values Directly**: Testers can edit fields (like `numberA` or `question_text`) directly in the QA panel. The client-side form updates the JSON parameters in `variation_data`, automatically triggering `hydrateTemplate` and refreshing the `<iframe>` sandbox in 400ms without changing the underlying template HTML.
 2. **AI Revision / Edit**: When a tester writes a prompt (e.g. *"change the layout colors to sky-blue and use animal names instead of numbers"*), the current HTML template and JSON data are sent back to the AI. The model modifies the template, expands `propsSchemaJson` with new variables (e.g. `animalA`), and updates the default parameters in `variationDataJson`.
+
+---
+
+## 5. Silent Mode & Homework Evaluation Contract
+
+For homework and formal assignments, the user flow dictates a **silent testing environment** where correctness is evaluated entirely server-side, and no instant correct/incorrect feedback (green/red overlays, checks/crosses) is presented to the student during the session.
+
+### 5.1 Silent Mode Injection
+When a question is requested for a homework assignment, the serving route ([question/[index]/route.ts](file:///d:/BuildFastWithAI/diagnostic-agent-noah/app/api/homework/%5BassignmentId%5D/question/%5Bindex%5D/route.ts)) injects a silent mode indicator script into the hydrated HTML header:
+
+```html
+<head>
+<script>window.SILENT_MODE = true;</script>
+...
+</head>
+```
+
+This ensures the `window.SILENT_MODE` variable is globally set to `true` before any game scripts run.
+
+### 5.2 Game Component Contract
+All generated game templates must respect `window.SILENT_MODE` inside the `checkAnswer(el)` hook:
+1. **Feedback Suppression**: Do not show visual overlays representing correct (green) or incorrect (red) states.
+2. **Neutral Styling**: Apply a neutral selection style (e.g., a Grape-colored border/outline `3px solid var(--c-grape)`) to the tapped or selected option, indicating selection rather than validation.
+3. **Parent Notification**: Immediately post a message containing the selection state to the parent iframe using:
+   ```javascript
+   window.parent.postMessage({ type: 'EDUQUEST_ANSWER', answer: getState() }, '*');
+   ```
+4. **Execution Flow**: The `checkAnswer()` function must still complete execution (to set the current answer state) but without writing success/fail text or playing sounds/emojis.
+
+### 5.3 Server-Side Grading Flow
+1. The student interacts with the game iframe.
+2. Upon action completion, the game posts the `EDUQUEST_ANSWER` event with the state representation (`getState()`).
+3. The parent runner component ([HomeworkRunner.tsx](file:///d:/BuildFastWithAI/diagnostic-agent-noah/components/homework/HomeworkRunner.tsx)) intercepts the event, measures the elapsed time for the question via `renderTimeRef`, and sends the response payload to the backend:
+   ```http
+   POST /api/homework/[assignmentId]/answer
+   Content-Type: application/json
+
+   {
+     "question_id": "uuid",
+     "student_answer": "...",
+     "time_taken_ms": 4500
+   }
+   ```
+4. The backend evaluation engine ([answer/route.ts](file:///d:/BuildFastWithAI/diagnostic-agent-noah/app/api/homework/%5BassignmentId%5D/answer/route.ts)) fetches the `answer_key` for the variation, grades it, writes a new `homework_attempts` record, and returns a silent acknowledgement:
+   ```json
+   { "success": true, "received": true }
+   ```
+5. No feedback is given to the student until they reach the `SuccessScreen`, where the overall score, subtopic accuracy breakdowns, and a review of correct/incorrect questions are computed and revealed.

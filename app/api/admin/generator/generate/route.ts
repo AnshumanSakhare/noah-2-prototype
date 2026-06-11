@@ -10,7 +10,7 @@ import path from "path";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL = "gpt-5.4-mini"; // Using the proxy model alias configured in other agents
+const MODEL = "gpt-5.4"; // Full model for higher quality question generation
 
 // Helper to fetch subtopics, learning objectives and examples from Excel
 function getXlsxContext(grade: number, topic: string) {
@@ -19,7 +19,8 @@ function getXlsxContext(grade: number, topic: string) {
     if (!fs.existsSync(filePath)) {
       return null;
     }
-    const workbook = XLSX.readFile(filePath);
+    const fileBuffer = fs.readFileSync(filePath);
+    const workbook = XLSX.read(fileBuffer, { type: "buffer" });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const data: any[] = XLSX.utils.sheet_to_json(worksheet);
 
@@ -75,7 +76,8 @@ export async function POST(request: Request) {
       variationIndex,
       interactionArchetype,
       customPrompt,
-      variationId
+      variationId,
+      selectedIdea
     } = body;
 
     if (!action || grade === undefined || !topic || !difficulty || !variationIndex) {
@@ -116,6 +118,9 @@ Here are the strict design, HTML skeleton, and interaction rules you MUST follow
 ---
 ${markdownPrompt}
 ---
+
+SILENT MODE COMPLIANCE:
+You MUST fully support \`window.SILENT_MODE\` as detailed in the HTML skeleton instructions. When \`window.SILENT_MODE\` is truthy, suppress correctness check feedback (no green/red, no checkmark/cross emojis), highlight the selected option with a neutral Grape color outline/border, and immediately invoke \`window.parent.postMessage({ type: 'EDUQUEST_ANSWER', answer: getState() }, '*')\` to pass the answer up for server-side evaluation.
 
 STRICT SKELETON PARAMETERIZATION REQUIREMENT:
 The HTML template must be editable by the testing team.
@@ -167,6 +172,16 @@ Difficulty: ${difficulty}
 Interaction archetype: ${interactionArchetype}
 Optional tester guidance: ${customPrompt || "None. Be creative, colorful, and pedagocially accurate."}
 `;
+      if (selectedIdea) {
+        userPrompt += `
+STRICT TEMPLATE BLUEPRINT (SELECTED IDEA):
+The user selected this brainstormed concept for the game. You MUST implement this exact concept:
+- Idea Title: ${selectedIdea.title}
+- Targeted Sub-concept: ${selectedIdea.concept}
+- Gameplay Description: ${selectedIdea.description}
+- Pedagogy Rationale: ${selectedIdea.pedagogy}
+`;
+      }
       if (customPrompt) {
         userPrompt += `
 STRICT REQUIREMENT: The "Optional tester guidance" provided above takes the absolute highest priority and MUST override any conflicting default guidelines, subtopics, learning objectives, or Excel curriculum contexts. Adhere to it precisely.

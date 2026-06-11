@@ -26,15 +26,16 @@ The #1 job is **consistency + delight**: colorful and friendly, but minimal and 
 
 ## HARD RULES (never break — these are the consistency contract)
 
-1. **Fixed stage.** The play area `.game__stage` is exactly **760 × 520 px**, centered. Content fits; never scroll inside it.
-2. **Tokens only.** All color/spacing/radius/font come from the CSS variables in the skeleton's `:root`. **No raw hex/rgb outside `:root`. No off-scale font sizes. No inline `style=` for color/background/font.**
-3. **One file, no network.** Everything inline. No external CSS/JS/fonts/images, no CDN, no `fetch`. Graphics = emoji or inline SVG only.
-4. **One interaction primitive.** Exactly one archetype per game. Never combine drag + sort + MCQ.
-5. **Self-contained correctness.** The correct answer and a visible correct/retry state are implemented in vanilla JS in the file. No server.
-6. **Static values.** Real numbers/words — NOT `{{placeholders}}` in the playable content. Playable on open.
-7. **Accessibility floor.** Every interactive element is keyboard-reachable AND pointer/touch-usable. Touch targets ≥ 44×44 px. Decorative emoji get `aria-hidden="true"`. Feedback uses `aria-live`.
-8. **No dialogs.** Never `alert()`, `prompt()`, `confirm()`. Feedback goes into `#feedback`.
-9. **Drag needs a tap fallback.** Any drag/sequence game must also work by tap-to-pick then tap-to-place, with a footer note saying so.
+1. **Fixed stage.** The play area `.game` is exactly **760 × 520 px**, centered. The stage occupies the full width and height. Body must have no margins/padding and overflow: hidden so that it fits the runner iframe perfectly without scrolling or extra spaces.
+2. **No Headers or Footers.** Do NOT include any game headers (no titles, eyebrows, or instruction texts) or footers (no reset buttons, hint lines, or modality notes). The host application (Homework Runner/Builder) provides headers, instructions, reset buttons, and feedback.
+3. **Tokens only.** All color/spacing/radius/font come from the CSS variables in the skeleton's `:root`. **No raw hex/rgb outside `:root`. No off-scale font sizes. No inline `style=` for color/background/font.**
+4. **One file, no network.** Everything inline. No external CSS/JS/fonts/images, no CDN, no `fetch`. Graphics = emoji or inline SVG only.
+5. **One interaction primitive.** Exactly one archetype per game. Never combine drag + sort + MCQ.
+6. **Self-contained state.** The game must track its state and answer correctly in vanilla JS. When an answer is chosen or changed, it must immediately call `checkAnswer()`.
+7. **Static values.** Real numbers/words — NOT `{{placeholders}}` in the playable content. Playable on open.
+8. **Accessibility floor.** Every interactive element is keyboard-reachable AND pointer/touch-usable. Touch targets ≥ 44×44 px. Decorative emoji get `aria-hidden="true"`.
+9. **No dialogs or feedback text.** Never `alert()`, `prompt()`, `confirm()`, or write text feedback inside the game HTML.
+10. **Drag needs a tap fallback.** Any drag/sequence game must also work by tap-to-pick then tap-to-place.
 
 ---
 
@@ -67,6 +68,32 @@ The #1 job is **consistency + delight**: colorful and friendly, but minimal and 
 
 Wire `checkAnswer()` to the natural completion action (final tap / drop / slot-fill), or to an explicit "Check" button for multi-step archetypes.
 
+Every game MUST check `window.SILENT_MODE` before showing correctness feedback. When `window.SILENT_MODE` is truthy, the game must suppress visual correctness indicators (no green/red styles, no checkmark/cross emojis) and feedback messages, and instead highlight the selection with a neutral style and notify the parent:
+
+```javascript
+function checkAnswer(el) {
+  if (window.SILENT_MODE) {
+    // In homework mode: highlight selection with neutral style (e.g. outline/background with var(--c-grape)), no green/red
+    if (el) el.style.outline = '3px solid var(--c-grape)';
+    // Send answer to parent for server-side grading
+    window.parent.postMessage({ type: 'EDUQUEST_ANSWER', answer: getState() }, '*');
+    return;
+  }
+  // Normal mode: show correct/incorrect visual feedback (outline/style only)
+  if (getState() === CORRECT) {
+    if (el) { el.style.outline = '3px solid var(--c-good)'; el.classList.add('is-pop'); }
+  } else {
+    if (el) { el.style.outline = '3px solid var(--c-bad)'; el.classList.add('is-shake'); setTimeout(()=>el.classList.remove('is-shake'),260); }
+  }
+}
+```
+
+Rules:
+1. If `window.SILENT_MODE === true`, do NOT reveal correct/incorrect feedback or show green/red colors.
+2. Use a neutral highlight (e.g. grape outline) for the selected option — no green, no red.
+3. Always call `window.parent.postMessage({ type: 'EDUQUEST_ANSWER', answer: getState() }, '*')` to pass the answer up.
+4. The `checkAnswer()` function must still run, but skip the success/failure indicators.
+
 ---
 
 ## Grade bands (set values from here)
@@ -89,16 +116,16 @@ Wire `checkAnswer()` to the natural completion action (final tap / drop / slot-f
 
 ## Self-check before presenting (every item must pass)
 
-- [ ] `.game__stage` is exactly `760px × 520px`; nothing scrolls inside it.
+- [ ] `.game` is exactly `760px × 520px` centered, body has no margins/padding.
 - [ ] No hex/rgb color anywhere outside `:root`. No inline `style=` for color/bg/font. No off-scale font sizes.
 - [ ] No external URL / `<link>` / external `<script src>` / `fetch` / remote image.
 - [ ] Exactly ONE interaction archetype.
 - [ ] `getState()`, `checkAnswer()`, `resetGame()` all implemented; `CORRECT` is set.
-- [ ] Header (title + instruction), stage, footer, and `#feedback` zones all present.
-- [ ] No `alert/prompt/confirm`. Feedback writes to `#feedback` with a good + retry state.
+- [ ] Stage is present, headers/footers/feedback blocks are NOT included in the HTML.
+- [ ] No `alert/prompt/confirm` or text feedback inside.
 - [ ] Every interactive element keyboard-focusable and tap-friendly (≥44px). Decorative emoji `aria-hidden`.
-- [ ] If drag/sequence: tap fallback works AND footer states the modality.
-- [ ] Values are static and correct for the grade; guards above respected.
+- [ ] If drag/sequence: tap fallback works.
+- [ ] Values are static and correct for the grade; guards respected.
 - [ ] Colorful (accent palette used on focal items) but minimal (one focal cluster, lots of whitespace).
 
 ---
@@ -135,31 +162,16 @@ Replace `{{TOPIC}}`, `{{GRADE}}`, the instruction text, the `STAGE` content, and
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:var(--c-bg);color:var(--c-ink-1);min-height:100vh;display:flex;
-    align-items:flex-start;justify-content:center;padding:var(--s-6) var(--s-4)}
-  .game{width:760px;max-width:100%}
-
-  /* HEADER */
-  .game__header{padding-bottom:var(--s-4);border-bottom:1px solid var(--c-border);margin-bottom:var(--s-6)}
-  .game__eyebrow{font-size:var(--text-sm);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--c-grape);margin-bottom:var(--s-2)}
-  .game__title{font-size:var(--text-xl);font-weight:800;letter-spacing:-.01em}
-  .game__instruction{font-size:var(--text-md);color:var(--c-ink-2);margin-top:var(--s-2);line-height:1.4}
+    align-items:center;justify-content:center;padding:0;overflow:hidden}
+  
+  .game{width:760px;height:520px;max-width:100%;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;position:relative}
 
   /* STAGE — fixed 760×520, do not change */
-  .game__stage{width:760px;height:520px;max-width:100%;display:flex;flex-direction:column;
+  .game__stage{width:100%;height:100%;display:flex;flex-direction:column;
     align-items:center;justify-content:center;gap:var(--s-5);position:relative}
 
-  /* FOOTER */
-  .game__footer{margin-top:var(--s-6);display:flex;align-items:center;justify-content:space-between;gap:var(--s-4)}
-  .game__hint{font-size:var(--text-sm);font-style:italic;color:var(--c-ink-3)}
-  #feedback{font-size:var(--text-md);font-weight:700;min-height:1.4em;text-align:center;transition:color .15s var(--ease)}
-  #feedback.is-good{color:var(--c-good)} #feedback.is-bad{color:var(--c-bad)}
-
   /* REUSABLE PIECES — extend, keep the look */
-  .btn-reset{font-size:var(--text-sm);font-weight:600;color:var(--c-ink-3);background:var(--c-panel);
-    border:1px solid var(--c-border);border-radius:var(--r-md);padding:var(--s-2) var(--s-4);cursor:pointer;transition:.15s var(--ease)}
-  .btn-reset:hover{background:var(--c-panel-2);color:var(--c-ink-2)}
-  .banner{width:100%;background:var(--c-grape-soft);border:1px solid var(--c-border);border-radius:var(--r-md);
-    padding:var(--s-3) var(--s-4);text-align:center;color:var(--c-ink-2);font-weight:600}
   .token{display:inline-flex;align-items:center;justify-content:center;min-width:88px;height:88px;
     background:var(--c-panel);border:1px solid var(--c-border);border-radius:var(--r-lg);
     font-size:var(--text-display);font-weight:800;color:var(--c-ink-1);box-shadow:var(--shadow)}
@@ -173,8 +185,8 @@ Replace `{{TOPIC}}`, `{{GRADE}}`, the instruction text, the `STAGE` content, and
     border:1px solid var(--c-border);border-radius:var(--r-md);padding:var(--s-3) var(--s-4);
     font-size:var(--text-md);font-weight:600;color:var(--c-ink-1);cursor:pointer;transition:.15s var(--ease)}
   .choice:hover{background:var(--c-panel-2);transform:translateY(-1px)}
-  .choice.is-correct{background:var(--c-good-soft);border-color:var(--c-good)}
-  .choice.is-wrong{background:var(--c-bad-soft);border-color:var(--c-bad)}
+  .choice.is-correct{outline:3px solid var(--c-good);background:var(--c-good-soft)}
+  .choice.is-wrong{outline:3px solid var(--c-bad);background:var(--c-bad-soft)}
   .choice:focus-visible,.token:focus-visible,.slot:focus-visible{outline:3px solid var(--c-grape-soft);outline-offset:2px}
   @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
   @keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1)}}
@@ -183,13 +195,6 @@ Replace `{{TOPIC}}`, `{{GRADE}}`, the instruction text, the `STAGE` content, and
 </head>
 <body>
   <main class="game" role="application" aria-label="{{TOPIC}} game for grade {{GRADE}}">
-    <!-- HEADER -->
-    <header class="game__header">
-      <!-- optional: <p class="game__eyebrow">Interactive</p> -->
-      <h1 class="game__title">{{TOPIC}}</h1>
-      <p class="game__instruction"><!-- grade-appropriate, short instruction --></p>
-    </header>
-
     <!-- STAGE — build ONE chosen archetype here. Example below = tap-select. -->
     <section class="game__stage" id="stage">
       <div style="display:flex;gap:var(--s-6);align-items:center">
@@ -198,13 +203,6 @@ Replace `{{TOPIC}}`, `{{GRADE}}`, the instruction text, the `STAGE` content, and
         <button class="token token--sky" type="button" onclick="pick(5,this)" aria-label="5">5</button>
       </div>
     </section>
-
-    <!-- FOOTER -->
-    <footer class="game__footer">
-      <p class="game__hint" id="hint"><!-- modality note for drag; else short tip --></p>
-      <button class="btn-reset" type="button" onclick="resetGame()">Reset</button>
-    </footer>
-    <p id="feedback" aria-live="polite"></p>
   </main>
 
 <script>
@@ -219,20 +217,26 @@ Replace `{{TOPIC}}`, `{{GRADE}}`, the instruction text, the `STAGE` content, and
   }
 
   function checkAnswer(el){
-    const fb = document.getElementById('feedback');
+    if (window.SILENT_MODE) {
+      if (el) el.style.outline = '3px solid var(--c-grape)';
+      window.parent.postMessage({ type: 'EDUQUEST_ANSWER', answer: getState() }, '*');
+      return;
+    }
+    
+    // Standalone mode correctness checks
     if(getState() === CORRECT){
-      fb.textContent = 'Yes! 8 is the bigger number. 🎉'; fb.className='is-good';
-      if(el){ el.classList.add('is-pop'); }
+      if (el) { el.style.outline = '3px solid var(--c-good)'; el.classList.add('is-pop'); }
     } else {
-      fb.textContent = 'Not quite — which is bigger? Try again!'; fb.className='is-bad';
-      if(el){ el.classList.add('is-shake'); setTimeout(()=>el.classList.remove('is-shake'),260); }
+      if (el) { el.style.outline = '3px solid var(--c-bad)'; el.classList.add('is-shake'); setTimeout(()=>el.classList.remove('is-shake'),260); }
     }
   }
 
   function resetGame(){
     chosen = null;
-    const fb = document.getElementById('feedback'); fb.textContent=''; fb.className='';
-    document.querySelectorAll('.is-pop,.is-shake').forEach(n=>n.classList.remove('is-pop','is-shake'));
+    document.querySelectorAll('.is-pop,.is-shake').forEach(n=> {
+      n.classList.remove('is-pop','is-shake');
+      n.style.outline = '';
+    });
   }
 </script>
 </body>

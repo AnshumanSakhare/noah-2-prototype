@@ -132,6 +132,7 @@ export default function HomeworkStudioRootPage() {
           box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.08);
           z-index: 100;
           max-height: 240px;
+          overflow-y: auto;
           padding: 4px;
           animation: dropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
@@ -279,8 +280,14 @@ export default function HomeworkStudioRootPage() {
                   {/* Math Options */}
                   {[
                     { value: 'KG', label: 'Math: Kindergarten (KG)' },
+                    { value: 'G1', label: 'Math: Grade 1 (G1)' },
+                    { value: 'G2', label: 'Math: Grade 2 (G2)' },
                     { value: 'G3', label: 'Math: Grade 3 (G3)' },
+                    { value: 'G4', label: 'Math: Grade 4 (G4)' },
+                    { value: 'G5', label: 'Math: Grade 5 (G5)' },
+                    { value: 'G6', label: 'Math: Grade 6 (G6)' },
                     { value: 'G7', label: 'Math: Grade 7 (G7)' },
+                    { value: 'G8', label: 'Math: Grade 8 (G8)' },
                   ].map((opt) => {
                     const isSelected = builderState.subject === 'math' && selectedMathGrade === opt.value;
                     return (

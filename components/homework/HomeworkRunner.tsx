@@ -41,6 +41,9 @@ export const IframeQuestionStep: React.FC<IframeQuestionStepProps> = ({
   const [html, setHtml] = useState("");
   const [selectedAnswer, setSelectedAnswer] = useState<any>(answer?.answer || null);
   const [submitting, setSubmitting] = useState(false);
+  const [topic, setTopic] = useState("");
+  const [instructionText, setInstructionText] = useState("");
+  const [resetKey, setResetKey] = useState(0);
   
   const renderTimeRef = useRef<number>(Date.now());
 
@@ -53,6 +56,12 @@ export const IframeQuestionStep: React.FC<IframeQuestionStepProps> = ({
         if (json.success) {
           setQuestionId(json.data.id);
           setHtml(json.data.html);
+          setTopic(json.data.topic || "Math Practice");
+          
+          const varData = json.data.variation_data || {};
+          const inst = varData.question_text || varData.instruction || json.data.learning_objective || "Interactively solve the challenge below.";
+          setInstructionText(inst);
+          
           renderTimeRef.current = Date.now();
         }
       } catch (err) {
@@ -63,8 +72,11 @@ export const IframeQuestionStep: React.FC<IframeQuestionStepProps> = ({
     };
     
     fetchQuestion();
+  }, [assignmentId, index]);
+
+  useEffect(() => {
     setSelectedAnswer(answer?.answer || null);
-  }, [assignmentId, index, answer]);
+  }, [answer]);
 
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
@@ -80,6 +92,16 @@ export const IframeQuestionStep: React.FC<IframeQuestionStepProps> = ({
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [onAnswer]);
+
+  const handleReset = () => {
+    setResetKey(prev => prev + 1);
+    setSelectedAnswer(null);
+    onAnswer({
+      type: "mcq",
+      answer: null,
+      correct: false
+    });
+  };
 
   const handleSubmit = async () => {
     if (selectedAnswer === null) return;
@@ -107,7 +129,18 @@ export const IframeQuestionStep: React.FC<IframeQuestionStepProps> = ({
   };
 
   return (
-    <div className="hw-card hw-card-question">
+    <div className="hw-card hw-card-question animate-fade-in">
+      {/* Dynamic Header rendered by Homework Runner */}
+      <div className="hw-card-header">
+        <h3 className="hw-card-header-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.25rem', fontWeight: 850, color: 'var(--text)' }}>
+          <span style={{ color: 'var(--c-grape)', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 900, letterSpacing: '0.05em' }}>Interactive</span>
+          &bull; {topic}
+        </h3>
+        <p className="hw-card-header-instruction" style={{ margin: '4px 0 0', fontSize: '0.92rem', color: 'var(--text-dim)', fontWeight: 600 }}>
+          {instructionText}
+        </p>
+      </div>
+
       <div className="hw-card-body" style={{ padding: 0, position: 'relative', height: '520px', overflow: 'hidden' }}>
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px' }}>
@@ -116,6 +149,7 @@ export const IframeQuestionStep: React.FC<IframeQuestionStepProps> = ({
           </div>
         ) : (
           <iframe
+            key={resetKey}
             title="EduQuest Activity"
             sandbox="allow-scripts"
             srcDoc={html}
@@ -125,9 +159,14 @@ export const IframeQuestionStep: React.FC<IframeQuestionStepProps> = ({
       </div>
 
       <div className="hw-card-footer">
-        <button className="nav-btn secondary" onClick={onBack} disabled={isFirst}>
-          ← Back
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="nav-btn secondary" onClick={onBack} disabled={isFirst}>
+            ← Back
+          </button>
+          <button className="nav-btn secondary" onClick={handleReset}>
+            Reset
+          </button>
+        </div>
         <span className="footer-step-indicator">{stepProgressText}</span>
         <button 
           className="nav-btn primary" 
