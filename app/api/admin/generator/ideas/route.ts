@@ -154,7 +154,7 @@ Each idea MUST have:
 3. description: Concretely how it looks and plays ON THE 760×520 CARD. State the few elements on screen, what the child taps/drags/orders, and roughly how many items. Must be implementable as-is — concrete, not vague or aspirational. 2–4 sentences max.
 4. pedagogy: Why it suits this grade + difficulty.
 
-Make the 3–4 ideas DISTINCT from each other, but every one must obey the canvas limits above. Prefer simple and clear over clever and crowded.
+Make the 2 ideas DISTINCT from each other, but every one must obey the canvas limits above. Prefer simple and clear over clever and crowded.
 `;
 
     const xlsxContext = getXlsxContext(grade, topic);
@@ -174,7 +174,7 @@ You must heavily incorporate and prioritize these instructions in your brainstor
 `;
     }
 
-    const userPrompt = `Generate 3 to 4 distinct game ideas for the '${interactionArchetype}' archetype. Every idea MUST fit the fixed 760×520 single-screen card with ≤6–8 elements, one focal cluster, and no multi-step or story flow. Keep them concrete and implementable, and match the visual aesthetic to ${gradeLabel} / ${difficulty.toUpperCase()}.`;
+    const userPrompt = `Generate exactly 2 distinct game ideas for the '${interactionArchetype}' archetype. Every idea MUST fit the fixed 760×520 single-screen card with ≤6–8 elements, one focal cluster, and no multi-step or story flow. Keep them concrete and implementable, and match the visual aesthetic to ${gradeLabel} / ${difficulty.toUpperCase()}.`;
 
     console.log(`[AI IDEAS GENERATOR] Dispatching to: ${activeModelLabel()}`);
 
@@ -185,7 +185,7 @@ You must heavily incorporate and prioritize these instructions in your brainstor
       schemaName: "game_ideas_response",
       jsonSchema: IDEAS_SCHEMA,
       toolName: "emit_game_ideas",
-      toolDescription: "Return 3-4 brainstormed interactive game ideas.",
+      toolDescription: "Return exactly 2 brainstormed interactive game ideas.",
       maxTokens: 4000
     });
 
