@@ -73,7 +73,9 @@ export async function GET(request: Request) {
         qt.topic,
         qt.subtopic,
         qt.interaction_type,
-        qt.learning_objective
+        qt.learning_objective,
+        qt.template_html,
+        qt.output_schema
       FROM public.question_variations qv
       JOIN public.question_templates qt ON qv.template_id = qt.id
       WHERE qt.grade = $1 AND qt.topic = $2`,

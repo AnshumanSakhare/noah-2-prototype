@@ -4,6 +4,23 @@ import { query } from "@/lib/db";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Hydrate a template into a read-only review snapshot of the question (same
+// {{placeholder}} substitution as the live serving route, plus SILENT_MODE and
+// pointer-events disabled so it renders as a static visual, not a live attempt).
+function hydrateForReview(templateHtml: string, variationData: any): string {
+  if (!templateHtml) return "";
+  let html = templateHtml;
+  for (const key in (variationData || {})) {
+    const val = variationData[key];
+    const stringVal = typeof val === "object" ? JSON.stringify(val) : String(val);
+    html = html.replaceAll(`{{${key}}}`, stringVal);
+  }
+  // Strip any leftover unmatched {{token}} so the review never shows literal {{...}}.
+  html = html.replace(/\{\{\s*[\w.\-]+\s*\}\}/g, "");
+  const inject = `<script>window.SILENT_MODE = true;</script><style>html,body{pointer-events:none !important;}</style>`;
+  return /<head>/i.test(html) ? html.replace(/<head>/i, `<head>\n${inject}`) : inject + html;
+}
+
 // GET /api/homework/:assignmentId/results - Fetch results summary on assignment completion
 export async function GET(
   request: Request,
@@ -44,7 +61,8 @@ export async function GET(
         qt.topic,
         qt.subtopic,
         qt.learning_objective,
-        qt.slug as template_slug
+        qt.slug as template_slug,
+        qt.template_html
       FROM public.homework_attempts ha
       JOIN public.question_variations qv ON ha.question_id = qv.id
       JOIN public.question_templates qt ON qv.template_id = qt.id
@@ -96,10 +114,13 @@ export async function GET(
 
     // 4. Compute subtopic plan strength rating from mean performance
     // Green = >= 75%, Yellow = 50-74%, Red = <50%
+    // Group by a meaningful label: prefer subtopic, fall back to topic when the
+    // subtopic is missing or the generator's "Interactive AI" placeholder.
     const subtopicStats: Record<string, { total: number; perfSum: number; correct: number; subtopic: string }> = {};
 
     finalAttempts.forEach(attempt => {
-      const sub = attempt.subtopic || "General";
+      const rawSub = (attempt.subtopic || "").trim();
+      const sub = (rawSub && rawSub !== "Interactive AI") ? rawSub : (attempt.topic || assignment.topic || "General");
       if (!subtopicStats[sub]) {
         subtopicStats[sub] = { total: 0, perfSum: 0, correct: 0, subtopic: sub };
       }
@@ -119,6 +140,7 @@ export async function GET(
 
       return {
         subtopic: sub,
+        topic: assignment.topic, // the topic to launch practice against (assignments key by topic)
         total: stat.total,
         correct: stat.correct,
         accuracy,
@@ -159,7 +181,8 @@ export async function GET(
           difficulty: a.difficulty,
           interaction_type: a.interaction_type,
           subtopic: a.subtopic,
-          learning_objective: a.learning_objective
+          learning_objective: a.learning_objective,
+          html: hydrateForReview(a.template_html, a.variation_data) // rendered question for visual review
         })),
         plan: subtopicPlan
       }

@@ -723,11 +723,11 @@ const HomeworkContext = createContext<HomeworkContextType | undefined>(undefined
 
 export const HomeworkProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [builderState, setBuilderState] = useState<BuilderState>({
-    subject: 'science',
+    subject: 'math',
     type: 'general',
     student: null,
     manual: false,
-    topics: ['lo1', 'lo2', 'lo3', 'lo4'],
+    topics: [],
     diff: 'adaptive',
     length: 5,
     format: 'journey',

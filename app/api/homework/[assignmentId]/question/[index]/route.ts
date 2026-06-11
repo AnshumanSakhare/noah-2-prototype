@@ -83,6 +83,10 @@ export async function GET(
       hydratedHtml = hydratedHtml.replaceAll(`{{${key}}}`, stringVal);
     }
 
+    // Safety net: strip any leftover {{token}} that had no matching variation_data
+    // key, so the student never sees a literal "{{...}}" in the rendered question.
+    hydratedHtml = hydratedHtml.replace(/\{\{\s*[\w.\-]+\s*\}\}/g, "");
+
     // Inject Silent Mode — suppress in-game correct/incorrect feedback
     // Games that honor SILENT_MODE will show neutral selection styles only
     hydratedHtml = hydratedHtml.replace(/<head>/i, '<head>\n<script>window.SILENT_MODE = true;</script>');

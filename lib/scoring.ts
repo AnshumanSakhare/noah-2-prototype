@@ -85,6 +85,33 @@ function normalizeOutput(type: CanonicalType, output: any): any {
   }
 }
 
+/**
+ * Extract the canonical inner value from a (possibly bare) student output,
+ * applying the same normalization the scorer uses. Lets UIs render the answer
+ * consistently with how it was scored (e.g. a bare scalar shows, not "No answer").
+ */
+export function extractOutputValue(type: CanonicalType, output: any): any {
+  const n = normalizeOutput(type, output);
+  switch (type) {
+    case "tap-select":
+      return n?.selected;
+    case "drag-drop":
+      return n?.placements;
+    case "fill-slot":
+      return n?.slots;
+    case "sequence-order":
+      return n?.order;
+    case "build-count":
+      return n?.count;
+    case "number-line":
+      return n?.position;
+    case "partition":
+      return n?.parts;
+    default:
+      return n;
+  }
+}
+
 function scoreTapSelect(spec: EvaluationSpec, out: any): { pct: number; breakdown: any } {
   const answer = spec.answer;
   const selected = out?.selected;

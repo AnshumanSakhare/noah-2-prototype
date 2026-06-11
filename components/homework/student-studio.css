@@ -713,8 +713,9 @@
 /* 2. KPI Metrics Cards Row */
 .homework-studio .success-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
+  align-items: stretch;
 }
 
 @media(max-width: 900px) {

@@ -35,6 +35,11 @@ const getMathTopicId = (topicName: string, gradeName: string): string => {
   return topicName;
 };
 
+// Grades available in the math curriculum (in display order).
+const MATH_GRADES = ['KG', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8']
+  .filter(g => (mathTopics as any[]).some(t => t.grade === g));
+const gradeLabel = (g: string) => (g === 'KG' ? 'KG' : `Grade ${g.substring(1)}`);
+
 interface BuilderPanelProps {
   onGenerate: () => void;
   activeTab: 'dynamic' | 'templates' | 'analytics';
@@ -54,6 +59,7 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
     showToast,
     assignments,
     selectedMathGrade,
+    setSelectedMathGrade,
     topicDbCounts,
   } = useHomework();
 
@@ -846,6 +852,30 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
           color: var(--text) !important;
         }
 
+        /* ─── Grade pills (Step 1) ─── */
+        .grade-pill {
+          padding: 8px 16px;
+          border-radius: 10px;
+          border: 1.5px solid rgba(196, 197, 215, 0.4);
+          background: #ffffff;
+          font-size: 0.85rem;
+          font-weight: 800;
+          color: var(--text-dim);
+          cursor: pointer;
+          transition: all 0.18s;
+          font-family: 'Nunito', sans-serif;
+        }
+        .grade-pill:hover {
+          border-color: rgba(42, 77, 215, 0.35);
+          background: rgba(42, 77, 215, 0.03);
+        }
+        .grade-pill.active {
+          background: var(--accent);
+          border-color: var(--accent);
+          color: #ffffff;
+          box-shadow: 0 4px 12px rgba(42, 77, 215, 0.18);
+        }
+
         /* ─── Centered Step Titles & Subtitles ─── */
         .homework-studio .step-title-lg {
           text-align: center !important;
@@ -1049,11 +1079,9 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
           {/* Stepper on top */}
           <div className="amb-stepper-container">
             {[
-              { num: 1, label: 'Subject' },
-              { num: 2, label: 'Audience' },
-              { num: 3, label: 'Topics' },
-              { num: 4, label: 'Parameters' },
-              { num: 5, label: 'Preview' },
+              { num: 1, label: 'Subject & Grade' },
+              { num: 2, label: 'Topics' },
+              { num: 3, label: 'Preview' },
             ].map((s, idx, arr) => {
               const isActive = currentStep === s.num;
               const isCompleted = currentStep > s.num;
@@ -1096,7 +1124,6 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
                         onClick={() => {
                           if (!s.comingSoon) {
                             pickSubject(s.id);
-                            setCurrentStep(2); // Auto-advance to Step 2!
                           }
                         }}
                       >
@@ -1120,11 +1147,28 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
                     );
                   })}
                 </div>
+
+                {builderState.subject === 'math' && (
+                  <div style={{ marginTop: '28px', textAlign: 'center' }}>
+                    <div className="bp-sub" style={{ marginBottom: '12px', fontWeight: 800, color: 'var(--text)' }}>Grade Level</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                      {MATH_GRADES.map(g => (
+                        <button
+                          key={g}
+                          className={`grade-pill ${selectedMathGrade === g ? 'active' : ''}`}
+                          onClick={() => setSelectedMathGrade(g)}
+                        >
+                          {gradeLabel(g)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* STEP 2: WHO IS THIS FOR? */}
-            {currentStep === 2 && (
+            {/* STEP 2 (old "Audience") — REMOVED: flow simplified to 3 steps */}
+            {false && (
               <div className="step-content-pane">
                 <h3 className="step-title-lg">Homework Type</h3>
                 <div className="bp-sub">General covers the whole class. Personalized targets one student's weak spots using the Profile Agent.</div>
@@ -1257,8 +1301,8 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
               </div>
             )}
 
-            {/* STEP 3: SELECT LEARNING TOPICS */}
-            {currentStep === 3 && (
+            {/* STEP 2: SELECT LEARNING TOPICS (refreshes when subject/grade change) */}
+            {currentStep === 2 && (
               <div className="step-content-pane">
                 {builderState.subject === 'math' ? (
                   <>
@@ -1343,8 +1387,8 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
               </div>
             )}
 
-            {/* STEP 4: PARAMETERS CONFIGURATION */}
-            {currentStep === 4 && (
+            {/* STEP 4 (old "Parameters") — REMOVED: uses sensible defaults now */}
+            {false && (
               <div className="step-content-pane">
                 <div className="params-visual-grid">
                   {/* Panel 1: Difficulty Target */}
@@ -1429,15 +1473,11 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
               </div>
             )}
 
-            {/* STEP 5: PREVIEW */}
-            {currentStep === 5 && (
+            {/* STEP 3: PREVIEW + COMPILE */}
+            {currentStep === 3 && (
               <div className="step-content-pane" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 <div style={{ width: '100%', maxWidth: '680px' }}>
-                  <RecipePanel 
-                    onGenerate={onGenerate} 
-                    showEditBtn={true} 
-                    onEdit={() => setCurrentStep(4)} 
-                  />
+                  <RecipePanel onGenerate={onGenerate} />
                 </div>
               </div>
             )}
@@ -1446,16 +1486,16 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
 
           {/* Stepper Navigation Footer */}
           <div className="wizard-navigation-footer">
-            {currentStep > 1 && currentStep < 5 && (
+            {currentStep > 1 && (
               <button className="nav-btn secondary" onClick={() => setCurrentStep(prev => prev - 1)}>
                 ← Back
               </button>
             )}
-            {currentStep < 5 && (
-              <button 
-                className="nav-btn primary" 
+            {currentStep < 3 && (
+              <button
+                className="nav-btn primary"
                 onClick={() => setCurrentStep(prev => prev + 1)}
-                disabled={currentStep === 3 && builderState.topics.length === 0}
+                disabled={currentStep === 2 && builderState.topics.length === 0}
               >
                 Next Step →
               </button>
@@ -1628,7 +1668,7 @@ const RecipePanel: React.FC<{ onGenerate: () => void; onEdit?: () => void; showE
           } : undefined}
         >
           <Sparkles size={14} style={{ marginRight: '6px' }} />
-          {builderState.subject === 'math' && builderState.topics.length === 0 ? 'Math Preview' : 'Compile Journey'}
+          {builderState.subject === 'math' && builderState.topics.length === 0 ? 'Select a Topic' : 'Compile Homework'}
         </button>
 
         {showEditBtn && (

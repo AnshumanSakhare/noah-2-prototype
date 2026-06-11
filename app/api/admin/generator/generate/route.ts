@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { CANONICAL_TYPES, CanonicalType } from "@/lib/scoring";
 import { OUTPUT_SCHEMA, archetypeContract, validateAnswerConsistency } from "@/lib/archetypeContracts";
-import OpenAI from "openai";
-import { zodTextFormat } from "openai/helpers/zod";
+import { llmStructured, activeModelLabel, providerKeyConfigured, providerKeyName } from "@/lib/llm";
 import { z } from "zod";
 import * as XLSX from "xlsx";
 import fs from "fs";
@@ -11,8 +10,8 @@ import path from "path";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const MODEL = "gpt-5.4"; // Full model for higher quality question generation
+// LLM generation can take 20–40s; raise the serverless function timeout (clamped to plan limit on Vercel).
+export const maxDuration = 300;
 
 // Helper to fetch subtopics, learning objectives and examples from Excel
 function getXlsxContext(grade: number, topic: string) {
@@ -64,10 +63,24 @@ const GenerateResponseSchema = z.object({
   evaluationSpecJson: z.string()     // Eval JSONB: { type, scoring, answer, [min, max] }
 });
 
+// JSON Schema for the forced tool (Bedrock structured output). Mirrors GenerateResponseSchema.
+const GENERATE_SCHEMA = {
+  type: "object",
+  properties: {
+    learningObjective: { type: "string" },
+    templateHtml: { type: "string" },
+    propsSchemaJson: { type: "string" },
+    variationDataJson: { type: "string" },
+    evaluationSpecJson: { type: "string" }
+  },
+  required: ["learningObjective", "templateHtml", "propsSchemaJson", "variationDataJson", "evaluationSpecJson"],
+  additionalProperties: false
+};
+
 export async function POST(request: Request) {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ success: false, error: "OPENAI_API_KEY is not configured" }, { status: 500 });
+    if (!providerKeyConfigured()) {
+      return NextResponse.json({ success: false, error: `${providerKeyName()} is not configured` }, { status: 500 });
     }
 
     const body = await request.json();
@@ -96,19 +109,14 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    // Load instructions and skeletal tokens from htmlGenerate.md
+    // Load instructions and skeletal tokens from the HTML generation prompt.
     let markdownPrompt = "";
     try {
-      const promptPath = path.join(process.cwd(), ".claude", "htmlGenerate.md");
+      const promptPath = path.join(process.cwd(), "data", "skills", "htmlcode.md");
       markdownPrompt = fs.readFileSync(promptPath, "utf-8");
     } catch (err) {
-      console.warn("Could not read htmlGenerate.md prompt template, falling back to manual instructions.", err);
+      console.warn("Could not read data/skills/htmlcode.md prompt template, falling back to manual instructions.", err);
     }
-
-    const openai = new OpenAI({
-      timeout: 150_000,
-      maxRetries: 1
-    });
 
     // Determine the grade key prefix (e.g. KG, Grade 3)
     const gradeLabel = grade === 0 ? "KG" : `Grade ${grade}`;
@@ -134,10 +142,19 @@ ${markdownPrompt}
 SILENT MODE COMPLIANCE:
 You MUST fully support \`window.SILENT_MODE\` as detailed in the HTML skeleton instructions. When \`window.SILENT_MODE\` is truthy, suppress correctness check feedback (no green/red, no checkmark/cross emojis), highlight the selected option with a neutral Grape color outline/border, and immediately invoke \`window.parent.postMessage({ type: 'EDUQUEST_ANSWER', answer: getState() }, '*')\` to pass the answer up for server-side evaluation.
 
-STRICT SKELETON PARAMETERIZATION REQUIREMENT:
-The HTML template must be editable by the testing team.
-You must replace the main variable parameters inside the HTML (like question text, choices, numbers, correct answers, etc.) with template placeholders in double curly braces, e.g. {{question_text}}, {{correct_answer}}, etc.
-For example, inside script block: const CORRECT = {{correct_answer}};
+STRICT SKELETON PARAMETERIZATION REQUIREMENT (this OVERRIDES the skeleton doc's "static values" rule #7):
+The skeleton doc above is written for standalone static games and says to hardcode real values — IGNORE that rule here.
+In THIS pipeline the HTML is a TEMPLATE the server hydrates by substituting {{placeholders}} with variation_data values.
+
+HARD CONTRACT — placeholders MUST match variation_data EXACTLY (this is the #1 cause of broken questions):
+- EVERY {{token}} you put in templateHtml MUST be a key in variationDataJson, spelled identically.
+- EVERY key in variationDataJson MUST be referenced by a {{token}} in templateHtml (or read by the JS).
+- A {{token}} with NO matching variation_data key will render as the literal text "{{token}}" — that is a hard FAILURE; the request will be rejected.
+- The template cannot loop, so FLATTEN collections into numbered/lettered keys and reference each directly:
+  e.g. options → buttons using {{option_1_label}}, {{option_2_label}} … with matching variation_data keys
+  option_1_label, option_2_label, plus stable ids option_1_id, option_2_id that getState()/the answer use.
+- The correct answer in the script MUST also come from a placeholder, e.g. const CORRECT = "{{correct_answer_id}}";
+- Do NOT invent a placeholder you won't also add to variationDataJson, and do NOT leave any variation_data key unused.
 
 ID CONVENTION (critical for reliable grading):
 Any set of choices/items/bins/slots in variation_data MUST carry a STABLE "id". Your getState() and the
@@ -277,38 +294,39 @@ Please update the template HTML, variables schema, and default variation data ac
     console.log(`- System Prompt Size: ${systemPromptLength} chars, ~${systemPromptWordCount} words, ~${estimatedSystemTokens} estimated tokens`);
     console.log(`- User Prompt Size: ${userPromptLength} chars, ~${userPromptWordCount} words, ~${estimatedUserTokens} estimated tokens`);
     console.log(`- Total Estimated Input Tokens: ~${totalEstimatedTokens}`);
-    console.log(`- Target Model: ${MODEL}`);
+    console.log(`- Target Model: ${activeModelLabel()}`);
     console.log(`- Action: ${action}, Topic: ${topic}, Grade: ${gradeLabel}, Difficulty: ${difficulty}`);
 
     const startTime = Date.now();
-    console.log(`[AI QUESTION GENERATOR] [VERBOSE LOG] Dispatching request to OpenAI API...`);
+    console.log(`[AI QUESTION GENERATOR] [VERBOSE LOG] Dispatching request to ${activeModelLabel()}...`);
 
-    // Call OpenAI with Structured Outputs
-    const response = await openai.responses.parse({
-      model: MODEL,
-      reasoning: { effort: "low" },
-      input: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      text: {
-        verbosity: "low",
-        format: zodTextFormat(GenerateResponseSchema, "game_generator_response")
-      }
+    // Structured generation via the active provider (OpenAI gpt-5.4 or Bedrock Sonnet 4.6)
+    const { data: rawData, usage } = await llmStructured<any>({
+      system: systemPrompt,
+      user: userPrompt,
+      zodSchema: GenerateResponseSchema,
+      schemaName: "game_generator_response",
+      jsonSchema: GENERATE_SCHEMA,
+      toolName: "emit_game",
+      toolDescription: "Emit the generated interactive game template and its parameter/eval data.",
+      maxTokens: 16000
     });
 
     const endTime = Date.now();
     const durationSec = ((endTime - startTime) / 1000).toFixed(2);
-    console.log(`[AI QUESTION GENERATOR] [VERBOSE LOG] Received response from OpenAI API in ${durationSec} seconds.`);
+    console.log(`[AI QUESTION GENERATOR] [VERBOSE LOG] Received response in ${durationSec} seconds.`);
 
-    // Log metadata usage if returned in response
-    if (response.usage) {
-      console.log(`[AI QUESTION GENERATOR] [VERBOSE LOG] Token Usage:`, JSON.stringify(response.usage, null, 2));
+    if (usage) {
+      console.log(`[AI QUESTION GENERATOR] [VERBOSE LOG] Token Usage:`, JSON.stringify(usage));
     }
 
-    const parsed = response.output_parsed;
-    if (!parsed) {
-      return NextResponse.json({ success: false, error: "Could not parse AI response output schema." }, { status: 500 });
+    // Validate the tool output against the expected shape
+    const parsedResult = GenerateResponseSchema.safeParse(rawData);
+    if (!parsedResult.success) {
+      return NextResponse.json({
+        success: false,
+        error: `AI response did not match the expected schema: ${parsedResult.error.message}`
+      }, { status: 500 });
     }
 
     const {
@@ -317,7 +335,7 @@ Please update the template HTML, variables schema, and default variation data ac
       propsSchemaJson,
       variationDataJson,
       evaluationSpecJson
-    } = parsed;
+    } = parsedResult.data;
 
     let propsSchema: any;
     let variationData: any;
@@ -349,6 +367,21 @@ Please update the template HTML, variables schema, and default variation data ac
       return NextResponse.json({
         success: false,
         error: `Generated answer is inconsistent with the question data (${resolvedType}): ${consistencyError}`
+      }, { status: 422 });
+    }
+
+    // Validate placeholders ↔ variation_data: every {{token}} in the HTML must have a
+    // matching key, otherwise the serving route can't substitute it and the literal
+    // "{{token}}" renders to the student. Reject so a broken question is never saved.
+    const usedTokens = Array.from(
+      new Set([...String(templateHtml).matchAll(/\{\{\s*([\w.\-]+)\s*\}\}/g)].map(m => m[1]))
+    );
+    const dataKeys = new Set(Object.keys(variationData || {}));
+    const unresolved = usedTokens.filter(t => !dataKeys.has(t));
+    if (unresolved.length > 0) {
+      return NextResponse.json({
+        success: false,
+        error: `Generated HTML references placeholders missing from variation_data: ${unresolved.join(", ")}. These would render as literal {{...}}. Please regenerate.`
       }, { status: 422 });
     }
 

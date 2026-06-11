@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
-import { zodTextFormat } from "openai/helpers/zod";
+import { llmStructured, activeModelLabel, providerKeyConfigured, providerKeyName } from "@/lib/llm";
 import { z } from "zod";
 import * as XLSX from "xlsx";
 import fs from "fs";
@@ -8,8 +7,8 @@ import path from "path";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const MODEL = "gpt-5.4"; // Using the full model for higher quality concept brainstorming
+// LLM brainstorm can take 15–30s; raise the serverless function timeout (clamped to plan limit on Vercel).
+export const maxDuration = 300;
 
 // Helper to fetch subtopics, learning objectives and examples from Excel
 function getXlsxContext(grade: number, topic: string) {
@@ -49,22 +48,44 @@ function getXlsxContext(grade: number, topic: string) {
   }
 }
 
-// Zod response schema for the AI Ideas
+// Zod schema for the OpenAI path (responses.parse + zodTextFormat)
 const IdeaSchema = z.object({
   title: z.string(),
   concept: z.string(),
   description: z.string(),
-  pedagogy: z.string(),
+  pedagogy: z.string()
 });
-
 const IdeasResponseSchema = z.object({
   ideas: z.array(IdeaSchema)
 });
 
+// JSON Schema for the Bedrock path (forced tool input_schema)
+const IDEAS_SCHEMA = {
+  type: "object",
+  properties: {
+    ideas: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          concept: { type: "string" },
+          description: { type: "string" },
+          pedagogy: { type: "string" }
+        },
+        required: ["title", "concept", "description", "pedagogy"],
+        additionalProperties: false
+      }
+    }
+  },
+  required: ["ideas"],
+  additionalProperties: false
+};
+
 export async function POST(request: Request) {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ success: false, error: "OPENAI_API_KEY is not configured" }, { status: 500 });
+    if (!providerKeyConfigured()) {
+      return NextResponse.json({ success: false, error: `${providerKeyName()} is not configured` }, { status: 500 });
     }
 
     const body = await request.json();
@@ -73,11 +94,6 @@ export async function POST(request: Request) {
     if (grade === undefined || !topic || !difficulty || !interactionArchetype) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
     }
-
-    const openai = new OpenAI({
-      timeout: 60000,
-      maxRetries: 1
-    });
 
     const gradeLabel = grade === 0 ? "KG" : `Grade ${grade}`;
 
@@ -160,25 +176,28 @@ You must heavily incorporate and prioritize these instructions in your brainstor
 
     const userPrompt = `Generate 3 to 4 distinct game ideas for the '${interactionArchetype}' archetype. Every idea MUST fit the fixed 760×520 single-screen card with ≤6–8 elements, one focal cluster, and no multi-step or story flow. Keep them concrete and implementable, and match the visual aesthetic to ${gradeLabel} / ${difficulty.toUpperCase()}.`;
 
-    const response = await openai.responses.parse({
-      model: MODEL,
-      reasoning: { effort: "low" },
-      input: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      text: {
-        verbosity: "low",
-        format: zodTextFormat(IdeasResponseSchema, "game_ideas_response")
-      }
+    console.log(`[AI IDEAS GENERATOR] Dispatching to: ${activeModelLabel()}`);
+
+    const { data, usage } = await llmStructured<{ ideas: any[] }>({
+      system: systemPrompt,
+      user: userPrompt,
+      zodSchema: IdeasResponseSchema,
+      schemaName: "game_ideas_response",
+      jsonSchema: IDEAS_SCHEMA,
+      toolName: "emit_game_ideas",
+      toolDescription: "Return 3-4 brainstormed interactive game ideas.",
+      maxTokens: 4000
     });
 
-    const parsed = response.output_parsed;
-    if (!parsed) {
+    if (usage) {
+      console.log(`[AI IDEAS GENERATOR] Token Usage:`, JSON.stringify(usage));
+    }
+
+    if (!data?.ideas) {
       return NextResponse.json({ success: false, error: "Could not parse ideas response." }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, ideas: parsed.ideas });
+    return NextResponse.json({ success: true, ideas: data.ideas });
 
   } catch (err: any) {
     console.error("Ideas generation error:", err);

@@ -248,6 +248,8 @@ export default function AIGeneratorPage() {
       const stringVal = typeof val === "object" ? JSON.stringify(val) : String(val);
       output = output.replaceAll(`{{${key}}}`, stringVal);
     }
+    // Strip any leftover unmatched {{token}} so the preview never shows literal braces.
+    output = output.replace(/\{\{\s*[\w.\-]+\s*\}\}/g, "");
     return output;
   };
 
