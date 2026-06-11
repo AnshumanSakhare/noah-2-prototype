@@ -36,6 +36,7 @@ The #1 job is **consistency + delight**: colorful and friendly, but minimal and 
 8. **Accessibility floor.** Every interactive element is keyboard-reachable AND pointer/touch-usable. Touch targets ≥ 44×44 px. Decorative emoji get `aria-hidden="true"`.
 9. **No dialogs or feedback text.** Never `alert()`, `prompt()`, `confirm()`, or write text feedback inside the game HTML.
 10. **Drag needs a tap fallback.** Any drag/sequence game must also work by tap-to-pick then tap-to-place.
+11. **No decorative clutter.** Do NOT scatter random floating dots, blobs, stray bars, glows, "ghost" shapes, sparkles, or background confetti around the focal element. Every element on screen must be either the interactive content, a label the child needs, or the single clean panel/stage it sits on. If a mark isn't part of the question or the answer, delete it. Decoration ≠ random circles.
 
 ---
 
@@ -46,6 +47,20 @@ The #1 job is **consistency + delight**: colorful and friendly, but minimal and 
 - Soft shadows only (`--shadow`). Transitions 120–200 ms ease-out. Rounded corners everywhere.
 - KG–2: bigger tokens, more emoji/pictures, fewer words. Grades 6–8: smaller tokens, more symbols/abstraction, denser is OK.
 - Use multiple accent colors for distinct items (e.g., sortable blocks), but keep `--c-grape` as the primary "brand" accent so games stay coherent.
+- **Earn every mark.** Whitespace is the design — do not fill it with decorative dots, blobs, glows, or floating accents. A clean shape on empty space reads as premium; the same shape surrounded by random circles reads as broken. When in doubt, remove.
+
+---
+
+## Rendering shapes, figures & diagrams (geometry, fractions, number lines)
+
+When the question shows a geometric figure (polygon, angle, line), a fraction bar, a number line, or any drawn diagram, render it as **clean inline SVG** — this is the focal object, so make it crisp:
+
+- **One figure, centered, generous padding.** Give the SVG a `viewBox` and let the figure sit in the middle with empty margin around it. No background pattern, no accent dots near it, no glow behind it.
+- **Crisp, consistent strokes.** One uniform stroke width (≈ 3–4 px visual), `stroke-linejoin="round"` and `stroke-linecap="round"`, stroke color from a token (default `--c-grape`). Fill the interior with a soft token tint (e.g. `--c-grape-soft`/`--c-sky-soft`) or leave it white — never a harsh saturated fill.
+- **Correct, regular geometry.** Compute real coordinates so a "hexagon" is a regular hexagon, a "right angle" is actually 90°, sides that should be equal are equal. Don't eyeball lopsided polygons.
+- **Label only what the question needs.** Vertex dots, side ticks, or angle arcs are allowed ONLY when the concept requires them — and then they are precise (a small dot exactly on a vertex), not scattered decoration. If the child doesn't need a mark to answer, omit it.
+- **Size to the stage.** The figure should occupy a comfortable focal area (roughly 240–360 px), not fill the whole 760×520 and not be tiny. Options/choices go below it with clear spacing.
+- **Match the grade aesthetic.** KG–2 may use a chunkier stroke and a friendly fill; grades 6–8 stay thin, precise, and academic — closer to a textbook diagram than a cartoon.
 
 ---
 
@@ -62,9 +77,25 @@ The #1 job is **consistency + delight**: colorful and friendly, but minimal and 
 | **partition** | Splits a whole / groups items | fractions, division, equal sharing |
 
 **JS contract** — every game implements all three so output stays uniform:
-- `getState()` → child's current answer as a plain value/array
+- `getState()` → child's current answer in the **canonical Output shape for the chosen archetype** (table below)
 - `checkAnswer()` → compare to the static `CORRECT`, update `#feedback` + visual state
 - `resetGame()` → restore initial state
+
+**Canonical Output shapes** — `getState()` MUST return exactly this for the chosen archetype (the homework server grades by matching it to the stored answer):
+
+| Archetype | `getState()` returns |
+|---|---|
+| **tap-select** | `{ selected: value }` — or `{ selected: [values] }` for multi-select |
+| **drag-drop** | `{ placements: { "<itemId>": "<binId>" } }` |
+| **fill-slot** | `{ slots: { "<slotId>": value } }` |
+| **sequence-order** | `{ order: ["<itemId>", …] }` |
+| **build-count** | `{ count: number }` |
+| **number-line** | `{ position: number }` |
+| **partition** | `{ parts: [number, …] }` |
+
+Set `CORRECT` to the inner value (e.g. for tap-select `const CORRECT = 8;` and compare `getState().selected === CORRECT`). Never return a bare scalar — always wrap it in the canonical object above.
+
+**ID convention.** Any set of choices/items/bins/slots must carry a stable `id`, and `getState()` must return those **ids** — never labels, raw display values, or array positions. This keeps the stored answer valid even if a label is edited or the display order is shuffled (e.g. tap a button wired `onclick="pick('o6')"` and `getState()` returns `{ selected: 'o6' }`).
 
 Wire `checkAnswer()` to the natural completion action (final tap / drop / slot-fill), or to an explicit "Check" button for multi-step archetypes.
 
@@ -207,10 +238,11 @@ Replace `{{TOPIC}}`, `{{GRADE}}`, the instruction text, the `STAGE` content, and
 
 <script>
   /* === INTERACTION CONTRACT — implement all three === */
-  const CORRECT = 8;            // the static correct answer for THIS game
+  /* This example is tap-select. getState() returns the CANONICAL output { selected: value }. */
+  const CORRECT = 8;            // the static correct inner value for THIS game
   let chosen = null;
 
-  function getState(){ return chosen; }
+  function getState(){ return { selected: chosen }; }
 
   function pick(val, el){
     chosen = val; checkAnswer(el);
@@ -222,9 +254,9 @@ Replace `{{TOPIC}}`, `{{GRADE}}`, the instruction text, the `STAGE` content, and
       window.parent.postMessage({ type: 'EDUQUEST_ANSWER', answer: getState() }, '*');
       return;
     }
-    
-    // Standalone mode correctness checks
-    if(getState() === CORRECT){
+
+    // Standalone mode correctness checks (compare the inner value)
+    if(getState().selected === CORRECT){
       if (el) { el.style.outline = '3px solid var(--c-good)'; el.classList.add('is-pop'); }
     } else {
       if (el) { el.style.outline = '3px solid var(--c-bad)'; el.classList.add('is-shake'); setTimeout(()=>el.classList.remove('is-shake'),260); }

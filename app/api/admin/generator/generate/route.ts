@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { CANONICAL_TYPES, CanonicalType } from "@/lib/scoring";
+import { OUTPUT_SCHEMA, archetypeContract, validateAnswerConsistency } from "@/lib/archetypeContracts";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
@@ -52,13 +54,14 @@ function getXlsxContext(grade: number, topic: string) {
 
 // Define Zod response schema for OpenAI Structured Outputs
 // We use JSON-encoded strings for properties, variationData and answerKey to bypass schema constraints
+// The AI authors only these. interaction_type and output_schema are server-owned
+// (the requested archetype + a constant), so the model can't drift them.
 const GenerateResponseSchema = z.object({
   learningObjective: z.string(),
-  interactionType: z.string(),
   templateHtml: z.string(),
-  propsSchemaJson: z.string(),
-  variationDataJson: z.string(),
-  answerKeyJson: z.string()
+  propsSchemaJson: z.string(),       // Input contract (variation_data shape) — flexible, AI-authored
+  variationDataJson: z.string(),     // Default input values (id-based collections)
+  evaluationSpecJson: z.string()     // Eval JSONB: { type, scoring, answer, [min, max] }
 });
 
 export async function POST(request: Request) {
@@ -82,6 +85,15 @@ export async function POST(request: Request) {
 
     if (!action || grade === undefined || !topic || !difficulty || !variationIndex) {
       return NextResponse.json({ success: false, error: "Missing required fields in payload" }, { status: 400 });
+    }
+
+    // For new games the requested archetype is authoritative — validate it up front.
+    // (For regenerate, the type comes from the existing template below.)
+    if (action === "create" && !CANONICAL_TYPES.includes(interactionArchetype)) {
+      return NextResponse.json({
+        success: false,
+        error: `interactionArchetype must be one of: ${CANONICAL_TYPES.join(", ")}`
+      }, { status: 400 });
     }
 
     // Load instructions and skeletal tokens from htmlGenerate.md
@@ -127,19 +139,17 @@ The HTML template must be editable by the testing team.
 You must replace the main variable parameters inside the HTML (like question text, choices, numbers, correct answers, etc.) with template placeholders in double curly braces, e.g. {{question_text}}, {{correct_answer}}, etc.
 For example, inside script block: const CORRECT = {{correct_answer}};
 
-OUTPUT FORMAT FOR COMPLEX OBJECTS:
-Because of Structured Outputs API schema constraints, you must output propsSchemaJson, variationDataJson, and answerKeyJson as serialized JSON-encoded strings.
+ID CONVENTION (critical for reliable grading):
+Any set of choices/items/bins/slots in variation_data MUST carry a STABLE "id". Your getState() and the
+evaluation_spec "answer" reference those ids — NEVER labels, raw values, or array positions. This keeps the
+answer stable if a label is edited or the display order is shuffled.
 
-For example, if your game compares two numbers:
-- In templateHtml:
-  - display the numbers inside elements like <div class="token">{{numberA}}</div>
-  - script CORRECT logic: const CORRECT = "{{correctAnswerSide}}"; // 'A' or 'B'
-- propsSchemaJson (JSON-encoded string):
-  "{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"question_text\\\":{\\\"type\\\":\\\"string\\\",\\\"description\\\":\\\"Instructions at top\\\"},\\\"numberA\\\":{\\\"type\\\":\\\"number\\\",\\\"description\\\":\\\"First number\\\"},\\\"numberB\\\":{\\\"type\\\":\\\"number\\\",\\\"description\\\":\\\"Second number\\\"},\\\"correctAnswerSide\\\":{\\\"type\\\":\\\"string\\\",\\\"description\\\":\\\"Correct side\\\"}},\\\"required\\\":[\\\"question_text\\\",\\\"numberA\\\",\\\"numberB\\\",\\\"correctAnswerSide\\\"]}"
-- variationDataJson (JSON-encoded string):
-  "{\\\"question_text\\\":\\\"Which side has the larger number?\\\",\\\"numberA\\\":8,\\"numberB\\":5,\\"correctAnswerSide\\":\\\"A\\\"}"
-- answerKeyJson (JSON-encoded string):
-  "\\\"A\\\""
+OUTPUT FORMAT FOR COMPLEX OBJECTS:
+Because of Structured Outputs API schema constraints, output propsSchemaJson, variationDataJson, and
+evaluationSpecJson as serialized JSON-encoded strings. (interaction_type and output_schema are set by the
+server from the chosen archetype — do not return them.)
+
+The exact input/output/answer contract for THIS game's archetype is given at the end of these instructions.
 `;
 
     // Fetch context from Excel sheet
@@ -163,6 +173,7 @@ If the user provides custom guidelines, revision instructions, or tester guidanc
 `;
 
     let userPrompt = "";
+    let resolvedType: CanonicalType = interactionArchetype as CanonicalType;
 
     if (action === "create") {
       userPrompt = `Please create a brand new interactive game from scratch.
@@ -199,9 +210,10 @@ Return a completely unique design suited for this topic, avoiding repeating the 
         `SELECT 
           qv.id,
           qv.variation_data,
-          qv.answer_key,
+          qv.evaluation_spec,
           qt.template_html,
           qt.props_schema,
+          qt.output_schema,
           qt.interaction_type,
           qt.learning_objective
         FROM public.question_variations qv
@@ -215,6 +227,7 @@ Return a completely unique design suited for this topic, avoiding repeating the 
       }
 
       const existing = existingRes.rows[0];
+      resolvedType = existing.interaction_type as CanonicalType; // archetype is fixed across a regenerate
 
       userPrompt = `Please revise and edit the existing interactive game.
 The current game details are:
@@ -226,10 +239,12 @@ ${existing.template_html}
 \`\`\`
 - Props Schema:
 ${JSON.stringify(existing.props_schema, null, 2)}
+- Output Schema (canonical getState() shape):
+${JSON.stringify(existing.output_schema, null, 2)}
 - Current Variation Data:
 ${JSON.stringify(existing.variation_data, null, 2)}
-- Answer Key:
-${JSON.stringify(existing.answer_key, null, 2)}
+- Evaluation Spec:
+${JSON.stringify(existing.evaluation_spec, null, 2)}
 
 Tester instructions for editing/regenerating:
 "${customPrompt}"
@@ -244,6 +259,9 @@ Please update the template HTML, variables schema, and default variation data ac
     } else {
       return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
     }
+
+    // Append the exact id-based input/output/answer contract for this archetype.
+    systemPrompt += `\n\n${archetypeContract(resolvedType)}\n`;
 
     // Logging prompt details and sizes
     const systemPromptLength = systemPrompt.length;
@@ -295,27 +313,43 @@ Please update the template HTML, variables schema, and default variation data ac
 
     const {
       learningObjective,
-      interactionType,
       templateHtml,
       propsSchemaJson,
       variationDataJson,
-      answerKeyJson
+      evaluationSpecJson
     } = parsed;
 
     let propsSchema: any;
     let variationData: any;
-    let answerKey: any;
+    let evaluationSpec: any;
 
     try {
       propsSchema = JSON.parse(propsSchemaJson);
       variationData = JSON.parse(variationDataJson);
-      answerKey = JSON.parse(answerKeyJson);
+      evaluationSpec = JSON.parse(evaluationSpecJson);
     } catch (parseErr: any) {
       console.error("Failed to parse JSON strings from AI response:", parseErr);
       return NextResponse.json({
         success: false,
-        error: `AI returned invalid JSON structures: ${parseErr.message}. Raw schema: ${propsSchemaJson}, data: ${variationDataJson}, key: ${answerKeyJson}`
+        error: `AI returned invalid JSON structures: ${parseErr.message}. Raw schema: ${propsSchemaJson}, data: ${variationDataJson}, eval: ${evaluationSpecJson}`
       }, { status: 500 });
+    }
+
+    // interaction_type and output_schema are server-owned (not trusted from the AI).
+    const interactionType: CanonicalType = resolvedType;
+    const outputSchema = OUTPUT_SCHEMA[resolvedType];
+    // Force the eval spec's type to the authoritative archetype too.
+    if (evaluationSpec && typeof evaluationSpec === "object") {
+      evaluationSpec.type = resolvedType;
+    }
+
+    // Cross-validate: the answer must reference ids/values that exist in variation_data.
+    const consistencyError = validateAnswerConsistency(resolvedType, variationData, evaluationSpec);
+    if (consistencyError) {
+      return NextResponse.json({
+        success: false,
+        error: `Generated answer is inconsistent with the question data (${resolvedType}): ${consistencyError}`
+      }, { status: 422 });
     }
 
     if (action === "create") {
@@ -326,22 +360,22 @@ Please update the template HTML, variables schema, and default variation data ac
       // Start database transaction
       const client = await query("BEGIN");
       try {
-        // 1. Insert Template (Stringify propsSchema for JSONB binding)
+        // 1. Insert Template (Stringify JSONB columns for binding)
         const templateRes = await query(
-          `INSERT INTO public.question_templates (slug, grade, topic, subtopic, learning_objective, interaction_type, template_html, props_schema, status, difficulty)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          `INSERT INTO public.question_templates (slug, grade, topic, subtopic, learning_objective, interaction_type, template_html, props_schema, output_schema, status, difficulty)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
           RETURNING id`,
-          [templateSlug, grade, topic, "Interactive AI", learningObjective, interactionType, templateHtml, JSON.stringify(propsSchema), "draft", difficulty]
+          [templateSlug, grade, topic, "Interactive AI", learningObjective, interactionType, templateHtml, JSON.stringify(propsSchema), JSON.stringify(outputSchema), "draft", difficulty]
         );
 
         const templateId = templateRes.rows[0].id;
 
-        // 2. Insert Variation (Stringify variationData and answerKey for JSONB binding)
+        // 2. Insert Variation (Stringify variationData and evaluationSpec for JSONB binding)
         const variationRes = await query(
-          `INSERT INTO public.question_variations (template_id, variation_index, variation_data, answer_key, difficulty, locale, verifier_status, status, last_edited_by, last_edited_at)
+          `INSERT INTO public.question_variations (template_id, variation_index, variation_data, evaluation_spec, difficulty, locale, verifier_status, status, last_edited_by, last_edited_at)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
           RETURNING id`,
-          [templateId, variationIndex, JSON.stringify(variationData), JSON.stringify(answerKey), difficulty, "en-IN", "pending", "draft", "ai_generator"]
+          [templateId, variationIndex, JSON.stringify(variationData), JSON.stringify(evaluationSpec), difficulty, "en-IN", "pending", "draft", "ai_generator"]
         );
 
         const variationId = variationRes.rows[0].id;
@@ -382,20 +416,20 @@ Please update the template HTML, variables schema, and default variation data ac
       // Start database transaction
       const client = await query("BEGIN");
       try {
-        // 1. Update Template (Stringify propsSchema for JSONB binding)
+        // 1. Update Template (Stringify JSONB columns for binding)
         await query(
           `UPDATE public.question_templates
-          SET template_html = $1, props_schema = $2, learning_objective = $3, interaction_type = $4
-          WHERE id = $5`,
-          [templateHtml, JSON.stringify(propsSchema), learningObjective, interactionType, templateId]
+          SET template_html = $1, props_schema = $2, output_schema = $3, learning_objective = $4, interaction_type = $5
+          WHERE id = $6`,
+          [templateHtml, JSON.stringify(propsSchema), JSON.stringify(outputSchema), learningObjective, interactionType, templateId]
         );
 
-        // 2. Update Variation (Stringify variationData and answerKey for JSONB binding)
+        // 2. Update Variation (Stringify variationData and evaluationSpec for JSONB binding)
         await query(
           `UPDATE public.question_variations
-          SET variation_data = $1, answer_key = $2, verifier_status = 'pending', last_edited_by = $3, last_edited_at = now()
+          SET variation_data = $1, evaluation_spec = $2, verifier_status = 'pending', last_edited_by = $3, last_edited_at = now()
           WHERE id = $4`,
-          [JSON.stringify(variationData), JSON.stringify(answerKey), "ai_regenerator", variationId]
+          [JSON.stringify(variationData), JSON.stringify(evaluationSpec), "ai_regenerator", variationId]
         );
 
         // 3. Log to generation_runs

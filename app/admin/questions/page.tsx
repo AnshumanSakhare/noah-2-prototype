@@ -97,13 +97,13 @@ export default function AdminQuestionsPage() {
   }, [availableTopics, selectedTopic]);
 
   const interactionTypes = [
-    { value: "mcq", label: "Multiple Choice" },
-    { value: "fill", label: "Fill in Blanks" },
-    { value: "blanks", label: "Gap Tap" },
-    { value: "drag", label: "Drag & Drop" },
-    { value: "game-tap", label: "KG Tap Game" },
-    { value: "game-compare", label: "KG Compare Game" },
-    { value: "game-sort", label: "KG Sort Game" }
+    { value: "tap-select", label: "Tap Select (MCQ, Compare, T/F)" },
+    { value: "drag-drop", label: "Drag & Drop (Bins, Matching)" },
+    { value: "fill-slot", label: "Fill Slot (Blanks, Symbols)" },
+    { value: "sequence-order", label: "Sequence Order" },
+    { value: "build-count", label: "Build & Count" },
+    { value: "number-line", label: "Number Line" },
+    { value: "partition", label: "Partition (Sharing, Fractions)" }
   ];
 
   const fetchQuestions = async () => {

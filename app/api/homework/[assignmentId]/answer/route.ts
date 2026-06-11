@@ -1,83 +1,9 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { scoreAnswer, EvaluationSpec } from "@/lib/scoring";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-// Helper to evaluate answer correctness server-side
-function evaluateAnswer(type: string, studentAnswer: any, correctAnswer: any): boolean {
-  try {
-    if (studentAnswer === undefined || studentAnswer === null || correctAnswer === undefined || correctAnswer === null) {
-      return false;
-    }
-
-    if (type === "mcq") {
-      const studentIdx = typeof studentAnswer === "object" ? studentAnswer.answer : studentAnswer;
-      const correctIdx = typeof correctAnswer === "object" ? correctAnswer.correct : correctAnswer;
-      return Number(studentIdx) === Number(correctIdx);
-    }
-
-    if (type === "fill") {
-      const studentStr = String(studentAnswer).trim().toLowerCase();
-      const correctStr = String(typeof correctAnswer === "object" ? correctAnswer.correct : correctAnswer).trim().toLowerCase();
-      return studentStr === correctStr;
-    }
-
-    if (type === "blanks") {
-      const studentArr = Array.isArray(studentAnswer) ? studentAnswer : [];
-      const correctArr = Array.isArray(typeof correctAnswer === "object" ? correctAnswer.correct : correctAnswer) 
-        ? (correctAnswer.correct || correctAnswer) 
-        : [];
-
-      if (studentArr.length !== correctArr.length) return false;
-      return studentArr.every(
-        (val, idx) => String(val).trim().toLowerCase() === String(correctArr[idx]).trim().toLowerCase()
-      );
-    }
-
-    if (type === "drag") {
-      const studentMap = (typeof studentAnswer === "object" ? studentAnswer : {}) as Record<string, string>;
-      const correctMap = (typeof correctAnswer === "object" ? (correctAnswer.correct || correctAnswer) : {}) as Record<string, string>;
-
-      const studentKeys = Object.keys(studentMap);
-      const correctKeys = Object.keys(correctMap);
-
-      if (studentKeys.length !== correctKeys.length) return false;
-      return correctKeys.every(
-        (key) => String(studentMap[key]).trim().toLowerCase() === String(correctMap[key]).trim().toLowerCase()
-      );
-    }
-
-    if (type === "game-tap") {
-      const studentVal = String(studentAnswer).trim().toUpperCase();
-      const correctVal = String(typeof correctAnswer === "object" ? correctAnswer.correct : correctAnswer).trim().toUpperCase();
-      return studentVal === correctVal;
-    }
-
-    if (type === "game-compare") {
-      const studentVal = String(studentAnswer).trim();
-      const correctVal = String(typeof correctAnswer === "object" ? correctAnswer.correct : correctAnswer).trim();
-      return studentVal === correctVal;
-    }
-
-    if (type === "game-sort") {
-      const studentArr = Array.isArray(studentAnswer) ? studentAnswer.map(Number) : [];
-      const correctArr = Array.isArray(typeof correctAnswer === "object" ? correctAnswer.correct : correctAnswer)
-        ? (correctAnswer.correct || correctAnswer).map(Number)
-        : [];
-      
-      if (studentArr.length !== correctArr.length) return false;
-      return studentArr.every((val, idx) => val === correctArr[idx]);
-    }
-
-    // Default basic equality
-    return JSON.stringify(studentAnswer) === JSON.stringify(correctAnswer);
-
-  } catch (err) {
-    console.error("Evaluation error:", err);
-    return false;
-  }
-}
 
 // POST /api/homework/:assignmentId/answer - Submit a question answer
 export async function POST(
@@ -106,22 +32,21 @@ export async function POST(
 
     const { student_id: studentId, question_ids: questionIds } = assignRes.rows[0];
 
-    // 2. Fetch answer key & interaction type
+    // 2. Fetch the evaluation spec for this variation
     const variationRes = await query(`
-      SELECT qv.answer_key, qt.interaction_type
-      FROM public.question_variations qv
-      JOIN public.question_templates qt ON qv.template_id = qt.id
-      WHERE qv.id = $1
+      SELECT evaluation_spec
+      FROM public.question_variations
+      WHERE id = $1
     `, [question_id]);
 
     if (variationRes.rows.length === 0) {
       return NextResponse.json({ success: false, error: "Question not found" }, { status: 404 });
     }
 
-    const { answer_key: answerKey, interaction_type: type } = variationRes.rows[0];
+    const evaluationSpec = variationRes.rows[0].evaluation_spec as EvaluationSpec;
 
-    // 3. Evaluate Correctness
-    const isCorrect = evaluateAnswer(type, student_answer, answerKey);
+    // 3. Score the canonical output 0–100 via the generic engine
+    const { performance, isCorrect, breakdown } = scoreAnswer(evaluationSpec, student_answer);
 
     // 4. Check attempt index (multi-attempt safeguard)
     const countRes = await query(`
@@ -138,17 +63,21 @@ export async function POST(
         question_id,
         student_id,
         student_answer,
+        performance,
         is_correct,
+        score_breakdown,
         time_taken_ms,
         attempt_index
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `, [
       assignmentId,
       question_id,
       studentId,
       JSON.stringify(student_answer),
+      performance,
       isCorrect,
+      JSON.stringify(breakdown),
       time_taken_ms || 0,
       attemptIndex
     ]);
@@ -165,12 +94,23 @@ export async function POST(
     const allAttempted = questionIds.every((id: string) => attemptedIds.includes(id));
 
     if (allAttempted) {
-      // Complete the assignment
+      // Compute overall performance as the mean of the latest attempt per question
+      const overallRes = await query(`
+        SELECT ROUND(AVG(latest.performance))::int AS overall
+        FROM (
+          SELECT DISTINCT ON (question_id) performance
+          FROM public.homework_attempts
+          WHERE assignment_id = $1
+          ORDER BY question_id, attempt_index DESC
+        ) latest
+      `, [assignmentId]);
+      const overall = overallRes.rows[0]?.overall ?? 0;
+
       await query(`
         UPDATE public.homework_assignments
-        SET status = 'completed', completed_at = now()
+        SET status = 'completed', completed_at = now(), overall_performance = $2
         WHERE id = $1
-      `, [assignmentId]);
+      `, [assignmentId, overall]);
     }
 
     // NEVER return evaluation details to student client during session (only received: true)

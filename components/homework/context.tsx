@@ -95,12 +95,13 @@ export interface HomeworkStep {
 }
 
 export interface HomeworkAnswer {
-  type: 'content' | 'mcq' | 'fill' | 'blanks' | 'drag' | 'game-tap' | 'game-compare' | 'game-sort';
+  type: 'content' | 'mcq' | 'fill' | 'blanks' | 'drag' | 'game-tap' | 'game-compare' | 'game-sort'
+    | 'tap-select' | 'drag-drop' | 'fill-slot' | 'sequence-order' | 'build-count' | 'number-line' | 'partition';
   viewed?: boolean;
-  answer?: any; // MCQ: number, Fill: string, Game: side / symbol / order
+  answer?: any; // canonical Output JSONB for DB questions; legacy shapes for demo steps
   filledBlanks?: Array<string | null>; // Blanks
   placements?: Record<string, string>; // Drag
-  correct: boolean;
+  correct: boolean; // client-side hint only; the server is authoritative for DB assignments
 }
 
 export interface HomeworkAssignment {

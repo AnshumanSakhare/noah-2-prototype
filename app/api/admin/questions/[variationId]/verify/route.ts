@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { CANONICAL_TYPES } from "@/lib/scoring";
+import { validateAnswerConsistency } from "@/lib/archetypeContracts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +16,7 @@ export async function POST(
 
     // Fetch variation & template
     const { rows } = await query(`
-      SELECT qv.variation_data, qv.answer_key, qt.props_schema, qt.interaction_type, qt.id as template_id
+      SELECT qv.variation_data, qv.evaluation_spec, qt.props_schema, qt.interaction_type, qt.id as template_id
       FROM public.question_variations qv
       JOIN public.question_templates qt ON qv.template_id = qt.id
       WHERE qv.id = $1
@@ -24,27 +26,40 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Question variation not found" }, { status: 404 });
     }
 
-    const { variation_data: variationData, answer_key: answerKey, props_schema: propsSchema, interaction_type: type, template_id: templateId } = rows[0];
+    const { variation_data: variationData, evaluation_spec: evaluationSpec, props_schema: propsSchema, interaction_type: type, template_id: templateId } = rows[0];
 
     // Simple automated verification logic
     let verifierStatus: "verified" | "failed" = "verified";
-    let verifierNotes = "All validations passed: Variation data structure complies with props_schema and answer_key exists.";
+    let verifierNotes = "All validations passed: Variation data complies with props_schema and evaluation_spec is well-formed.";
 
     // 1. Basic check: properties existence based on schema
     if (propsSchema && typeof propsSchema === "object") {
       const required = propsSchema.required || [];
       const missingKeys = required.filter((key: string) => variationData[key] === undefined);
-      
+
       if (missingKeys.length > 0) {
         verifierStatus = "failed";
         verifierNotes = `Validation failed: Missing required variation_data keys: ${missingKeys.join(", ")}`;
       }
     }
 
-    // 2. Validate answer_key is non-empty
-    if (!answerKey || Object.keys(answerKey).length === 0) {
+    // 2. Validate evaluation_spec: must be canonical type with a defined answer
+    if (!evaluationSpec || typeof evaluationSpec !== "object") {
       verifierStatus = "failed";
-      verifierNotes = "Validation failed: Answer key is empty or undefined.";
+      verifierNotes = "Validation failed: evaluation_spec is missing or not an object.";
+    } else if (!CANONICAL_TYPES.includes(evaluationSpec.type)) {
+      verifierStatus = "failed";
+      verifierNotes = `Validation failed: evaluation_spec.type "${evaluationSpec.type}" is not a canonical archetype.`;
+    } else if (evaluationSpec.answer === undefined || evaluationSpec.answer === null) {
+      verifierStatus = "failed";
+      verifierNotes = "Validation failed: evaluation_spec.answer is empty or undefined.";
+    } else {
+      // 3. Cross-validate: answer must reference ids/values present in variation_data.
+      const consistencyError = validateAnswerConsistency(evaluationSpec.type, variationData, evaluationSpec);
+      if (consistencyError) {
+        verifierStatus = "failed";
+        verifierNotes = `Validation failed: ${consistencyError}`;
+      }
     }
 
     // Update status in DB

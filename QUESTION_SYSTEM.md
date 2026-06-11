@@ -19,10 +19,14 @@ CREATE TABLE public.question_templates (
   topic               TEXT NOT NULL,                    -- Spreadsheet Topic Name (e.g. "Comparing Numbers")
   subtopic            TEXT NOT NULL,                    -- Spreadsheet Subtopic Name
   learning_objective  TEXT NOT NULL,                    -- Target concept (e.g. "Count items 0-5")
-  interaction_type    TEXT NOT NULL,                    -- Catalog archetype: tap-select, drag-drop, etc.
+  interaction_type    TEXT NOT NULL                     -- One of the 7 canonical archetypes
+                        CHECK (interaction_type IN (
+                          'tap-select','drag-drop','fill-slot',
+                          'sequence-order','build-count','number-line','partition')),
   difficulty          TEXT NOT NULL CHECK (difficulty IN ('easy','medium','hard')),
   template_html       TEXT NOT NULL,                    -- Standalone HTML containing {{VAR_NAME}} placeholders
-  props_schema        JSONB NOT NULL,                   -- JSON Schema describing the placeholders shape
+  props_schema        JSONB NOT NULL,                   -- Input contract: JSON Schema describing variation_data shape
+  output_schema       JSONB NOT NULL,                   -- Output contract: canonical shape getState() must emit
   answer_key_fn       TEXT,                             -- Server-side function (optional)
   structural_fingerprint TEXT,                          -- Hash for template deduplication
   version             INTEGER NOT NULL DEFAULT 1,
@@ -40,8 +44,8 @@ CREATE TABLE public.question_variations (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   template_id         UUID NOT NULL REFERENCES public.question_templates(id),
   variation_index     SMALLINT NOT NULL,               -- Slate index (1-3 for Easy, 1-3 for Medium, etc.)
-  variation_data      JSONB NOT NULL,                  -- Parameter values (e.g., {"numberA": 8, "numberB": 5})
-  answer_key          JSONB NOT NULL,                  -- Correct answer for evaluation (never sent to client)
+  variation_data      JSONB NOT NULL,                  -- Input JSONB: parameter values (e.g., {"numberA": 8, "numberB": 5})
+  evaluation_spec     JSONB NOT NULL,                  -- Eval JSONB: { type, scoring, answer, [min,max] } — never sent to client
   difficulty          TEXT NOT NULL CHECK (difficulty IN ('easy','medium','hard')),
   locale              TEXT NOT NULL DEFAULT 'en-IN',
   content_hash        TEXT,                            -- Hash of variation_data
@@ -71,6 +75,7 @@ CREATE TABLE public.homework_assignments (
   difficulty_mode     TEXT NOT NULL CHECK (difficulty_mode IN ('easy','medium','hard','adaptive')),
   question_ids        UUID[] NOT NULL,                 -- Array of question_variations.id
   status              TEXT NOT NULL DEFAULT 'assigned' CHECK (status IN ('assigned','in_progress','completed')),
+  overall_performance SMALLINT,                        -- Mean per-question performance (0-100), set on completion
   assigned_at         TIMESTAMPTZ DEFAULT now(),
   due_at              TIMESTAMPTZ,
   started_at          TIMESTAMPTZ,
@@ -87,8 +92,10 @@ CREATE TABLE public.homework_attempts (
   assignment_id       UUID NOT NULL REFERENCES public.homework_assignments(id),
   question_id         UUID NOT NULL REFERENCES public.question_variations(id),
   student_id          UUID NOT NULL,
-  student_answer      JSONB,                           -- Student response payload
-  is_correct          BOOLEAN,                         -- True / False
+  student_answer      JSONB,                           -- Output JSONB: canonical student selection
+  performance         SMALLINT,                        -- 0-100 score from the scoring engine
+  is_correct          BOOLEAN,                         -- Derived: performance >= PASS_THRESHOLD (70)
+  score_breakdown     JSONB,                           -- Per-item audit of how the score was computed
   time_taken_ms       INTEGER,                         -- Per-question timer
   attempt_index       SMALLINT NOT NULL DEFAULT 1,
   created_at          TIMESTAMPTZ DEFAULT now()
@@ -117,7 +124,7 @@ CREATE TABLE public.generation_runs (
 
 ## 2. OpenAI Generation Engine
 
-The AI Generation engine runs inside [generate/route.ts](file:///d:/BuildFastWithAI/diagnostic-agent-noah/app/api/admin/generator/generate/route.ts). It reads HTML skeletons, CSS tokens, and interaction constraints from [.claude/htmlGenerate.md](file:///d:/BuildFastWithAI/diagnostic-agent-noah/.claude/htmlGenerate.md) and instructs the reasoning model (`gpt-5.4-mini` alias) to construct a self-contained game template and parameterized configuration.
+The AI Generation engine runs inside [generate/route.ts](file:///d:/BuildFastWithAI/diagnostic-agent-noah/app/api/admin/generator/generate/route.ts). It reads HTML skeletons, CSS tokens, and interaction constraints from [.claude/htmlGenerate.md](file:///d:/BuildFastWithAI/diagnostic-agent-noah/.claude/htmlGenerate.md) and instructs the reasoning model (`gpt-5.4`, `reasoning.effort: "low"`) to construct a self-contained game template and parameterized configuration.
 
 ### 2.1 API Input Parameters
 ```json
@@ -148,13 +155,26 @@ To comply with OpenAI constraints, nested custom objects are requested as JSON-s
 ```typescript
 const GenerateResponseSchema = z.object({
   learningObjective: z.string(),  // AI-generated learning objective
-  interactionType: z.string(),    // tap-select, drag-drop, fill-slot, number-line etc.
+  interactionType: z.string(),    // MUST be one of the 7 canonical archetypes (validated server-side)
   templateHtml: z.string(),       // Standalone HTML template containing double curly brace placeholders {{key}}
-  propsSchemaJson: z.string(),    // JSON-encoded string describing variable schema types
-  variationDataJson: z.string(),  // JSON-encoded string containing default variable values
-  answerKeyJson: z.string()       // JSON-encoded string containing correct answer matching getState() output
+  propsSchemaJson: z.string(),    // Input contract: JSON-encoded variation_data schema
+  outputSchemaJson: z.string(),   // Output contract: JSON-encoded canonical getState() shape
+  variationDataJson: z.string(),  // JSON-encoded default Input values
+  evaluationSpecJson: z.string()  // Eval JSONB: JSON-encoded { type, scoring, answer, [min,max] }
 });
 ```
+
+The 7 canonical archetypes and their **Output** shapes (what `getState()` must return, and what `evaluation_spec.answer` mirrors):
+
+| Type | Output | Default scoring |
+|---|---|---|
+| `tap-select` | `{selected: v}` / `{selected:[v]}` | binary (single); partial for multi |
+| `drag-drop` | `{placements:{item:bin}}` | partial — % items in correct bin |
+| `fill-slot` | `{slots:{id:val}}` | partial — % slots correct |
+| `sequence-order` | `{order:[id]}` | partial — % positions correct |
+| `build-count` | `{count:n}` | binary |
+| `number-line` | `{position:n}` | tolerance band (uses `min`/`max`) |
+| `partition` | `{parts:[n]}` | partial — % parts correct |
 
 ### 2.4 System Prompt Core Logic
 1. **Design Tokens**: Forces the model to use HSL variables (`--c-grape`, `--c-sky`, etc.) for backgrounds and interactive elements, preventing raw color declarations.
@@ -267,8 +287,12 @@ All generated game templates must respect `window.SILENT_MODE` inside the `check
      "time_taken_ms": 4500
    }
    ```
-4. The backend evaluation engine ([answer/route.ts](file:///d:/BuildFastWithAI/diagnostic-agent-noah/app/api/homework/%5BassignmentId%5D/answer/route.ts)) fetches the `answer_key` for the variation, grades it, writes a new `homework_attempts` record, and returns a silent acknowledgement:
+4. The backend evaluation engine ([answer/route.ts](file:///d:/BuildFastWithAI/diagnostic-agent-noah/app/api/homework/%5BassignmentId%5D/answer/route.ts)) fetches the `evaluation_spec` for the variation and calls the generic scorer `scoreAnswer(evaluationSpec, studentOutput)` from [lib/scoring.ts](file:///d:/BuildFastWithAI/diagnostic-agent-noah/lib/scoring.ts). It writes `performance` (0–100), the derived `is_correct` (`performance >= PASS_THRESHOLD`, default 70), and a `score_breakdown` to a new `homework_attempts` record, then returns a silent acknowledgement:
    ```json
    { "success": true, "received": true }
    ```
-5. No feedback is given to the student until they reach the `SuccessScreen`, where the overall score, subtopic accuracy breakdowns, and a review of correct/incorrect questions are computed and revealed.
+5. When every question has been attempted, the assignment is marked `completed` and `overall_performance` is set to the mean of the latest per-question `performance`.
+6. No feedback is given to the student until they reach the `SuccessScreen`, where the mean performance, per-difficulty and subtopic strength breakdowns (all averaging `performance`), and a per-question review are computed and revealed.
+
+### 5.4 Scoring Engine (`lib/scoring.ts`)
+`scoreAnswer` is a single data-driven function — no per-type code paths in the routes. Scoring math is **fixed per archetype**; `evaluation_spec` only carries data (the `answer`, plus `min`/`max` for `number-line`). `scoring: "binary"` collapses any partial result to 0/100. The function never throws — a malformed submission scores 0 — and defensively wraps a bare scalar/array into the canonical Output shape. Partial-credit rules per type are listed in the §2.3 table.

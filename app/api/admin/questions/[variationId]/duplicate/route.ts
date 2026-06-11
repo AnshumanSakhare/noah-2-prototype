@@ -14,7 +14,7 @@ export async function POST(
 
     // Fetch existing variation
     const { rows } = await query(`
-      SELECT template_id, variation_data, answer_key, difficulty, locale
+      SELECT template_id, variation_data, evaluation_spec, difficulty, locale
       FROM public.question_variations
       WHERE id = $1
     `, [variationId]);
@@ -23,7 +23,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Question variation not found" }, { status: 404 });
     }
 
-    const { template_id: templateId, variation_data: variationData, answer_key: answerKey, difficulty, locale } = rows[0];
+    const { template_id: templateId, variation_data: variationData, evaluation_spec: evaluationSpec, difficulty, locale } = rows[0];
 
     // Find next variation_index
     const maxIdxRes = await query(`
@@ -37,13 +37,13 @@ export async function POST(
     // Insert new duplicated variation in draft status
     const insertRes = await query(`
       INSERT INTO public.question_variations (
-        template_id, 
-        variation_index, 
-        variation_data, 
-        answer_key, 
-        difficulty, 
-        locale, 
-        status, 
+        template_id,
+        variation_index,
+        variation_data,
+        evaluation_spec,
+        difficulty,
+        locale,
+        status,
         verifier_status,
         verifier_notes
       )
@@ -53,7 +53,7 @@ export async function POST(
       templateId,
       nextIndex,
       JSON.stringify(variationData),
-      JSON.stringify(answerKey),
+      JSON.stringify(evaluationSpec),
       difficulty,
       locale
     ]);

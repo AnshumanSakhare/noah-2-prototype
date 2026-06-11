@@ -126,31 +126,33 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ onSeeTeacher }) =>
   }> = [];
 
   if (dbResults) {
+    // Render a canonical Output / Eval value into readable text.
+    const fmt = (v: any): string => {
+      if (v === null || v === undefined) return 'No answer';
+      if (Array.isArray(v)) return v.map(fmt).join(', ');
+      if (typeof v === 'object') return Object.entries(v).map(([k, val]) => `${k} → ${fmt(val)}`).join(', ');
+      return String(v);
+    };
+
     dbResults.attempts.forEach((a: any, idx: number) => {
-      let userAnsText = 'No answer';
-      let correctAnsText = '';
-
       const type = a.interaction_type;
-      const s = a.variation_data;
-      const correct = a.answer_key;
-      const ans = a.student_answer;
+      const s = a.variation_data || {};
+      const spec = a.evaluation_spec || {};
+      const out = a.student_answer;
 
-      if (type === 'mcq') {
-        userAnsText = s[`option_${ans}`] || String(ans);
-        correctAnsText = s[`option_${correct.correct}`] || String(correct.correct);
-      } else if (type === 'fill') {
-        userAnsText = String(ans);
-        correctAnsText = String(correct.correct) + (s.unit ? ' ' + s.unit : '');
-      } else if (type === 'blanks') {
-        userAnsText = Array.isArray(ans) ? ans.filter(Boolean).join(', ') : String(ans);
-        correctAnsText = Array.isArray(correct.correct) ? correct.correct.join(', ') : String(correct.correct);
-      } else if (type === 'drag') {
-        userAnsText = typeof ans === 'object' ? Object.entries(ans).map(([z, i]) => `${i} → ${z}`).join(', ') : String(ans);
-        correctAnsText = typeof correct.correct === 'object' ? Object.entries(correct.correct).map(([z, i]) => `${i} → ${z}`).join(', ') : String(correct.correct);
-      } else {
-        userAnsText = String(ans);
-        correctAnsText = String(correct.correct);
-      }
+      // Pull the inner value out of the canonical Output wrapper for each archetype.
+      const innerOut =
+        type === 'tap-select' ? out?.selected :
+        type === 'drag-drop' ? out?.placements :
+        type === 'fill-slot' ? out?.slots :
+        type === 'sequence-order' ? out?.order :
+        type === 'build-count' ? out?.count :
+        type === 'number-line' ? out?.position :
+        type === 'partition' ? out?.parts :
+        out;
+
+      const userAnsText = innerOut === null || innerOut === undefined ? 'No answer' : fmt(innerOut);
+      const correctAnsText = fmt(spec.answer);
 
       allReviews.push({
         num: idx + 1,
@@ -160,10 +162,10 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ onSeeTeacher }) =>
         correct: a.is_correct,
         userAnswer: userAnsText,
         correctAnswer: correctAnsText,
-        explanation: s.explanation || 'Re-evaluate parameters and concept guidance.',
+        explanation: s.explanation || `Performance: ${a.performance ?? 0}/100. Re-evaluate parameters and concept guidance.`,
         timeSpent: `${(a.time_taken_ms / 1000).toFixed(1)}s`,
-        pts: type === 'mcq' ? 2 : 3,
-        difficulty: a.difficulty.toUpperCase()
+        pts: Math.round((a.performance ?? (a.is_correct ? 100 : 0)) / 100 * 3),
+        difficulty: (a.difficulty || 'medium').toUpperCase()
       });
     });
   } else {

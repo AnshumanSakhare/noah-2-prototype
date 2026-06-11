@@ -18,7 +18,7 @@ export async function GET(
         qv.template_id,
         qv.variation_index,
         qv.variation_data,
-        qv.answer_key,
+        qv.evaluation_spec,
         qv.difficulty,
         qv.locale,
         qv.verifier_status,
@@ -36,6 +36,7 @@ export async function GET(
         qt.interaction_type,
         qt.template_html,
         qt.props_schema,
+        qt.output_schema,
         qt.answer_key_fn
       FROM public.question_variations qv
       JOIN public.question_templates qt ON qv.template_id = qt.id
@@ -62,11 +63,11 @@ export async function PUT(
   try {
     const { variationId } = await params;
     const body = await request.json();
-    const { variation_data, answer_key, status, verifier_notes } = body;
+    const { variation_data, evaluation_spec, status, verifier_notes } = body;
 
     // Fetch "before" snapshot first
     const beforeRes = await query(`
-      SELECT variation_data, answer_key, status, verifier_status, verifier_notes
+      SELECT variation_data, evaluation_spec, status, verifier_status, verifier_notes
       FROM public.question_variations
       WHERE id = $1
     `, [variationId]);
@@ -82,9 +83,9 @@ export async function PUT(
     // Update
     await query(`
       UPDATE public.question_variations
-      SET 
+      SET
         variation_data = $1,
-        answer_key = $2,
+        evaluation_spec = $2,
         status = $3,
         verifier_notes = $4,
         last_edited_by = $5,
@@ -92,9 +93,9 @@ export async function PUT(
         updated_at = now()
       WHERE id = $7
     `, [
-      JSON.stringify(variation_data), 
-      JSON.stringify(answer_key), 
-      status, 
+      JSON.stringify(variation_data),
+      JSON.stringify(evaluation_spec),
+      status,
       verifier_notes, 
       editorEmail, 
       editorTime,
@@ -103,7 +104,7 @@ export async function PUT(
 
     // Fetch the updated state to be safe
     const afterRes = await query(`
-      SELECT id, template_id, variation_data, answer_key, status, verifier_notes, last_edited_by, last_edited_at
+      SELECT id, template_id, variation_data, evaluation_spec, status, verifier_notes, last_edited_by, last_edited_at
       FROM public.question_variations
       WHERE id = $1
     `, [variationId]);

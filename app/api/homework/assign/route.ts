@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     if (difficulty_mode === "adaptive") {
       // Fetch student's last 10 attempts on this topic
       const historyRes = await query(`
-        SELECT ha.is_correct, qv.difficulty
+        SELECT ha.performance, ha.is_correct, qv.difficulty
         FROM public.homework_attempts ha
         JOIN public.question_variations qv ON ha.question_id = qv.id
         JOIN public.question_templates qt ON qv.template_id = qt.id
@@ -29,10 +29,13 @@ export async function POST(request: Request) {
       `, [student_id, topic]);
 
       if (historyRes.rows.length > 0) {
-        const correctCount = historyRes.rows.filter(r => r.is_correct === true).length;
-        const totalCount = historyRes.rows.length;
-        const accuracy = correctCount / totalCount;
-        
+        // Mean performance (0–1) across recent attempts, falling back to is_correct if null
+        const perfSum = historyRes.rows.reduce(
+          (sum, r) => sum + (r.performance != null ? Number(r.performance) : (r.is_correct ? 100 : 0)),
+          0
+        );
+        const accuracy = perfSum / (historyRes.rows.length * 100);
+
         // Take the difficulty of the most recent attempt as base
         const lastDifficulty = historyRes.rows[0].difficulty || "medium";
 

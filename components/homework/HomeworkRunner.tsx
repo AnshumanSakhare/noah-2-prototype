@@ -42,6 +42,7 @@ export const IframeQuestionStep: React.FC<IframeQuestionStepProps> = ({
   const [selectedAnswer, setSelectedAnswer] = useState<any>(answer?.answer || null);
   const [submitting, setSubmitting] = useState(false);
   const [topic, setTopic] = useState("");
+  const [interactionType, setInteractionType] = useState<string>("tap-select");
   const [instructionText, setInstructionText] = useState("");
   const [resetKey, setResetKey] = useState(0);
   
@@ -57,6 +58,7 @@ export const IframeQuestionStep: React.FC<IframeQuestionStepProps> = ({
           setQuestionId(json.data.id);
           setHtml(json.data.html);
           setTopic(json.data.topic || "Math Practice");
+          setInteractionType(json.data.interaction_type || "tap-select");
           
           const varData = json.data.variation_data || {};
           const inst = varData.question_text || varData.instruction || json.data.learning_objective || "Interactively solve the challenge below.";
@@ -82,22 +84,23 @@ export const IframeQuestionStep: React.FC<IframeQuestionStepProps> = ({
     const handleMessage = (e: MessageEvent) => {
       if (e.data && e.data.type === "EDUQUEST_ANSWER") {
         setSelectedAnswer(e.data.answer);
+        // Store the canonical Output JSONB; the server is authoritative for grading.
         onAnswer({
-          type: "mcq", // placeholder
+          type: interactionType as HomeworkAnswer["type"],
           answer: e.data.answer,
-          correct: true
+          correct: false
         });
       }
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [onAnswer]);
+  }, [onAnswer, interactionType]);
 
   const handleReset = () => {
     setResetKey(prev => prev + 1);
     setSelectedAnswer(null);
     onAnswer({
-      type: "mcq",
+      type: interactionType as HomeworkAnswer["type"],
       answer: null,
       correct: false
     });

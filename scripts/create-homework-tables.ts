@@ -43,6 +43,17 @@ async function runMigration() {
     console.log("Database connection established. Starting transaction...");
     await client.query("BEGIN");
 
+    // 0. Drop existing homework tables so the schema is recreated cleanly.
+    //    Starting fresh — no data to preserve. CASCADE clears FK dependencies.
+    console.log("Dropping any existing homework tables (fresh rebuild)...");
+    await client.query(`
+      DROP TABLE IF EXISTS public.generation_runs CASCADE;
+      DROP TABLE IF EXISTS public.homework_attempts CASCADE;
+      DROP TABLE IF EXISTS public.homework_assignments CASCADE;
+      DROP TABLE IF EXISTS public.question_variations CASCADE;
+      DROP TABLE IF EXISTS public.question_templates CASCADE;
+    `);
+
     // 1. Create question_templates
     console.log("Creating table 'question_templates'...");
     await client.query(`
@@ -53,10 +64,14 @@ async function runMigration() {
         topic               TEXT NOT NULL,                    -- e.g. "Position & Direction"
         subtopic            TEXT NOT NULL,
         learning_objective  TEXT NOT NULL,
-        interaction_type    TEXT NOT NULL,                    -- from catalog: tap-select, drag-drop, etc.
+        interaction_type    TEXT NOT NULL                     -- one of the 7 canonical archetypes
+                              CHECK (interaction_type IN (
+                                'tap-select','drag-drop','fill-slot',
+                                'sequence-order','build-count','number-line','partition')),
         difficulty          TEXT NOT NULL CHECK (difficulty IN ('easy','medium','hard')),
         template_html       TEXT NOT NULL,                    -- full HTML with {{VAR}} placeholders
-        props_schema        JSONB NOT NULL,                   -- JSON Schema describing variation_data shape
+        props_schema        JSONB NOT NULL,                   -- Input contract: JSON Schema describing variation_data shape
+        output_schema       JSONB NOT NULL,                   -- Output contract: canonical shape getState() must emit
         answer_key_fn       TEXT,                             -- server-side JS/pseudocode to compute correct answer from variation_data
         structural_fingerprint TEXT,                          -- hash of interaction skeleton (for dedup)
         version             INTEGER NOT NULL DEFAULT 1,
@@ -74,8 +89,8 @@ async function runMigration() {
         id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         template_id         UUID NOT NULL REFERENCES public.question_templates(id),
         variation_index     SMALLINT NOT NULL,               -- 1–9 within the topic's slate
-        variation_data      JSONB NOT NULL,                  -- filled values: numbers, words, positions
-        answer_key          JSONB NOT NULL,                  -- correct answer(s) — SERVER ONLY, never sent to client
+        variation_data      JSONB NOT NULL,                  -- Input JSONB: filled values (numbers, words, positions)
+        evaluation_spec     JSONB NOT NULL,                  -- Eval JSONB: canonical answer + binary/partial flag — SERVER ONLY
         difficulty          TEXT NOT NULL CHECK (difficulty IN ('easy','medium','hard')),
         locale              TEXT NOT NULL DEFAULT 'en-IN',
         content_hash        TEXT,                            -- hash of variation_data (idempotent regen)
@@ -108,6 +123,7 @@ async function runMigration() {
         question_ids        UUID[] NOT NULL,                 -- ordered list of question_variations.id
         status              TEXT NOT NULL DEFAULT 'assigned'
                               CHECK (status IN ('assigned','in_progress','completed')),
+        overall_performance SMALLINT CHECK (overall_performance BETWEEN 0 AND 100), -- mean per-question performance, set on completion
         assigned_at         TIMESTAMPTZ DEFAULT now(),
         due_at              TIMESTAMPTZ,
         started_at          TIMESTAMPTZ,
@@ -123,8 +139,10 @@ async function runMigration() {
         assignment_id       UUID NOT NULL REFERENCES public.homework_assignments(id),
         question_id         UUID NOT NULL REFERENCES public.question_variations(id),
         student_id          UUID NOT NULL,
-        student_answer      JSONB,                           -- raw answer payload
-        is_correct          BOOLEAN,                         -- null until evaluated at end
+        student_answer      JSONB,                           -- Output JSONB: canonical student selection
+        performance         SMALLINT CHECK (performance BETWEEN 0 AND 100), -- 0–100 score from the scoring engine
+        is_correct          BOOLEAN,                         -- derived: performance >= PASS_THRESHOLD (70)
+        score_breakdown     JSONB,                           -- per-item audit of how the score was computed
         time_taken_ms       INTEGER,                         -- per-question timer
         attempt_index       SMALLINT NOT NULL DEFAULT 1,
         created_at          TIMESTAMPTZ DEFAULT now()

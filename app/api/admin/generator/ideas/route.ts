@@ -81,8 +81,27 @@ export async function POST(request: Request) {
 
     const gradeLabel = grade === 0 ? "KG" : `Grade ${grade}`;
 
-    let systemPrompt = `You are a creative, expert EduQuest Game Designer.
-Your task is to brainstorm exactly 3-4 unique, creative, and pedagogically sound ideas for an interactive educational game.
+    // Grade-scaled visual aesthetic: playful/cartoonish for the youngest, cleaner & more
+    // symbolic as grade rises. Difficulty nudges it one notch more restrained.
+    const aesthetic =
+      grade <= 1 ? "Very playful and cartoonish: big chunky tokens, friendly emoji/pictures, almost no text, picture-first."
+      : grade <= 3 ? "Playful but tidy: medium tokens, a few emoji as accents, short labels, numerals visible."
+      : grade <= 5 ? "Mostly clean: restrained emoji, numerals and simple symbols (>, <, =, fractions), minimal decoration."
+      : "Clean and academic: little to no cartoon/emoji, symbolic and compact (numbers, symbols, number lines, bars), no childish theming.";
+
+    // Per-archetype on-screen mechanic, so ideas are concretely renderable in the chosen interaction.
+    const archetypeMechanic: Record<string, string> = {
+      "tap-select": "A small set of 2–4 tappable options (cards/tokens). The child taps the one (or few) that answer the prompt. Output: the tapped value.",
+      "drag-drop": "A few draggable items (≤4) and 2–3 labelled target bins/zones. The child drags each item into the correct bin. Output: item→bin mapping. Must also work by tap-to-pick then tap-to-place.",
+      "fill-slot": "One short expression/equation with 1–3 blank slots. The child fills each blank from a tiny palette of values or symbols. Output: slot→value.",
+      "sequence-order": "A single row of 3–5 items the child reorders (smallest→biggest, steps in order). Output: the ordered list. Keep it ONE row, no nested sorting.",
+      "build-count": "A single target and a build area (e.g. a ten-frame, a small set of blocks/dots) the child adds to or removes from to hit the target. Output: the count.",
+      "number-line": "ONE horizontal number line with a labelled range; the child drags a single marker to a spot. Output: the position. No multiple lines.",
+      "partition": "ONE whole (a shape, a strip, or a group of ≤8 items) the child splits into equal parts/shares. Output: the part sizes. Keep the whole singular and simple.",
+    };
+    const mechanic = archetypeMechanic[interactionArchetype] || "A single, simple interaction that fits one screen.";
+
+    let systemPrompt = `You are an expert EduQuest Game Designer brainstorming ideas for ONE interactive math mini-game that renders inside a FIXED, SMALL card.
 
 Game Parameters:
 - Grade: ${gradeLabel}
@@ -90,18 +109,36 @@ Game Parameters:
 - Target Difficulty: ${difficulty.toUpperCase()}
 - Chosen Archetype: ${interactionArchetype}
 
-DIFFICULTY GUIDELINES:
-- EASY: Very straightforward recognition, counting small sets, extremely clear visuals, and single-step operations.
-- MEDIUM: Multi-step, simple comparisons, introduces math symbols (>, <, =), includes fractions or simple equations.
-- HARD: Multi-variable drag-matching, sequence sorting, complex number-line plotting, or abstract algebraic balances.
+═══ THE CANVAS — every idea MUST fit this, this is the #1 constraint ═══
+The game renders in a FIXED stage of exactly 760 × 520 pixels (a single small card). It does NOT scroll. There are no multiple screens, levels, rounds, or scenes — ONE screen, ONE question, ONE focal cluster, surrounded by generous whitespace (~55–65% empty).
+The host app already provides the header, instruction line, reset button, and feedback — so the idea must NOT include titles, story intros, scoreboards, timers, lives, progress bars, multi-step narratives, or tutorial steps. Just the single playable interaction.
+
+HARD LIMITS (reject any idea that needs more):
+- At most ~6–8 interactive/visual elements on screen total. Fewer is better.
+- Readable in one glance: no paragraphs, no word-problem stories, no multi-sentence setups. KG–2 ≈ ≤6 words on screen.
+- No tiny dense grids, no scattered objects to hunt for, no animations that move things off-screen, no scrolling lists, no multi-stage flows ("first do X, then Y").
+- One single interaction primitive only (the chosen archetype) — never combine drag + sort + tap.
+
+═══ THE CHOSEN ARCHETYPE — '${interactionArchetype}' ═══
+${mechanic}
+Every idea must be a natural, screen-centric fit for THIS mechanic.
+
+═══ VISUAL AESTHETIC FOR THIS GRADE/DIFFICULTY ═══
+${aesthetic}
+As grade and difficulty rise, dial DOWN cartoon themes and emoji and dial UP clean, symbolic, compact layouts. A Grade 7 idea should look like a tidy math tool, not a children's cartoon.
+
+═══ DIFFICULTY (within the small canvas) ═══
+- EASY: single-step recognition/counting of small sets; extremely clear; smallest numbers/sets.
+- MEDIUM: one comparison or one short operation; may introduce symbols (>, <, =) or simple fractions.
+- HARD: one slightly richer single-screen judgement (e.g. order 5 values, plot on a number line, split into equal parts) — still ONE screen, ONE interaction, no extra steps.
 
 Each idea MUST have:
-1. title: Short and catchy (e.g. "Feed the Frog", "Space Station Weigh-in")
-2. concept: What specific math sub-concept this targets.
-3. description: Exactly how the game works. Explain what is on the screen, the theme, visual assets/emojis used, and how the interaction works (what options they tap or where they drag). Keep it descriptive and visual.
-4. pedagogy: Why this is excellent and suitable for the selected grade and difficulty.
+1. title: Short and catchy, but age-appropriate (playful for KG, neutral/clean for upper grades).
+2. concept: The specific math sub-concept this targets.
+3. description: Concretely how it looks and plays ON THE 760×520 CARD. State the few elements on screen, what the child taps/drags/orders, and roughly how many items. Must be implementable as-is — concrete, not vague or aspirational. 2–4 sentences max.
+4. pedagogy: Why it suits this grade + difficulty.
 
-Ensure the ideas are diverse, creative, fun, and use engaging themes or colorful visuals (emojis, boards, card layouts, etc.) that appeal to students. Avoid boring or repetitive formats.
+Make the 3–4 ideas DISTINCT from each other, but every one must obey the canvas limits above. Prefer simple and clear over clever and crowded.
 `;
 
     const xlsxContext = getXlsxContext(grade, topic);
@@ -121,7 +158,7 @@ You must heavily incorporate and prioritize these instructions in your brainstor
 `;
     }
 
-    const userPrompt = `Generate 3 to 4 creative game ideas matching these constraints. Ensure they are creative and distinct from each other.`;
+    const userPrompt = `Generate 3 to 4 distinct game ideas for the '${interactionArchetype}' archetype. Every idea MUST fit the fixed 760×520 single-screen card with ≤6–8 elements, one focal cluster, and no multi-step or story flow. Keep them concrete and implementable, and match the visual aesthetic to ${gradeLabel} / ${difficulty.toUpperCase()}.`;
 
     const response = await openai.responses.parse({
       model: MODEL,

@@ -20,7 +20,7 @@ interface VariationDetail {
   template_id: string;
   variation_index: number;
   variation_data: any;
-  answer_key: any;
+  evaluation_spec: any;
   difficulty: string;
   locale: string;
   verifier_status: "pending" | "verified" | "failed";
@@ -54,7 +54,7 @@ export default function QuestionDetailPage() {
 
   // Form states
   const [variationData, setVariationData] = useState<any>({});
-  const [answerKey, setAnswerKey] = useState<any>({});
+  const [evaluationSpec, setEvaluationSpec] = useState<any>({});
   const [status, setStatus] = useState("");
   const [verifierNotes, setVerifierNotes] = useState("");
   const [difficulty, setDifficulty] = useState("");
@@ -72,7 +72,7 @@ export default function QuestionDetailPage() {
         const data = json.data;
         setQuestion(data);
         setVariationData(data.variation_data || {});
-        setAnswerKey(data.answer_key || {});
+        setEvaluationSpec(data.evaluation_spec || {});
         setStatus(data.status || "draft");
         setVerifierNotes(data.verifier_notes || "");
         setDifficulty(data.difficulty || "medium");
@@ -143,7 +143,7 @@ export default function QuestionDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           variation_data: variationData,
-          answer_key: answerKey,
+          evaluation_spec: evaluationSpec,
           status,
           verifier_notes: verifierNotes
         })
@@ -170,8 +170,8 @@ export default function QuestionDetailPage() {
       });
       const json = await res.json();
       if (json.success) {
-        setAnswerKey(json.answerKey);
-        alert("Answer key recomputed! Status set to pending.");
+        setEvaluationSpec(json.evaluationSpec);
+        alert("Evaluation spec recomputed! Status set to pending.");
       } else {
         alert(`Failed: ${json.error}`);
       }
@@ -226,7 +226,7 @@ export default function QuestionDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           variation_data: variationData,
-          answer_key: answerKey,
+          evaluation_spec: evaluationSpec,
           status: "deprecated",
           verifier_notes: "Deprecated manually by editor."
         })
@@ -420,17 +420,17 @@ export default function QuestionDetailPage() {
               </div>
             </div>
 
-            {/* Section 2: Answer Key Verification */}
+            {/* Section 2: Evaluation Spec Verification */}
             <div className="panel-section bg-panel-light">
               <div className="section-title-wrap">
                 <CheckCircle size={16} className="text-good" />
-                <h4>Server Answer Key (Read-only)</h4>
+                <h4>Server Evaluation Spec (Read-only)</h4>
               </div>
               <div className="answer-key-content">
-                <pre className="font-mono">{JSON.stringify(answerKey, null, 2)}</pre>
+                <pre className="font-mono">{JSON.stringify(evaluationSpec, null, 2)}</pre>
                 <div style={{ marginTop: '10px' }}>
                   <button className="btn-secondary btn-sleek" onClick={handleRecomputeKey}>
-                    Recompute Answer Key
+                    Recompute Evaluation Spec
                   </button>
                 </div>
               </div>
