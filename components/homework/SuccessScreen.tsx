@@ -23,27 +23,53 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ onSeeTeacher }) =>
     setHwElapsed, 
     hwElapsed, 
     showToast,
-    setActiveAssignmentId
+    setActiveAssignmentId,
+    activeAssignmentId
   } = useHomework();
 
   const [modalOpen, setModalOpen] = useState<boolean>(false);
-  const [rendered, setRendered] = useState<boolean>(false);
   const [selectedQIndex, setSelectedQIndex] = useState<number>(0);
 
+  // DB Results states
+  const [dbResults, setDbResults] = useState<any>(null);
+  const [loadingDb, setLoadingDb] = useState(false);
+
+  const isDbAssignment = activeAssignmentId && !activeAssignmentId.startsWith('demo');
+
   useEffect(() => {
-    setRendered(true);
-    // Fire confetti on load if score >= 70%
-    const questionSteps = homeworkSteps.filter(s => s.isQuestion);
-    let correctCount = 0;
-    questionSteps.forEach(qs => {
-      const stepIdx = homeworkSteps.indexOf(qs);
-      if (hwAnswers[stepIdx] && hwAnswers[stepIdx].correct) correctCount++;
-    });
-    const pct = questionSteps.length ? Math.round((correctCount / questionSteps.length) * 100) : 0;
-    if (pct >= 70) {
-      fireConfetti();
+    if (isDbAssignment) {
+      const fetchResults = async () => {
+        setLoadingDb(true);
+        try {
+          const res = await fetch(`/api/homework/${activeAssignmentId}/results`);
+          const json = await res.json();
+          if (json.success) {
+            setDbResults(json.data);
+            if (json.data.stats.accuracy >= 70) {
+              fireConfetti();
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch DB results:", err);
+        } finally {
+          setLoadingDb(false);
+        }
+      };
+      fetchResults();
+    } else {
+      // Demo fallback confetti
+      const questionSteps = homeworkSteps.filter(s => s.isQuestion);
+      let correctCount = 0;
+      questionSteps.forEach(qs => {
+        const stepIdx = homeworkSteps.indexOf(qs);
+        if (hwAnswers[stepIdx] && hwAnswers[stepIdx].correct) correctCount++;
+      });
+      const pct = questionSteps.length ? Math.round((correctCount / questionSteps.length) * 100) : 0;
+      if (pct >= 70) {
+        fireConfetti();
+      }
     }
-  }, []);
+  }, [activeAssignmentId]);
 
   const fireConfetti = () => {
     const duration = 2.5 * 1000;
@@ -71,19 +97,19 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ onSeeTeacher }) =>
     const stepIdx = homeworkSteps.indexOf(qs);
     if (hwAnswers[stepIdx] && hwAnswers[stepIdx].correct) correctCount++;
   });
-  const pct = questionSteps.length ? Math.round((correctCount / questionSteps.length) * 100) : 0;
-  const timeMin = Math.max(1, Math.round(hwElapsed / 60000));
+  
+  // Local computed metrics
+  const localPct = questionSteps.length ? Math.round((correctCount / questionSteps.length) * 100) : 0;
+  const localTimeMin = Math.max(1, Math.round(hwElapsed / 60000));
 
-  // Gathering reviews
-  const wrongReviews: Array<{
-    num: number;
-    topic: string;
-    text: string;
-    userAnswer: string;
-    correctAnswer: string;
-    explanation: string;
-  }> = [];
+  // Resolved metrics from DB or Local
+  const pct = dbResults ? dbResults.stats.accuracy : localPct;
+  const displayScore = dbResults ? dbResults.stats.score : correctCount;
+  const displayTotal = dbResults ? dbResults.stats.total : questionSteps.length;
+  const timeMin = dbResults ? Math.max(1, Math.round(dbResults.stats.totalTimeMs / 60000)) : localTimeMin;
+  const avgTime = dbResults ? `${(dbResults.stats.avgTimeMs / 1000).toFixed(1)}s` : `${(hwElapsed / homeworkSteps.length / 1000).toFixed(1)}s`;
 
+  // Map review list
   const allReviews: Array<{
     num: number;
     topic: string;
@@ -98,68 +124,171 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ onSeeTeacher }) =>
     difficulty: string;
   }> = [];
 
-  homeworkSteps.forEach((s, idx) => {
-    if (!s.isQuestion) return;
-    const ans = hwAnswers[idx];
-    const isCorrect = !!(ans && ans.correct);
-    
-    let userAnsText = 'No answer';
-    let correctAnsText = '';
+  if (dbResults) {
+    dbResults.attempts.forEach((a: any, idx: number) => {
+      let userAnsText = 'No answer';
+      let correctAnsText = '';
 
-    if (s.type === 'mcq') {
-      userAnsText = ans && ans.answer !== undefined ? s.options?.[ans.answer] || 'No answer' : 'No answer';
-      correctAnsText = s.options?.[s.correct || 0] || '';
-    } else if (s.type === 'fill') {
-      userAnsText = ans ? ans.answer : 'No answer';
-      correctAnsText = (s.answer || '') + (s.unit ? ' ' + s.unit : '');
-    } else if (s.type === 'blanks') {
-      userAnsText = ans ? ans.filledBlanks?.filter(Boolean).join(', ') || 'No answer' : 'No answer';
-      correctAnsText = s.answers?.join(', ') || '';
-    } else if (s.type === 'drag') {
-      userAnsText = ans && ans.placements 
-        ? Object.entries(ans.placements).map(([zone, item]) => `${item} → ${zone}`).join(', ') 
-        : 'No answer';
-      correctAnsText = s.pairs?.map(p => `${p.item} → ${p.zone}`).join(', ') || '';
-    }
+      const type = a.interaction_type;
+      const s = a.variation_data;
+      const correct = a.answer_key;
+      const ans = a.student_answer;
 
-    const qNum = homeworkSteps.filter((x, qIdx) => x.isQuestion && qIdx <= idx).length;
-    const topicName = s.lo?.name || s.topic || '';
+      if (type === 'mcq') {
+        userAnsText = s[`option_${ans}`] || String(ans);
+        correctAnsText = s[`option_${correct.correct}`] || String(correct.correct);
+      } else if (type === 'fill') {
+        userAnsText = String(ans);
+        correctAnsText = String(correct.correct) + (s.unit ? ' ' + s.unit : '');
+      } else if (type === 'blanks') {
+        userAnsText = Array.isArray(ans) ? ans.filter(Boolean).join(', ') : String(ans);
+        correctAnsText = Array.isArray(correct.correct) ? correct.correct.join(', ') : String(correct.correct);
+      } else if (type === 'drag') {
+        userAnsText = typeof ans === 'object' ? Object.entries(ans).map(([z, i]) => `${i} → ${z}`).join(', ') : String(ans);
+        correctAnsText = typeof correct.correct === 'object' ? Object.entries(correct.correct).map(([z, i]) => `${i} → ${z}`).join(', ') : String(correct.correct);
+      } else {
+        userAnsText = String(ans);
+        correctAnsText = String(correct.correct);
+      }
 
-    // Enterprise-grade mocked metric tags
-    const timeSpentVal = ans && (ans as any).timeSpent ? ((ans as any).timeSpent / 1000) : (Math.random() * 3 + 1);
-    const timeSpentStr = `${timeSpentVal.toFixed(1)}s`;
-    const pts = s.type === 'mcq' ? 2 : 3;
-    const difficulty = s.type === 'mcq' ? 'EASY' : 'MEDIUM';
-
-    const reviewObj = {
-      num: qNum,
-      topic: topicName,
-      text: s.text || s.sentence?.replace(/\{___\}/g, '_____') || '',
-      type: s.type,
-      correct: isCorrect,
-      userAnswer: userAnsText,
-      correctAnswer: correctAnsText,
-      explanation: s.explanation || 'Review the topic concepts to reinforce your understanding.',
-      timeSpent: timeSpentStr,
-      pts,
-      difficulty
-    };
-
-    allReviews.push(reviewObj);
-
-    if (!isCorrect) {
-      wrongReviews.push({
-        num: qNum,
-        topic: topicName,
-        text: reviewObj.text,
+      allReviews.push({
+        num: idx + 1,
+        topic: a.learning_objective || a.subtopic || 'General',
+        text: s.question_text || s.text || s.sentence?.replace(/\{___\}/g, '_____') || 'Interactive Challenge',
+        type: a.interaction_type,
+        correct: a.is_correct,
         userAnswer: userAnsText,
         correctAnswer: correctAnsText,
-        explanation: reviewObj.explanation
+        explanation: s.explanation || 'Re-evaluate parameters and concept guidance.',
+        timeSpent: `${(a.time_taken_ms / 1000).toFixed(1)}s`,
+        pts: type === 'mcq' ? 2 : 3,
+        difficulty: a.difficulty.toUpperCase()
       });
-    }
-  });
+    });
+  } else {
+    // Demo mode mapping
+    homeworkSteps.forEach((s, idx) => {
+      if (!s.isQuestion) return;
+      const ans = hwAnswers[idx];
+      const isCorrect = !!(ans && ans.correct);
+      
+      let userAnsText = 'No answer';
+      let correctAnsText = '';
 
-  // Retry missed questions
+      if (s.type === 'mcq') {
+        userAnsText = ans && ans.answer !== undefined ? s.options?.[ans.answer] || 'No answer' : 'No answer';
+        correctAnsText = s.options?.[s.correct || 0] || '';
+      } else if (s.type === 'fill') {
+        userAnsText = ans ? ans.answer : 'No answer';
+        correctAnsText = (s.answer || '') + (s.unit ? ' ' + s.unit : '');
+      } else if (s.type === 'blanks') {
+        userAnsText = ans ? ans.filledBlanks?.filter(Boolean).join(', ') || 'No answer' : 'No answer';
+        correctAnsText = s.answers?.join(', ') || '';
+      } else if (s.type === 'drag') {
+        userAnsText = ans && ans.placements 
+          ? Object.entries(ans.placements).map(([zone, item]) => `${item} → ${zone}`).join(', ') 
+          : 'No answer';
+        correctAnsText = s.pairs?.map(p => `${p.item} → ${p.zone}`).join(', ') || '';
+      }
+
+      const qNum = homeworkSteps.filter((x, qIdx) => x.isQuestion && qIdx <= idx).length;
+      const topicName = s.lo?.name || s.topic || '';
+
+      const timeSpentVal = ans && (ans as any).timeSpent ? ((ans as any).timeSpent / 1000) : (Math.random() * 3 + 1);
+      const timeSpentStr = `${timeSpentVal.toFixed(1)}s`;
+      const pts = s.type === 'mcq' ? 2 : 3;
+      const difficulty = s.type === 'mcq' ? 'EASY' : 'MEDIUM';
+
+      allReviews.push({
+        num: qNum,
+        topic: topicName,
+        text: s.text || s.sentence?.replace(/\{___\}/g, '_____') || '',
+        type: s.type,
+        correct: isCorrect,
+        userAnswer: userAnsText,
+        correctAnswer: correctAnsText,
+        explanation: s.explanation || 'Review the topic concepts to reinforce your understanding.',
+        timeSpent: timeSpentStr,
+        pts,
+        difficulty
+      });
+    });
+  }
+
+  const wrongReviews = allReviews.filter(r => !r.correct);
+
+  // Learning Plan breakdown rows (Green >= 75%, Yellow 50-74%, Red < 50%)
+  const breakdownRows: Array<{
+    name: string;
+    p: number;
+    tag: string;
+    label: string;
+    color: string;
+  }> = [];
+
+  if (dbResults && dbResults.plan) {
+    dbResults.plan.forEach((p: any) => {
+      let label = 'Needs practice';
+      let color = 'red';
+      let tag = 'struggle';
+
+      if (p.strength === 'green') {
+        label = 'Strong';
+        color = 'green';
+        tag = 'over';
+      } else if (p.strength === 'yellow') {
+        label = 'Developing';
+        color = 'yellow';
+        tag = 'dev';
+      }
+
+      breakdownRows.push({
+        name: p.subtopic,
+        p: p.accuracy,
+        tag,
+        label,
+        color
+      });
+    });
+  } else {
+    // Demo mode mapping
+    const topicsUsed = [...new Set(questionSteps.map(q => q.topic || ''))];
+    topicsUsed.forEach(topicId => {
+      const lo = learningOutcomes.find(l => l.id === topicId);
+      const qs = questionSteps.filter(q => q.topic === topicId);
+      const correctCountForTopic = qs.filter(q => {
+        const si = homeworkSteps.indexOf(q);
+        return hwAnswers[si] && hwAnswers[si].correct;
+      }).length;
+      const ratio = qs.length ? correctCountForTopic / qs.length : 0;
+      const p = Math.round(ratio * 100);
+
+      let tag = 'struggle';
+      let label = 'Needs practice';
+      let color = 'red';
+
+      if (ratio >= 0.75) {
+        tag = 'over';
+        label = 'Strong';
+        color = 'green';
+      } else if (ratio >= 0.4) {
+        tag = 'dev';
+        label = 'Developing';
+        color = 'yellow';
+      }
+
+      breakdownRows.push({ name: lo?.name || topicId, p, tag, label, color });
+    });
+  }
+
+  // Difficulty Tier Stats
+  const difficultyStats = dbResults?.stats?.difficulty || {
+    easy: { total: 0, correct: 0, accuracy: 0 },
+    medium: { total: 0, correct: 0, accuracy: 0 },
+    hard: { total: 0, correct: 0, accuracy: 0 }
+  };
+
+  // Safe retry function (only for demo assignments)
   const retryWrongQuestions = () => {
     const wrongQs = homeworkSteps.filter((s, idx) => s.isQuestion && (!hwAnswers[idx] || !hwAnswers[idx].correct));
     if (wrongQs.length === 0) return;
@@ -187,44 +316,27 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ onSeeTeacher }) =>
     showToast('🔄 Retry session launched! Practice makes permanent.');
   };
 
-  // Breakdown metrics
-  const topicsUsed = [...new Set(questionSteps.map(q => q.topic || ''))];
-  const breakdownRows = topicsUsed.map(topicId => {
-    const lo = learningOutcomes.find(l => l.id === topicId);
-    const qs = questionSteps.filter(q => q.topic === topicId);
-    const correctCountForTopic = qs.filter(q => {
-      const si = homeworkSteps.indexOf(q);
-      return hwAnswers[si] && hwAnswers[si].correct;
-    }).length;
-    const ratio = qs.length ? correctCountForTopic / qs.length : 0;
-    const p = Math.round(ratio * 100);
-
-    let tag = 'struggle';
-    let label = 'Needs practice';
-    let color = 'red';
-
-    if (ratio >= 0.75) {
-      tag = 'over';
-      label = 'Strong';
-      color = 'green';
-    } else if (ratio >= 0.4) {
-      tag = 'dev';
-      label = 'Developing';
-      color = 'yellow';
-    }
-
-    return { name: lo?.name || topicId, p, tag, label, color };
-  });
-
   const activeReview = allReviews[selectedQIndex];
 
+  if (loadingDb) {
+    return (
+      <div className="success-screen show" style={{ display: 'grid', placeItems: 'center', height: '80vh', color: 'var(--text-dim)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div className="spin-icon" style={{ fontSize: '2.5rem', animation: 'spin 1s linear infinite', marginBottom: '16px' }}>⚙️</div>
+          <h3 style={{ fontWeight: 800 }}>Analyzing Homework Outcomes...</h3>
+          <p style={{ fontSize: '0.82rem' }}>Compiling correct answer keys and scoring subtopic strengths...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="success-screen show" id="successScreen" style={{ display: 'flex' }}>
+    <div className="success-screen show" id="successScreen" style={{ display: 'flex', flexDirection: 'column' }}>
       
-      {/* 1. Hero Section (Placement Complete design) */}
+      {/* 1. Hero Summary Panel */}
       <div className="success-hero-new">
         <div className="shn-eyebrow">HOMEWORK COMPLETE</div>
-        <div className="shn-title">Hi Scholar - here is your spot.</div>
+        <div className="shn-title">Hi Scholar - here is your score recap.</div>
         <div className="shn-desc">
           You sit in the <strong>{pct >= 80 ? 'Mastery Achieved' : pct >= 50 ? 'Foundation Builder' : 'Early Start'}</strong> band. The summary below shows your performance and learning path.
         </div>
@@ -241,41 +353,40 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ onSeeTeacher }) =>
         <div className="shn-tags-row">
           <span className="shn-tag primary-badge">{pct >= 80 ? 'Mastery' : pct >= 50 ? 'Foundation' : 'Early Start'}</span>
           <span className="shn-tag secondary-badge">Next: {pct >= 80 ? 'Expert Path' : 'Foundation Builder'}</span>
-          <span className="shn-tag neutral-badge">Student: Scholar</span>
-          <span className="shn-tag neutral-badge">{correctCount}/{questionSteps.length} correct</span>
+          <span className="shn-tag neutral-badge">{displayScore}/{displayTotal} correct</span>
           <span className="shn-tag neutral-badge">{timeMin}m total</span>
         </div>
       </div>
 
-      {/* 2. KPI Metrics Cards Row */}
+      {/* 2. KPI Metrics Cards Grid */}
       <div className="success-kpi-grid">
         <div className="kpi-card">
           <div className="kpi-icon-wrap">📊</div>
           <div className="kpi-value">{pct}%</div>
-          <div className="kpi-title">Score</div>
-          <div className="kpi-sub">Scaled to 100 · {correctCount}/{questionSteps.length} correct</div>
+          <div className="kpi-title">Accuracy Rate</div>
+          <div className="kpi-sub">Scaled score · {displayScore}/{displayTotal} correct</div>
         </div>
-        <div className="kpi-card">
-          <div className="kpi-icon-wrap">✅</div>
-          <div className="kpi-value">{correctCount}</div>
-          <div className="kpi-title">Correct Answers</div>
-          <div className="kpi-sub">{(questionSteps.length - correctCount)} incorrect out of {questionSteps.length} total</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-icon-wrap">⚡</div>
-          <div className="kpi-value">{homeworkSteps.length}</div>
-          <div className="kpi-title">Journey Nodes</div>
-          <div className="kpi-sub">Completed interactive steps</div>
-        </div>
+        
         <div className="kpi-card">
           <div className="kpi-icon-wrap">⏳</div>
-          <div className="kpi-value">{(hwElapsed / homeworkSteps.length / 1000).toFixed(1)}s</div>
-          <div className="kpi-title">Avg Time / Node</div>
-          <div className="kpi-sub">{(hwElapsed / 1000).toFixed(0)}s total run time</div>
+          <div className="kpi-value">{avgTime}</div>
+          <div className="kpi-title">Avg Time / Q</div>
+          <div className="kpi-sub">{timeMin}m total elapsed time</div>
+        </div>
+        
+        <div className="kpi-card">
+          <div className="kpi-icon-wrap">📈</div>
+          <div className="kpi-value" style={{ fontSize: '1.25rem', display: 'flex', gap: '8px', justifyContent: 'center' }}>
+            <span>E: {difficultyStats.easy.accuracy}%</span>
+            <span>M: {difficultyStats.medium.accuracy}%</span>
+            <span>H: {difficultyStats.hard.accuracy}%</span>
+          </div>
+          <div className="kpi-title">Accuracy by Tier</div>
+          <div className="kpi-sub">Easy, Medium, and Hard tier breakouts</div>
         </div>
       </div>
 
-      {/* 4. Review your answers Block */}
+      {/* 3. Interactive Answer Review Panel */}
       <div className="review-answers-panel">
         <div className="rap-header">
           <div className="rap-title">
@@ -303,9 +414,9 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ onSeeTeacher }) =>
         </div>
 
         {activeReview && (
-          <div className="rap-details-card">
+          <div className="rap-details-card animate-fade">
             <div className="rap-details-header">
-              <div className="rdh-title">QUESTION {activeReview.num}</div>
+              <div className="rdh-title">QUESTION {activeReview.num} &bull; <span style={{ textTransform: 'uppercase' }}>{activeReview.difficulty}</span></div>
               <div className={`rdh-status-badge ${activeReview.correct ? 'correct' : 'wrong'}`}>
                 {activeReview.correct ? 'GOT IT RIGHT' : 'GOT IT WRONG'}
               </div>
@@ -342,21 +453,21 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ onSeeTeacher }) =>
                 disabled={selectedQIndex === 0}
                 onClick={() => setSelectedQIndex(prev => prev - 1)}
               >
-                ← Previous
+                &larr; Previous
               </button>
               <button 
                 className="rap-nav-btn"
                 disabled={selectedQIndex === allReviews.length - 1}
                 onClick={() => setSelectedQIndex(prev => prev + 1)}
               >
-                Next →
+                Next &rarr;
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* 5. AI Learning Plan Matrix */}
+      {/* 4. Plan Matrix Breakdown (Adaptive Practice launch CTAs) */}
       <div className="learning-plan-matrix-card">
         <div className="lpm-header">
           <div>
@@ -370,20 +481,31 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ onSeeTeacher }) =>
 
         <div className="lpm-grid">
           {breakdownRows.map((r, idx) => (
-            <div key={idx} className="lpm-item-card">
+            <div key={idx} className={`lpm-item-card strength-${r.color}`}>
               <div className="lpm-item-header">
                 <span className="lpm-item-name">{r.name}</span>
                 <span className="lpm-item-score">{r.p}/100</span>
               </div>
               
               <div className="lpm-desc-text">
-                {topicContent[topicsUsed[idx] || 'lo1']?.recap?.text?.replace(/<[^>]*>/g, '') || 
-                 "Continue practice on inertia, motion equations, action-reaction pairs, and Newton's Three Laws to build solid conceptual foundation."}
+                Continue focused practice to reinforce conceptual foundations, address missteps, and build mastery.
               </div>
               
-              <span className={`lpm-item-tag ${r.tag}`}>
-                {r.label === 'Strong' ? 'Mastered' : r.label === 'Developing' ? 'Needs Focus' : 'Needs Urgent Help'}
-              </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                <span className={`lpm-item-tag ${r.tag}`}>
+                  {r.label === 'Strong' ? 'Mastered' : r.label === 'Developing' ? 'Needs Focus' : 'Urgent Practice'}
+                </span>
+                
+                <button 
+                  className="lpm-practice-btn"
+                  onClick={() => {
+                    setActiveAssignmentId(null);
+                    showToast(`🚀 Practice session compiled for: ${r.name}!`);
+                  }}
+                >
+                  Practice Subtopic
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -395,64 +517,8 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ onSeeTeacher }) =>
         </div>
       </div>
 
-      {/* 3. Question-by-Question Breakdown Card */}
-      <div className="breakdown-card-new">
-        <div className="bcn-header">
-          <div>
-            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>📋 Question-by-Question Breakdown</h3>
-            <div className="bcn-sub" style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '2px' }}>Detailed analysis per question</div>
-          </div>
-          <button className="methodology-btn" onClick={() => setModalOpen(true)}>🔬 Study Sheet</button>
-        </div>
-        
-        <div className="bcn-table-wrapper">
-          <table className="bcn-table">
-            <thead>
-              <tr>
-                <th>Q</th>
-                <th>DIFFICULTY</th>
-                <th>YOUR ANSWER</th>
-                <th>CORRECT</th>
-                <th>RESULT</th>
-                <th>TIME</th>
-                <th>PTS</th>
-                <th>EARNED</th>
-                <th>FLAGS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allReviews.map((r, idx) => (
-                <tr 
-                  key={idx} 
-                  className={selectedQIndex === idx ? 'active-row' : ''} 
-                  onClick={() => setSelectedQIndex(idx)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <td className="q-num">{r.num}</td>
-                  <td>
-                    <span className={`diff-badge ${r.difficulty.toLowerCase()}`}>
-                      {r.difficulty}
-                    </span>
-                  </td>
-                  <td className={r.correct ? 'ans-text correct' : 'ans-text wrong'}>
-                    {r.userAnswer}
-                  </td>
-                  <td className="ans-text correct">{r.correctAnswer}</td>
-                  <td className="result-char">{r.correct ? '✓' : '✗'}</td>
-                  <td className="space-mono">{r.timeSpent}</td>
-                  <td className="space-mono">{r.pts}</td>
-                  <td className="space-mono">{r.correct ? r.pts : 0}</td>
-                  <td>
-                    {!r.correct ? <span className="flag-badge">Rapid</span> : <span className="flag-badge-ok">Optimal</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div style={{ textAlign: 'center', padding: '6px 0', marginBottom: '20px', display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
+      {/* Return to Dashboard controls */}
+      <div style={{ textAlign: 'center', padding: '16px 0', marginBottom: '20px', display: 'flex', gap: '14px', justifyContent: 'center' }}>
         <button 
           className="nav-btn secondary" 
           onClick={() => setActiveAssignmentId(null)}
@@ -460,15 +526,16 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ onSeeTeacher }) =>
         >
           🏠 Return to Playground
         </button>
-        {wrongReviews.length > 0 && (
-          <button className="nav-btn accent-btn" onClick={retryWrongQuestions} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'var(--accent)', color: '#ffffff', border: 'none', padding: '10px 20px', borderRadius: 'var(--radius-sm)', fontWeight: 800, cursor: 'pointer' }}>
+        
+        {!isDbAssignment && wrongReviews.length > 0 && (
+          <button className="nav-btn accent-btn" onClick={retryWrongQuestions}>
             🔄 Practice Missed Questions
           </button>
         )}
+        
         <button 
           className="nav-btn primary" 
-          onClick={onSeeTeacher} 
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          onClick={onSeeTeacher}
         >
           📊 See teacher view
         </button>
@@ -478,7 +545,39 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ onSeeTeacher }) =>
         isOpen={modalOpen} 
         onClose={() => setModalOpen(false)} 
       />
+      
+      <style>{`
+        /* LPM strength specific subtopic colors */
+        .lpm-item-card.strength-green {
+          border-left: 5px solid #16B981;
+          background: rgba(22, 185, 129, 0.02);
+        }
+        .lpm-item-card.strength-yellow {
+          border-left: 5px solid #FF9F43;
+          background: rgba(255, 159, 67, 0.02);
+        }
+        .lpm-item-card.strength-red {
+          border-left: 5px solid #F0556B;
+          background: rgba(240, 85, 107, 0.02);
+        }
+        .lpm-practice-btn {
+          background: white;
+          border: 1.5px solid var(--accent);
+          color: var(--accent);
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 0.72rem;
+          font-weight: 800;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .lpm-practice-btn:hover {
+          background: var(--accent);
+          color: white;
+        }
+      `}</style>
     </div>
   );
 };
+
 export default SuccessScreen;

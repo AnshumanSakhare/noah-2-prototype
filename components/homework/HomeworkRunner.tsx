@@ -15,6 +15,132 @@ import { MathSortGuideStep } from './math/MathSortGuideStep';
 import { MathFractionGuideStep } from './math/MathFractionGuideStep';
 import { MathPythagorasGuideStep } from './math/MathPythagorasGuideStep';
 
+interface IframeQuestionStepProps {
+  assignmentId: string;
+  index: number;
+  answer: HomeworkAnswer | undefined;
+  onAnswer: (ans: HomeworkAnswer) => void;
+  onBack: () => void;
+  onContinue: () => void;
+  isFirst: boolean;
+  stepProgressText: string;
+}
+
+export const IframeQuestionStep: React.FC<IframeQuestionStepProps> = ({
+  assignmentId,
+  index,
+  answer,
+  onAnswer,
+  onBack,
+  onContinue,
+  isFirst,
+  stepProgressText
+}) => {
+  const [loading, setLoading] = useState(true);
+  const [questionId, setQuestionId] = useState("");
+  const [html, setHtml] = useState("");
+  const [selectedAnswer, setSelectedAnswer] = useState<any>(answer?.answer || null);
+  const [submitting, setSubmitting] = useState(false);
+  
+  const renderTimeRef = useRef<number>(Date.now());
+
+  useEffect(() => {
+    const fetchQuestion = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/homework/${assignmentId}/question/${index}`);
+        const json = await res.json();
+        if (json.success) {
+          setQuestionId(json.data.id);
+          setHtml(json.data.html);
+          renderTimeRef.current = Date.now();
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchQuestion();
+    setSelectedAnswer(answer?.answer || null);
+  }, [assignmentId, index, answer]);
+
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data && e.data.type === "EDUQUEST_ANSWER") {
+        setSelectedAnswer(e.data.answer);
+        onAnswer({
+          type: "mcq", // placeholder
+          answer: e.data.answer,
+          correct: true
+        });
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [onAnswer]);
+
+  const handleSubmit = async () => {
+    if (selectedAnswer === null) return;
+    setSubmitting(true);
+    
+    const timeTakenMs = Date.now() - renderTimeRef.current;
+    
+    try {
+      await fetch(`/api/homework/${assignmentId}/answer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question_id: questionId,
+          student_answer: selectedAnswer,
+          time_taken_ms: timeTakenMs
+        })
+      });
+      onContinue();
+    } catch (err) {
+      console.error(err);
+      onContinue();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="hw-card hw-card-question">
+      <div className="hw-card-body" style={{ padding: 0, position: 'relative', height: '520px', overflow: 'hidden' }}>
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px' }}>
+            <div className="spin-icon" style={{ fontSize: '2rem', animation: 'spin 1s linear infinite' }}>⚙️</div>
+            <p style={{ fontWeight: 650, color: 'var(--text-dim)' }}>Loading next interactive challenge...</p>
+          </div>
+        ) : (
+          <iframe
+            title="EduQuest Activity"
+            sandbox="allow-scripts"
+            srcDoc={html}
+            style={{ width: '100%', height: '100%', border: 'none', background: 'transparent' }}
+          />
+        )}
+      </div>
+
+      <div className="hw-card-footer">
+        <button className="nav-btn secondary" onClick={onBack} disabled={isFirst}>
+          ← Back
+        </button>
+        <span className="footer-step-indicator">{stepProgressText}</span>
+        <button 
+          className="nav-btn primary" 
+          onClick={handleSubmit} 
+          disabled={selectedAnswer === null || submitting}
+        >
+          {submitting ? "Saving..." : "Next →"}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 interface HomeworkRunnerProps {
   onComplete: () => void;
 }
@@ -83,7 +209,8 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
     hwElapsed,
     setHwElapsed,
     showToast,
-    logEvent
+    logEvent,
+    activeAssignmentId
   } = useHomework();
 
   const [transitioning, setTransitioning] = useState<boolean>(false);
@@ -307,6 +434,25 @@ export const HomeworkRunner: React.FC<HomeworkRunnerProps> = ({ onComplete }) =>
     const activeAnswer = hwAnswers[hwIndex];
 
     const stepProgressText = `Step ${hwIndex + 1} of ${homeworkSteps.length}`;
+
+    // If this is a database-backed assignment (UUID instead of demo1/demo2), 
+    // render the sandboxed iframe question step for all question types!
+    const isDbAssignment = activeAssignmentId && !activeAssignmentId.startsWith('demo');
+    if (isDbAssignment && isQuestionType(step)) {
+      return (
+        <IframeQuestionStep
+          key={hwIndex}
+          assignmentId={activeAssignmentId!}
+          index={hwIndex}
+          answer={activeAnswer}
+          onAnswer={handleAnswer}
+          onBack={handleBack}
+          onContinue={handleContinue}
+          isFirst={isFirst}
+          stepProgressText={stepProgressText}
+        />
+      );
+    }
 
     switch (step.type) {
       case 'topic-intro':

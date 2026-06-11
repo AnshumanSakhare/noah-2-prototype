@@ -145,6 +145,7 @@ export interface HomeworkContextType {
   eventLog: any[];
   logEvent: (e: any) => void;
   selectAssignment: (id: string) => void;
+  assignHomeworkDb: (topic: string, count: number, diff: string) => Promise<string | null>;
   selectedMathGrade: string;
   setSelectedMathGrade: React.Dispatch<React.SetStateAction<string>>;
   activeTab: 'dynamic' | 'templates' | 'analytics';
@@ -775,12 +776,76 @@ export const HomeworkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const selected = assignments.find(a => a.id === id);
     if (selected) {
       setActiveAssignmentId(id);
-      // Filter out redundant slides to keep total cards under 12
-      const filteredSteps = selected.steps.filter(
-        step => !['topic-intro', 'topic-complete', 'flashcard'].includes(step.type)
-      );
-      setHomeworkSteps(filteredSteps);
+      
+      // If it's a DB assignment, build steps directly from length placeholder
+      if (!id.startsWith('demo')) {
+        setHomeworkSteps(selected.steps);
+      } else {
+        // Filter out redundant slides to keep total cards under 12
+        const filteredSteps = selected.steps.filter(
+          step => !['topic-intro', 'topic-complete', 'flashcard'].includes(step.type)
+        );
+        setHomeworkSteps(filteredSteps);
+      }
       resetHomework();
+    }
+  };
+
+  const assignHomeworkDb = async (topic: string, count: number, diff: string): Promise<string | null> => {
+    try {
+      const res = await fetch("/api/homework/assign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          student_id: "00000000-0000-0000-0000-000000000001", // Mock student
+          topic,
+          activity_count: count,
+          difficulty_mode: diff,
+          teacher_id: "00000000-0000-0000-0000-000000000002" // Mock teacher
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        const assignmentId = json.assignmentId;
+        const steps: HomeworkStep[] = [];
+        
+        // Populate question index steps
+        for (let i = 0; i < json.questionCount; i++) {
+          steps.push({
+            type: 'mcq', // Placeholder, will load dynamic details inside runner
+            topic,
+            isQuestion: true
+          });
+        }
+
+        const newAssignment: HomeworkAssignment = {
+          id: assignmentId,
+          title: `Homework Set: ${topic.includes('lo') ? 'Science Journey' : topic}`,
+          topicSummary: `Topics: ${topic} (${diff.toUpperCase()})`,
+          subject: builderState.subject,
+          length: steps.length,
+          steps: steps,
+          isCustom: true,
+          isCompleted: false
+        };
+
+        setAssignments(prev => {
+          const filtered = prev.filter(a => !a.isCustom);
+          return [...filtered, newAssignment];
+        });
+
+        setActiveAssignmentId(assignmentId);
+        setHomeworkSteps(steps);
+        resetHomework();
+        return assignmentId;
+      } else {
+        showToast(`Error assigning: ${json.error}`);
+        return null;
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to assign homework dynamically");
+      return null;
     }
   };
 
@@ -834,6 +899,7 @@ export const HomeworkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         eventLog,
         logEvent,
         selectAssignment,
+        assignHomeworkDb,
         selectedMathGrade,
         setSelectedMathGrade,
         activeTab,

@@ -25,13 +25,23 @@ export default function TeacherPage() {
     setAssignments,
     setActiveAssignmentId,
     activeTab,
-    setActiveTab
+    setActiveTab,
+    assignHomeworkDb
   } = useHomework();
   const [viewMode, setViewMode] = useState<'builder' | 'assembling' | 'preview'>('builder');
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setViewMode('assembling');
-    compileHomework();
+    // Call the dynamic DB assignment compilation
+    const topic = builderState.topics[0] || "Position & Direction";
+    const assignedId = await assignHomeworkDb(topic, builderState.length, builderState.diff);
+    if (assignedId) {
+      setTimeout(() => {
+        handleAssemblyComplete();
+      }, 1500);
+    } else {
+      setViewMode('builder');
+    }
   };
 
   const handleAssemblyComplete = () => {
