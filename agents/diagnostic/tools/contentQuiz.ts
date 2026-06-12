@@ -108,7 +108,9 @@ function toClassLevel(value: string | null | undefined): ClassLevel {
   return "class8";
 }
 
-function toDiagnosticRegion(value: string | null | undefined): DiagnosticRegion {
+function toDiagnosticRegion(
+  value: string | null | undefined,
+): DiagnosticRegion {
   const normalized = normalizeKey(value);
   return (
     DIAGNOSTIC_REGIONS.find((region) => normalizeKey(region) === normalized) ??
@@ -307,21 +309,33 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
     // Support both new (items/targets) and old (premises/responses) schema
     let premises: string[] = matchingPayload.premises ?? [];
     if (premises.length === 0 && Array.isArray(matchingPayload.items)) {
-      premises = matchingPayload.items.map((i: any) => i.label || i.text || i.value || "");
+      premises = matchingPayload.items.map(
+        (i: any) => i.label || i.text || i.value || "",
+      );
     }
     let responses: string[] = matchingPayload.responses ?? [];
     if (responses.length === 0 && Array.isArray(matchingPayload.targets)) {
-      responses = matchingPayload.targets.map((t: any) => t.label || t.text || t.value || "");
+      responses = matchingPayload.targets.map(
+        (t: any) => t.label || t.text || t.value || "",
+      );
     }
 
     let answerKey: any[] = matchingPayload.answerKey ?? [];
     if (answerKey.length > 0 && answerKey[0].itemId) {
       answerKey = answerKey.map((ans: any) => {
-        const itemObj = (matchingPayload.items || []).find((i: any) => i.id === ans.itemId);
-        const targetObj = (matchingPayload.targets || []).find((t: any) => t.id === ans.targetId);
+        const itemObj = (matchingPayload.items || []).find(
+          (i: any) => i.id === ans.itemId,
+        );
+        const targetObj = (matchingPayload.targets || []).find(
+          (t: any) => t.id === ans.targetId,
+        );
         return {
-          prompt: itemObj ? (itemObj.label || itemObj.text || "") : (ans.prompt || ""),
-          match: targetObj ? (targetObj.label || targetObj.text || "") : (ans.match || "")
+          prompt: itemObj
+            ? itemObj.label || itemObj.text || ""
+            : ans.prompt || "",
+          match: targetObj
+            ? targetObj.label || targetObj.text || ""
+            : ans.match || "",
         };
       });
     }
@@ -342,23 +356,33 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
     // Support both new (items/targets) and old (draggableItems/dropZones) schema
     let draggableItems: string[] = dragDropPayload.draggableItems ?? [];
     if (draggableItems.length === 0 && Array.isArray(dragDropPayload.items)) {
-      draggableItems = dragDropPayload.items.map((i: any) => i.label || i.text || i.value || "");
+      draggableItems = dragDropPayload.items.map(
+        (i: any) => i.label || i.text || i.value || "",
+      );
     }
 
     let dropZones: string[] = dragDropPayload.dropZones ?? [];
     if (dropZones.length === 0 && Array.isArray(dragDropPayload.targets)) {
-      dropZones = dragDropPayload.targets.map((t: any) => t.label || t.text || t.value || "");
+      dropZones = dragDropPayload.targets.map(
+        (t: any) => t.label || t.text || t.value || "",
+      );
     }
 
     let answerKey: any[] = dragDropPayload.answerKey ?? [];
     if (answerKey.length > 0 && answerKey[0].itemId) {
       // Map itemId/targetId pointers back to actual string labels
       answerKey = answerKey.map((ans: any) => {
-        const itemObj = (dragDropPayload.items || []).find((i: any) => i.id === ans.itemId);
-        const targetObj = (dragDropPayload.targets || []).find((t: any) => t.id === ans.targetId);
+        const itemObj = (dragDropPayload.items || []).find(
+          (i: any) => i.id === ans.itemId,
+        );
+        const targetObj = (dragDropPayload.targets || []).find(
+          (t: any) => t.id === ans.targetId,
+        );
         return {
-          item: itemObj ? (itemObj.label || itemObj.text || "") : (ans.item || ""),
-          target: targetObj ? (targetObj.label || targetObj.text || "") : (ans.target || "")
+          item: itemObj ? itemObj.label || itemObj.text || "" : ans.item || "",
+          target: targetObj
+            ? targetObj.label || targetObj.text || ""
+            : ans.target || "",
         };
       });
     }
@@ -589,12 +613,7 @@ async function loadTopicQuestions(input: {
         ${QUESTION_VISUAL_MODE_TYPE_FILTER}
       ORDER BY learning_objective, difficulty_level, id
     `,
-    [
-      input.subject,
-      toDbGrade(input.classLevel),
-      input.topic,
-      input.region,
-    ],
+    [input.subject, toDbGrade(input.classLevel), input.topic, input.region],
   );
 
   return toQuestions(result.rows as ContentQuestionRow[]);
@@ -1934,5 +1953,206 @@ export async function getPlacementQuizForClient(input: {
     ),
     maxQuestions: sortedQuestions.length,
     questions: sortedQuestions.map(toClientQuizQuestion),
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Generic question-serving API                                              */
+/*  Flexible, filterable read access over the question banks. Reuses the same */
+/*  row -> typed-question mapping (buildQuestion) as the diagnostic flow so    */
+/*  the output shape is identical everywhere.                                  */
+/* -------------------------------------------------------------------------- */
+
+/** Which physical question bank a request reads from. */
+export type QuestionSource = "diagnostic" | "placement";
+
+export const QUESTION_SOURCES = ["diagnostic", "placement"] as const;
+export const QUESTION_TYPES = [
+  "mcq",
+  "true_false",
+  "fitb",
+  "matching",
+  "drag_drop",
+  "short_answer",
+  "word_problem",
+  "open_response",
+] as const satisfies readonly QuestionType[];
+export const DIFFICULTY_BANDS = ["easy", "medium", "hard"] as const;
+export const BLOOM_LEVELS = ["remember", "understand", "apply"] as const;
+export const QUESTION_ORDERINGS = ["default", "random", "difficulty"] as const;
+
+export type QuestionOrdering = (typeof QUESTION_ORDERINGS)[number];
+
+/**
+ * Canonical question type -> every spelling that appears in the DB.
+ * Lets us filter accurately at the SQL layer even though the source data is
+ * inconsistent (e.g. "drag n drop" vs "drag_drop").
+ */
+const QUESTION_TYPE_DB_ALIASES: Record<QuestionType, string[]> = {
+  mcq: ["mcq"],
+  true_false: ["true_false"],
+  fitb: ["fitb"],
+  matching: ["matching"],
+  drag_drop: ["drag_drop", "drag n drop", "drag_n_drop", "drag-and-drop"],
+  short_answer: ["short_answer"],
+  word_problem: ["word_problem"],
+  open_response: ["open_response"],
+};
+
+const BLOOM_DB_ALIASES: Record<BloomLevel, string[]> = {
+  remember: ["remember", "knowing"],
+  understand: ["understand", "understanding"],
+  apply: ["apply"],
+};
+
+const PLACEMENT_QUESTION_SELECT = `
+  SELECT
+    id::text,
+    question_type,
+    question_text,
+    subject,
+    grade,
+    grade_level,
+    topic,
+    subtopic,
+    learning_objective,
+    blooms_level,
+    difficulty_level,
+    difficulty_rating,
+    options,
+    explanation,
+    generation_metadata
+  FROM placement_test_questions_v2
+`;
+
+const DIFFICULTY_ORDER_SQL = `
+  CASE lower(btrim(difficulty_level))
+    WHEN 'easy' THEN 0
+    WHEN 'medium' THEN 1
+    WHEN 'hard' THEN 2
+    ELSE 3
+  END`;
+
+export interface ServeQuestionsParams {
+  source: QuestionSource;
+  subject?: Subject;
+  classLevel?: ClassLevel;
+  /** Only applied to the region-aware diagnostic bank. */
+  region: DiagnosticRegion;
+  topic?: string;
+  subtopic?: string;
+  learningObjective?: string;
+  questionTypes?: QuestionType[];
+  difficulties?: DifficultyBand[];
+  blooms?: BloomLevel[];
+  /** Case-insensitive substring match on the question text. */
+  search?: string;
+  order: QuestionOrdering;
+  limit: number;
+  offset: number;
+}
+
+export interface ServeQuestionsResult {
+  questions: QuestionBankQuestion[];
+  total: number;
+}
+
+/**
+ * Filterable, paginated read over a question bank.
+ * Returns fully-typed questions (with answer keys); callers decide whether to
+ * strip them for client delivery via `toClientQuizQuestion`.
+ */
+export async function serveQuestions(
+  params: ServeQuestionsParams,
+): Promise<ServeQuestionsResult> {
+  const isPlacement = params.source === "placement";
+  const table = isPlacement
+    ? "placement_test_questions_v2"
+    : "final_content_questions_1";
+
+  const conditions: string[] = [
+    "question_text IS NOT NULL",
+    "question_type IS NOT NULL",
+  ];
+  const values: unknown[] = [];
+  const bind = (value: unknown) => {
+    values.push(value);
+    return `$${values.length}`;
+  };
+
+  if (params.subject) conditions.push(`subject = ${bind(params.subject)}`);
+  if (params.classLevel) {
+    conditions.push(`grade = ${bind(toDbGrade(params.classLevel))}`);
+  }
+  if (params.topic) conditions.push(`topic = ${bind(params.topic)}`);
+  if (params.subtopic) conditions.push(`subtopic = ${bind(params.subtopic)}`);
+  if (params.learningObjective) {
+    conditions.push(`learning_objective = ${bind(params.learningObjective)}`);
+  }
+  if (params.search) {
+    conditions.push(`question_text ILIKE ${bind(`%${params.search}%`)}`);
+  }
+
+  // Region + visual-mode filters only exist on the diagnostic bank.
+  if (!isPlacement) {
+    conditions.push(`region IN ('global', ${bind(params.region)})`);
+    conditions.push(`(
+      visual_mode IS NULL
+      OR lower(btrim(visual_mode)) <> 'question_svg'
+      OR lower(btrim(question_type)) = 'mcq'
+    )`);
+  }
+
+  if (params.questionTypes?.length) {
+    const spellings = params.questionTypes.flatMap(
+      (type) => QUESTION_TYPE_DB_ALIASES[type],
+    );
+    conditions.push(
+      `lower(btrim(question_type)) = ANY(${bind(spellings)}::text[])`,
+    );
+  }
+  if (params.difficulties?.length) {
+    conditions.push(
+      `lower(btrim(difficulty_level)) = ANY(${bind(params.difficulties)}::text[])`,
+    );
+  }
+  if (params.blooms?.length) {
+    const spellings = params.blooms.flatMap((bloom) => BLOOM_DB_ALIASES[bloom]);
+    conditions.push(
+      `lower(btrim(blooms_level)) = ANY(${bind(spellings)}::text[])`,
+    );
+  }
+
+  const where = `WHERE ${conditions.join("\n    AND ")}`;
+
+  const countResult = await query(
+    `SELECT count(*)::int AS total FROM ${table} ${where}`,
+    values,
+  );
+  const total: number = countResult.rows[0]?.total ?? 0;
+
+  const orderBy =
+    params.order === "random"
+      ? "ORDER BY random()"
+      : params.order === "difficulty"
+        ? `ORDER BY ${DIFFICULTY_ORDER_SQL}, id`
+        : isPlacement
+          ? "ORDER BY id"
+          : "ORDER BY subject, grade, topic, learning_objective, difficulty_level, id";
+
+  const limitPlaceholder = bind(params.limit);
+  const offsetPlaceholder = bind(params.offset);
+  const select = isPlacement
+    ? PLACEMENT_QUESTION_SELECT
+    : CONTENT_QUESTION_SELECT;
+
+  const result = await query(
+    `${select} ${where} ${orderBy} LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}`,
+    values,
+  );
+
+  return {
+    questions: toQuestions(result.rows as ContentQuestionRow[]),
+    total,
   };
 }

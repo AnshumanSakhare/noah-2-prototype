@@ -192,10 +192,13 @@ export default function AIGeneratorPage() {
   // grade/difficulty context is honored per slot. Skips slots already filled.
   const [autoFilling, setAutoFilling] = useState(false);
   const [autoStatus, setAutoStatus] = useState("");
+  // Which slot row (1, 2 or 3) the Auto-Fill button targets across Easy/Med/Hard.
+  const [autoFillRow, setAutoFillRow] = useState<1 | 2 | 3>(1);
 
   const autoGenerateOne = async (
     difficulty: "easy" | "medium" | "hard",
-    archetype: string
+    archetype: string,
+    rowIndex: number
   ): Promise<string> => {
     // 1) Brainstorm one idea for this grade/difficulty/archetype.
     let idea: any = null;
@@ -231,7 +234,7 @@ export default function AIGeneratorPage() {
             grade: selectedGrade,
             topic: selectedTopic,
             difficulty,
-            variationIndex: 1,
+            variationIndex: rowIndex,
             interactionArchetype: archetype,
             customPrompt: "",
             selectedIdea: idea
@@ -249,10 +252,11 @@ export default function AIGeneratorPage() {
 
   const handleAutoFill = async () => {
     if (selectedGrade === "" || !selectedTopic || autoFilling) return;
-    if (!confirm("Auto-generate Slot #1 for Easy, Medium and Hard (3 games with 3 distinct interaction types)? This calls the AI ~3× and saves to the DB.")) return;
+    const row = autoFillRow;
+    if (!confirm(`Auto-generate Slot #${row} for Easy, Medium and Hard (3 games with 3 distinct interaction types)? This calls the AI ~3× and saves to the DB.`)) return;
 
     setAutoFilling(true);
-    setAutoStatus("Generating Easy, Medium & Hard in parallel…");
+    setAutoStatus(`Generating Slot #${row} (Easy, Medium & Hard)…`);
     const diffs: Array<"easy" | "medium" | "hard"> = ["easy", "medium", "hard"];
     // 3 distinct archetypes for variety.
     const picks = [...ARCHETYPES].sort(() => Math.random() - 0.5).slice(0, 3);
@@ -261,9 +265,9 @@ export default function AIGeneratorPage() {
       // Run all three slots concurrently for speed.
       const results = await Promise.all(
         diffs.map((diff, i) =>
-          getSlot(diff, 1)
-            ? Promise.resolve(`${diff}: skipped (Slot 1 already filled)`)
-            : autoGenerateOne(diff, picks[i])
+          getSlot(diff, row)
+            ? Promise.resolve(`${diff}: skipped (Slot ${row} already filled)`)
+            : autoGenerateOne(diff, picks[i], row)
         )
       );
       await fetchSlots();
@@ -394,10 +398,21 @@ export default function AIGeneratorPage() {
           <p>Create or revise interactive math games dynamically using OpenAI based on the spreadsheet schema.</p>
         </div>
         {selectedGrade !== "" && selectedTopic && (
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <select
+              className="autofill-row-select"
+              value={autoFillRow}
+              onChange={(e) => setAutoFillRow(Number(e.target.value) as 1 | 2 | 3)}
+              disabled={autoFilling || loading}
+              title="Which slot row to fill across Easy / Medium / Hard"
+            >
+              <option value={1}>Row 1</option>
+              <option value={2}>Row 2</option>
+              <option value={3}>Row 3</option>
+            </select>
             <button className="btn-generate-slot" onClick={handleAutoFill} disabled={autoFilling || loading} style={{ whiteSpace: 'nowrap' }}>
               <Sparkles size={14} className={autoFilling ? "spin-icon" : ""} style={{ marginRight: '6px' }} />
-              {autoFilling ? (autoStatus || "Auto-Filling…") : "⚡ Auto-Fill 3 Slots"}
+              {autoFilling ? (autoStatus || "Auto-Filling…") : `⚡ Auto-Fill Row ${autoFillRow}`}
             </button>
             <button className="btn-secondary" onClick={fetchSlots} disabled={loading || autoFilling}>
               <RefreshCw size={14} className={loading ? "spin-icon" : ""} style={{ marginRight: '6px' }} />
@@ -1257,6 +1272,29 @@ export default function AIGeneratorPage() {
           color: #6C5CE7;
           transform: translateY(-0.5px);
           box-shadow: 0 2px 4px rgba(108,92,231,0.06);
+        }
+
+        .autofill-row-select {
+          background: white;
+          border: 1.5px solid #CBD5E1;
+          color: #20243A;
+          font-size: 0.72rem;
+          font-weight: 800;
+          padding: 6px 10px;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.15s;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        .autofill-row-select:hover:not(:disabled) {
+          border-color: #6C5CE7;
+          color: #6C5CE7;
+        }
+
+        .autofill-row-select:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
         }
 
         /* Modals layout */
