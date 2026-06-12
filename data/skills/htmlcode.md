@@ -26,10 +26,11 @@ The #1 job is **consistency + delight**: colorful and friendly, but minimal and 
 
 ## HARD RULES (never break — these are the consistency contract)
 
-1. **Fixed stage.** The play area `.game` is exactly **760 × 520 px**, centered. The stage occupies the full width and height. Body must have no margins/padding and overflow: hidden so that it fits the runner iframe perfectly without scrolling or extra spaces.
+1. **Fixed stage — and EVERYTHING fits inside it.** The play area `.game` is exactly **760 × 520 px**, centered, with body margin/padding 0 and overflow hidden. CRITICAL: ALL content — the prompt figure, the numbers, AND the option/answer controls — MUST fit within that **520px height with NOTHING clipped**. Budget the vertical space: focal figure/illustration ≤ ~280px tall, big display numbers ≤ ~64px, the answer controls (buttons/slots) ≤ ~110px, with comfortable gaps. If the layout feels tall, shrink the figure and fonts until the bottom row of controls is fully visible. A game whose buttons are cut off at the bottom is a FAILURE.
 2. **No Headers or Footers.** Do NOT include any game headers (no titles, eyebrows, or instruction texts) or footers (no reset buttons, hint lines, or modality notes). The host application (Homework Runner/Builder) provides headers, instructions, reset buttons, and feedback.
 3. **Tokens only.** All color/spacing/radius/font come from the CSS variables in the skeleton's `:root`. **No raw hex/rgb outside `:root`. No off-scale font sizes. No inline `style=` for color/background/font.**
-4. **One file, no network.** Everything inline. No external CSS/JS/fonts/images, no CDN, no `fetch`. Graphics = emoji or inline SVG only.
+4. **One file, no network.** Everything inline. No external CSS/JS/fonts/images, no CDN, no `fetch`. Graphics = **clean inline SVG preferred**; emoji only as a rare accent (≤1–2 total), never the main visual language.
+4b. **Minimal, modern, NOT cartoonish.** Favor flat, geometric, line/soft-fill SVG (think tidy app icons, not glossy 3D emoji or busy storybook scenes). No emoji-soup, no decorative animal pile-ups, no heavy gradients/shadows on every object. Calm, clean, premium — even at KG.
 5. **One interaction primitive.** Exactly one archetype per game. Never combine drag + sort + MCQ.
 6. **Self-contained state.** The game must track its state and answer correctly in vanilla JS. When an answer is chosen or changed, it must immediately call `checkAnswer()`.
 7. **Static values.** Real numbers/words — NOT `{{placeholders}}` in the playable content. Playable on open.
@@ -37,6 +38,7 @@ The #1 job is **consistency + delight**: colorful and friendly, but minimal and 
 9. **No dialogs or feedback text.** Never `alert()`, `prompt()`, `confirm()`, or write text feedback inside the game HTML.
 10. **Drag needs a tap fallback.** Any drag/sequence game must also work by tap-to-pick then tap-to-place.
 11. **No decorative clutter.** Do NOT scatter random floating dots, blobs, stray bars, glows, "ghost" shapes, sparkles, or background confetti around the focal element. Every element on screen must be either the interactive content, a label the child needs, or the single clean panel/stage it sits on. If a mark isn't part of the question or the answer, delete it. Decoration ≠ random circles.
+12. **Never reveal the answer — the STUDENT produces it.** The game must NOT auto-compute, auto-animate-to, or display the correct answer anywhere. Any number, counter, marker, or position shown must reflect ONLY the student's own current input/manipulation — never the target value. The child does the thinking; the game just captures their choice. (A self-solving "watch it compute" demo belongs to the learn/recap phase, NOT a graded question.) Example — for "23 − 8 = ?": ❌ a bar that drains itself and shows "15"; ✅ the child sets a marker / builds a count / taps a chip, and the only number shown is the one THEY set.
 
 ---
 
@@ -44,8 +46,9 @@ The #1 job is **consistency + delight**: colorful and friendly, but minimal and 
 
 - **Colorful** = use the playful accent palette (`--c-grape`, `--c-sky`, `--c-mango`, `--c-rose`, `--c-mint`) for game tokens, correct/active states, and one or two focal moments. Friendly, rounded, soft.
 - **Minimal** = ~55–65% whitespace, ONE focal cluster, short text, no score/timer/lives/confetti-walls unless the topic truly needs them. The reference games win by doing ONE clear thing.
+- **Minimal layout ≠ minimal imagination.** A minimal layout should still carry the idea's creative hook — a character, scenario, or visual metaphor — expressed *through* the single focal cluster (e.g. the choices ARE the monsters' tummies, the token IS the sleepy star). If a selected idea/blueprint specifies a theme, honor it with **minimal SVG** (emoji sparingly, if at all) inside the existing interaction, never by adding extra elements, steps, or clutter. A subtle, clean metaphor beats a busy cartoon.
 - Soft shadows only (`--shadow`). Transitions 120–200 ms ease-out. Rounded corners everywhere.
-- KG–2: bigger tokens, more emoji/pictures, fewer words. Grades 6–8: smaller tokens, more symbols/abstraction, denser is OK.
+- KG–2: bigger tokens, simple friendly **SVG shapes/icons** (minimal emoji), fewer words. Grades 6–8: smaller tokens, more symbols/abstraction, denser is OK.
 - Use multiple accent colors for distinct items (e.g., sortable blocks), but keep `--c-grape` as the primary "brand" accent so games stay coherent.
 - **Earn every mark.** Whitespace is the design — do not fill it with decorative dots, blobs, glows, or floating accents. A clean shape on empty space reads as premium; the same shape surrounded by random circles reads as broken. When in doubt, remove.
 
@@ -124,6 +127,7 @@ Rules:
 2. Use a neutral highlight (e.g. grape outline) for the selected option — no green, no red.
 3. Always call `window.parent.postMessage({ type: 'EDUQUEST_ANSWER', answer: getState() }, '*')` to pass the answer up.
 4. The `checkAnswer()` function must still run, but skip the success/failure indicators.
+5. Even in standalone mode, never auto-compute or pre-fill the answer (see HARD RULE 12). The game presents the question and captures the student's input; it does not solve itself.
 
 ---
 
@@ -131,7 +135,7 @@ Rules:
 
 | Grade | Number range | Allowed ops | Reading | Tokens | Default modality |
 |---|---|---|---|---|---|
-| **KG** | 0–10 | count, compare | pre-reader, ≤6 words, picture-first | huge, dots/emoji | tap, big targets |
+| **KG** | 0–10 | count, compare | pre-reader, ≤6 words, picture-first | huge, dots/simple SVG shapes | tap, big targets |
 | **1** | 0–20 | +, − (no regrouping) | very simple, ≤10 words | big, dots+numerals | tap, simple drag |
 | **2** | 0–100 | +, −, intro × | simple sentences | medium | tap, drag |
 | **3** | 0–1,000 | ×, ÷, unit fractions | short sentences | numerals | drag, fill |

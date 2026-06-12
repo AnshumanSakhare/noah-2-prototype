@@ -97,13 +97,13 @@ export async function POST(request: Request) {
 
     const gradeLabel = grade === 0 ? "KG" : `Grade ${grade}`;
 
-    // Grade-scaled visual aesthetic: playful/cartoonish for the youngest, cleaner & more
-    // symbolic as grade rises. Difficulty nudges it one notch more restrained.
+    // Grade-scaled visual aesthetic: friendly-but-clean for the youngest, more
+    // symbolic as grade rises. Always minimal SVG-first, NOT cartoonish/emoji-heavy.
     const aesthetic =
-      grade <= 1 ? "Very playful and cartoonish: big chunky tokens, friendly emoji/pictures, almost no text, picture-first."
-      : grade <= 3 ? "Playful but tidy: medium tokens, a few emoji as accents, short labels, numerals visible."
-      : grade <= 5 ? "Mostly clean: restrained emoji, numerals and simple symbols (>, <, =, fractions), minimal decoration."
-      : "Clean and academic: little to no cartoon/emoji, symbolic and compact (numbers, symbols, number lines, bars), no childish theming.";
+      grade <= 1 ? "Friendly but clean: big rounded SVG shapes/icons, soft fills, almost no text, picture-first. Minimal emoji (≤1 accent), no busy cartoon scenes."
+      : grade <= 3 ? "Tidy and modern: medium tokens, simple flat SVG, short labels, numerals visible. Emoji only as a rare accent."
+      : grade <= 5 ? "Mostly clean: line/soft-fill SVG, numerals and simple symbols (>, <, =, fractions), minimal decoration, no emoji unless essential."
+      : "Clean and academic: symbolic and compact (numbers, symbols, number lines, bars), textbook-style SVG, no emoji, no childish theming.";
 
     // Per-archetype on-screen mechanic, so ideas are concretely renderable in the chosen interaction.
     const archetypeMechanic: Record<string, string> = {
@@ -148,13 +148,23 @@ As grade and difficulty rise, dial DOWN cartoon themes and emoji and dial UP cle
 - MEDIUM: one comparison or one short operation; may introduce symbols (>, <, =) or simple fractions.
 - HARD: one slightly richer single-screen judgement (e.g. order 5 values, plot on a number line, split into equal parts) — still ONE screen, ONE interaction, no extra steps.
 
+═══ CREATIVITY — make it memorable, not generic (this matters as much as the limits) ═══
+"Simple" means simple to PLAY (one screen, one interaction, no multi-step flow). It does NOT mean a plain or obvious prompt — the LAYOUT stays minimal, the IMAGINATION should not.
+- Avoid default/obvious framings ("which is bigger?", "find the group of ⭐", "pick the answer"). Give each idea a fresh HOOK: a character with a goal, a tiny real-world scenario, a playful mission, or a surprising visual metaphor — all expressed through the SAME ${interactionArchetype} mechanic, nothing extra.
+- The hook must be renderable with CLEAN MINIMAL inline SVG (emoji sparingly, ≤1–2 as accents — never a row of cartoon characters) inside the one focal cluster (e.g. "drop each shape into the matching slot" with simple flat shapes; "fill the jar to the line" with a clean SVG jar — not glossy 3D animal emoji). Keep it modern and uncluttered, not cartoonish. Never add elements or steps just for the theme — the theme rides on the existing interaction.
+- Scale creativity to the grade: KG–2 → friendly characters, mini-worlds, story-flavoured goals; 3–5 → a light theme over clean visuals; 6–8 → clever twists, real-data or puzzle-style framings (subtle theme, not cartoonish).
+- The two ideas should span a SPECTRUM:
+  • Idea 1 — clear and safe: a clean, reliable take on the concept.
+  • Idea 2 — bold and inventive: a creative risk (unusual theme/metaphor) that STILL fits one screen and one interaction.
+- IT MUST BE AN ASSESSMENT, NOT A DEMO: the student PRODUCES the answer (taps / drags / builds / plots / fills), and the game must NEVER auto-compute, animate-to, or display the correct answer. Any number/marker/counter shown reflects ONLY what the student set. Reject "watch it solve itself" animations — answers are graded server-side and revealed only at the results phase.
+
 Each idea MUST have:
 1. title: Short and catchy, but age-appropriate (playful for KG, neutral/clean for upper grades).
 2. concept: The specific math sub-concept this targets.
-3. description: Concretely how it looks and plays ON THE 760×520 CARD. State the few elements on screen, what the child taps/drags/orders, and roughly how many items. Must be implementable as-is — concrete, not vague or aspirational. 2–4 sentences max.
+3. description: First the creative HOOK (the scenario/metaphor), then concretely how it looks and plays ON THE 760×520 CARD — the few elements on screen, what the child taps/drags/orders, and roughly how many items. Implementable as-is with CLEAN MINIMAL SVG (emoji sparingly), not vague or aspirational. 2–4 sentences max.
 4. pedagogy: Why it suits this grade + difficulty.
 
-Make the 2 ideas DISTINCT from each other, but every one must obey the canvas limits above. Prefer simple and clear over clever and crowded.
+Both ideas must obey the canvas limits above. Within those limits, be imaginative — a clean single-screen game with a delightful hook beats a generic one. Never sacrifice fit for the theme; the theme must ride on the one interaction, not add elements or steps.
 `;
 
     const xlsxContext = getXlsxContext(grade, topic);
@@ -174,7 +184,7 @@ You must heavily incorporate and prioritize these instructions in your brainstor
 `;
     }
 
-    const userPrompt = `Generate exactly 2 distinct game ideas for the '${interactionArchetype}' archetype. Every idea MUST fit the fixed 760×520 single-screen card with ≤6–8 elements, one focal cluster, and no multi-step or story flow. Keep them concrete and implementable, and match the visual aesthetic to ${gradeLabel} / ${difficulty.toUpperCase()}.`;
+    const userPrompt = `Generate exactly 2 distinct game ideas for the '${interactionArchetype}' archetype — Idea 1 clear & safe, Idea 2 bold & inventive. Each MUST fit the fixed 760×520 single-screen card (≤6–8 elements, one focal cluster, one interaction, no multi-step or story flow) — but give each a fresh, memorable HOOK (character / scenario / visual metaphor), not a generic prompt. Concrete and implementable with clean minimal SVG (emoji sparingly, not cartoonish), matched to the ${gradeLabel} / ${difficulty.toUpperCase()} aesthetic.`;
 
     console.log(`[AI IDEAS GENERATOR] Dispatching to: ${activeModelLabel()}`);
 

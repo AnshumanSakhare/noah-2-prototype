@@ -32,18 +32,19 @@ export default function TeacherPage() {
   const [viewMode, setViewMode] = useState<'builder' | 'assembling' | 'preview'>('builder');
 
   const handleGenerate = async () => {
-    const topic = builderState.topics[0] || "Position & Direction";
+    const selectedTopics = builderState.topics.length ? [...builderState.topics] : ["Position & Direction"];
     if (builderState.subject === 'math') {
-      const dbCount = topicDbCounts[topic] || 0;
-      if (dbCount === 0) {
-        showToast(`❌ No questions available in DB for "${topic}". Please generate questions first!`);
+      const totalDb = selectedTopics.reduce((sum, t) => sum + (topicDbCounts[t] || 0), 0);
+      if (totalDb === 0) {
+        showToast(`❌ No questions available in DB for the selected topic(s). Please generate questions first!`);
         return;
       }
     }
 
     setViewMode('assembling');
-    // Call the dynamic DB assignment compilation
-    const assignedId = await assignHomeworkDb(topic, builderState.length, builderState.diff);
+    // Math → combine-all across every selected topic; Science keeps single-topic path.
+    const assignTarget: string | string[] = builderState.subject === 'math' ? selectedTopics : selectedTopics[0];
+    const assignedId = await assignHomeworkDb(assignTarget, builderState.length, builderState.diff);
     if (assignedId) {
       setTimeout(() => {
         handleAssemblyComplete();

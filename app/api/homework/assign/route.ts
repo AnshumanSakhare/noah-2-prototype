@@ -8,7 +8,56 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { student_id, topic, activity_count, difficulty_mode, teacher_id } = body;
+    const { student_id, topic, topics, activity_count, difficulty_mode, teacher_id } = body;
+
+    // ── Combine-all path ──
+    // When a `topics` array is supplied (builder "Compile Homework"), include EVERY
+    // available question across ALL those topics and ALL difficulties — nothing dropped,
+    // ordered easy → medium → hard. (The single-`topic` adaptive path below is unchanged.)
+    if (Array.isArray(topics) && topics.length > 0) {
+      if (!student_id) {
+        return NextResponse.json({ success: false, error: "Missing student_id" }, { status: 400 });
+      }
+      const allRes = await query(`
+        SELECT qv.id, qv.difficulty
+        FROM public.question_variations qv
+        JOIN public.question_templates qt ON qv.template_id = qt.id
+        WHERE qt.topic = ANY($1)
+          AND qv.status != 'deprecated'
+          AND qv.verifier_status != 'failed'
+      `, [topics]);
+
+      const diffOrder: Record<string, number> = { easy: 0, medium: 1, hard: 2 };
+      const allIds = allRes.rows
+        .slice()
+        .sort((a, b) => (diffOrder[a.difficulty] ?? 1) - (diffOrder[b.difficulty] ?? 1))
+        .map(r => r.id);
+
+      if (allIds.length === 0) {
+        return NextResponse.json({ success: false, error: "No active questions found for the selected topics" }, { status: 404 });
+      }
+
+      const assignRes = await query(`
+        INSERT INTO public.homework_assignments (
+          student_id, assigned_by, teacher_id, topic, activity_count, difficulty_mode, question_ids, status, assigned_at
+        )
+        VALUES ($1, 'teacher', $2, $3, $4, $5, $6, 'assigned', now())
+        RETURNING id, question_ids
+      `, [
+        student_id,
+        teacher_id || null,
+        topics.join(" + "),
+        allIds.length,
+        "adaptive",
+        allIds
+      ]);
+
+      return NextResponse.json({
+        success: true,
+        assignmentId: assignRes.rows[0].id,
+        questionCount: assignRes.rows[0].question_ids.length
+      });
+    }
 
     if (!student_id || !topic || !activity_count || !difficulty_mode) {
       return NextResponse.json({ success: false, error: "Missing required assignment parameters" }, { status: 400 });

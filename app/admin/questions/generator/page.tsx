@@ -15,9 +15,13 @@ import {
   BookOpen,
   CheckCircle,
   AlertTriangle,
-  Play
+  Play,
+  Trash2
 } from "lucide-react";
 import filterData from "@/data/question-bank-plan-filters.json";
+
+// The 7 canonical interaction archetypes — auto-fill picks 3 distinct ones for variety.
+const ARCHETYPES = ["tap-select", "drag-drop", "fill-slot", "sequence-order", "build-count", "number-line", "partition"];
 
 interface VariationSlot {
   id: string;
@@ -162,6 +166,118 @@ export default function AIGeneratorPage() {
     fetchSlots();
   }, [selectedGrade, selectedTopic]);
 
+  // Delete a generated slot (variation + its template references), then refresh.
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const handleDeleteSlot = async (variationId: string) => {
+    if (!confirm("Delete this generated question slot permanently? This cannot be undone.")) return;
+    setDeletingId(variationId);
+    try {
+      const res = await fetch(`/api/admin/questions/${variationId}`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.success) {
+        await fetchSlots();
+      } else {
+        alert(`Failed to delete: ${json.error}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting slot");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // ── Auto-Fill: idea → game → save, for Slot #1 of Easy / Medium / Hard ──
+  // Picks 3 DISTINCT interaction archetypes for variety; runs sequentially so the
+  // grade/difficulty context is honored per slot. Skips slots already filled.
+  const [autoFilling, setAutoFilling] = useState(false);
+  const [autoStatus, setAutoStatus] = useState("");
+
+  const autoGenerateOne = async (
+    difficulty: "easy" | "medium" | "hard",
+    archetype: string
+  ): Promise<string> => {
+    // 1) Brainstorm one idea for this grade/difficulty/archetype.
+    setAutoStatus(`${difficulty} • brainstorming (${archetype})…`);
+    let idea: any = null;
+    try {
+      const ideaRes = await fetch("/api/admin/generator/ideas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          grade: selectedGrade,
+          topic: selectedTopic,
+          difficulty,
+          interactionArchetype: archetype,
+          customPrompt: ""
+        })
+      });
+      const ideaJson = await ideaRes.json();
+      if (ideaJson.success && Array.isArray(ideaJson.ideas) && ideaJson.ideas.length > 0) {
+        idea = ideaJson.ideas[0];
+      }
+    } catch (e) {
+      console.error("idea step failed", e);
+    }
+
+    // 2) Generate the game from that idea and save (retry once on validation/network failure).
+    setAutoStatus(`${difficulty} • generating game (${archetype})…`);
+    let lastErr = "unknown error";
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const genRes = await fetch("/api/admin/generator/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "create",
+            grade: selectedGrade,
+            topic: selectedTopic,
+            difficulty,
+            variationIndex: 1,
+            interactionArchetype: archetype,
+            customPrompt: "",
+            selectedIdea: idea
+          })
+        });
+        const genJson = await genRes.json();
+        if (genJson.success) return `${difficulty}: ✓ ${archetype}`;
+        lastErr = genJson.error || "unknown error";
+      } catch (e: any) {
+        lastErr = e?.message || "network error";
+      }
+    }
+    return `${difficulty}: ✗ ${archetype} — ${lastErr}`;
+  };
+
+  const handleAutoFill = async () => {
+    if (selectedGrade === "" || !selectedTopic || autoFilling) return;
+    if (!confirm("Auto-generate Slot #1 for Easy, Medium and Hard (3 games with 3 distinct interaction types)? This calls the AI ~3× and saves to the DB.")) return;
+
+    setAutoFilling(true);
+    const diffs: Array<"easy" | "medium" | "hard"> = ["easy", "medium", "hard"];
+    // 3 distinct archetypes for variety.
+    const picks = [...ARCHETYPES].sort(() => Math.random() - 0.5).slice(0, 3);
+    const results: string[] = [];
+
+    try {
+      for (let i = 0; i < diffs.length; i++) {
+        const diff = diffs[i];
+        if (getSlot(diff, 1)) {
+          results.push(`${diff}: skipped (Slot 1 already filled)`);
+          continue;
+        }
+        const r = await autoGenerateOne(diff, picks[i]);
+        results.push(r);
+        await fetchSlots(); // show progress as each slot fills
+      }
+    } finally {
+      setAutoStatus("");
+      setAutoFilling(false);
+      await fetchSlots();
+      alert("Auto-fill complete:\n\n" + results.join("\n"));
+    }
+  };
+
   // Get variation helper
   const getSlot = (difficulty: "easy" | "medium" | "hard", index: number) => {
     return slots.find(
@@ -279,10 +395,16 @@ export default function AIGeneratorPage() {
           <p>Create or revise interactive math games dynamically using OpenAI based on the spreadsheet schema.</p>
         </div>
         {selectedGrade !== "" && selectedTopic && (
-          <button className="btn-secondary" onClick={fetchSlots} disabled={loading}>
-            <RefreshCw size={14} className={loading ? "spin-icon" : ""} style={{ marginRight: '6px' }} />
-            Reload Grid
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn-generate-slot" onClick={handleAutoFill} disabled={autoFilling || loading} style={{ whiteSpace: 'nowrap' }}>
+              <Sparkles size={14} className={autoFilling ? "spin-icon" : ""} style={{ marginRight: '6px' }} />
+              {autoFilling ? (autoStatus || "Auto-Filling…") : "⚡ Auto-Fill 3 Slots"}
+            </button>
+            <button className="btn-secondary" onClick={fetchSlots} disabled={loading || autoFilling}>
+              <RefreshCw size={14} className={loading ? "spin-icon" : ""} style={{ marginRight: '6px' }} />
+              Reload Grid
+            </button>
+          </div>
         )}
       </header>
 
@@ -382,6 +504,14 @@ export default function AIGeneratorPage() {
                         <Link href={`/admin/questions/${s.id}`} className="btn-action-link">
                           <Settings size={12} /> Manual
                         </Link>
+                        <button
+                          className="btn-action"
+                          onClick={() => handleDeleteSlot(s.id)}
+                          disabled={deletingId === s.id}
+                          style={{ color: '#e11d48' }}
+                        >
+                          <Trash2 size={12} /> {deletingId === s.id ? 'Deleting…' : 'Delete'}
+                        </button>
                       </div>
                     </div>
                   ) : (
@@ -432,6 +562,14 @@ export default function AIGeneratorPage() {
                         <Link href={`/admin/questions/${s.id}`} className="btn-action-link">
                           <Settings size={12} /> Manual
                         </Link>
+                        <button
+                          className="btn-action"
+                          onClick={() => handleDeleteSlot(s.id)}
+                          disabled={deletingId === s.id}
+                          style={{ color: '#e11d48' }}
+                        >
+                          <Trash2 size={12} /> {deletingId === s.id ? 'Deleting…' : 'Delete'}
+                        </button>
                       </div>
                     </div>
                   ) : (
@@ -482,6 +620,14 @@ export default function AIGeneratorPage() {
                         <Link href={`/admin/questions/${s.id}`} className="btn-action-link">
                           <Settings size={12} /> Manual
                         </Link>
+                        <button
+                          className="btn-action"
+                          onClick={() => handleDeleteSlot(s.id)}
+                          disabled={deletingId === s.id}
+                          style={{ color: '#e11d48' }}
+                        >
+                          <Trash2 size={12} /> {deletingId === s.id ? 'Deleting…' : 'Delete'}
+                        </button>
                       </div>
                     </div>
                   ) : (

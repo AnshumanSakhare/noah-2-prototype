@@ -142,6 +142,8 @@ ${markdownPrompt}
 SILENT MODE COMPLIANCE:
 You MUST fully support \`window.SILENT_MODE\` as detailed in the HTML skeleton instructions. When \`window.SILENT_MODE\` is truthy, suppress correctness check feedback (no green/red, no checkmark/cross emojis), highlight the selected option with a neutral Grape color outline/border, and immediately invoke \`window.parent.postMessage({ type: 'EDUQUEST_ANSWER', answer: getState() }, '*')\` to pass the answer up for server-side evaluation.
 
+NEVER REVEAL THE ANSWER (HARD RULE 12): the game must NOT auto-compute, animate-to, or display the correct answer anywhere. Any number/counter/marker/position on screen must reflect ONLY the student's own input/manipulation — never the target value. The student does the math and produces the answer; the game only captures it. Do not build self-solving "watch it compute" demos.
+
 STRICT SKELETON PARAMETERIZATION REQUIREMENT (this OVERRIDES the skeleton doc's "static values" rule #7):
 The skeleton doc above is written for standalone static games and says to hardcode real values — IGNORE that rule here.
 In THIS pipeline the HTML is a TEMPLATE the server hydrates by substituting {{placeholders}} with variation_data values.

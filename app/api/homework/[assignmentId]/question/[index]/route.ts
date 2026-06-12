@@ -91,6 +91,38 @@ export async function GET(
     // Games that honor SILENT_MODE will show neutral selection styles only
     hydratedHtml = hydratedHtml.replace(/<head>/i, '<head>\n<script>window.SILENT_MODE = true;</script>');
 
+    // Fit-to-viewport shim: scale the .game so the whole game (including bottom
+    // controls) always fits the runner card — never clipped, responsive to width.
+    const FIT_SHIM = `
+<script>(function(){
+  try {
+    var st = document.createElement('style');
+    st.textContent = 'html,body{height:100%!important;width:100%!important;margin:0!important;overflow:hidden!important;}body{display:block!important;}';
+    (document.head||document.documentElement).appendChild(st);
+  } catch(e){}
+  function fit(){
+    var g = document.querySelector('.game');
+    if(!g) return;
+    g.style.height = 'auto';
+    g.style.transform = 'none';
+    g.style.position = 'absolute';
+    g.style.transformOrigin = 'top left';
+    var w = g.offsetWidth, h = g.offsetHeight;
+    if(!w || !h) return;
+    var s = Math.min(window.innerWidth / w, window.innerHeight / h, 1);
+    g.style.left = Math.max(0, (window.innerWidth - w * s) / 2) + 'px';
+    g.style.top = Math.max(0, (window.innerHeight - h * s) / 2) + 'px';
+    g.style.transform = 'scale(' + s + ')';
+  }
+  window.addEventListener('load', fit);
+  window.addEventListener('resize', fit);
+  document.addEventListener('DOMContentLoaded', function(){ setTimeout(fit, 50); });
+  setTimeout(fit, 350);
+})();</script>`;
+    hydratedHtml = /<\/body>/i.test(hydratedHtml)
+      ? hydratedHtml.replace(/<\/body>/i, FIT_SHIM + "\n</body>")
+      : hydratedHtml + FIT_SHIM;
+
     // Return hydrated HTML + clean metadata (exclude answer_key completely)
     return NextResponse.json({
       success: true,

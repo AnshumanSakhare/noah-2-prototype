@@ -252,13 +252,7 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
       if (prev.type === 'specific' && !prev.manual) {
         nextManual = true;
       }
-      if (prev.subject === 'math') {
-        return {
-          ...prev,
-          manual: nextManual,
-          topics: [id],
-        };
-      }
+      // Multi-select for BOTH math and science: toggle the topic, keep ≥1 selected.
       const activeTopics = [...prev.topics];
       const idx = activeTopics.indexOf(id);
       if (idx >= 0) {
@@ -1311,7 +1305,7 @@ export const BuilderPanel: React.FC<BuilderPanelProps> = ({
                       Syllabus Preview &bull; {selectedMathGrade === 'KG' ? 'Kindergarten' : `Grade ${selectedMathGrade.substring(1)}`}
                     </h3>
                     <div className="bp-sub">
-                      Curriculum topics for the selected grade. Glowing highlighted capsules represent available dynamic database chapters.
+                      Tap to select one or more topics — the homework will combine every question from all selected topics. Glowing capsules have questions in the database.
                     </div>
 
                     <div className="math-capsules-container">
