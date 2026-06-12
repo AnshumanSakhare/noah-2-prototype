@@ -158,6 +158,12 @@ As grade and difficulty rise, dial DOWN cartoon themes and emoji and dial UP cle
   • Idea 2 — bold and inventive: a creative risk (unusual theme/metaphor) that STILL fits one screen and one interaction.
 - IT MUST BE AN ASSESSMENT, NOT A DEMO: the student PRODUCES the answer (taps / drags / builds / plots / fills), and the game must NEVER auto-compute, animate-to, or display the correct answer. Any number/marker/counter shown reflects ONLY what the student set. Reject "watch it solve itself" animations — answers are graded server-side and revealed only at the results phase.
 
+═══ RIGOR & DISTRACTORS — make them THINK, no give-aways ═══
+- The answer must NOT be guessable from position or pattern. NEVER present options/items in sorted or sequential order (no 13·15·17·21 ladder, no 3·4·5 in a row). Order is SHUFFLED so the correct one isn't predictable.
+- Distractors must be PLAUSIBLE and target common mistakes for the concept — not random or evenly-spaced filler. (e.g. for ∛3375 = 15: good distractors are 25 [squared instead of cube-rooted], 45 [×3], 1125 [÷3] — NOT a tidy 13/17/21.)
+- Match the cognitive load to grade AND difficulty: EASY = one real step (still a genuine choice); MEDIUM = must actually compute/compare, distractors reflect typical errors; HARD (esp. grades 6–8) = multi-step or non-obvious judgement, values chosen so guessing fails, and any ordering task uses items whose correct order is NOT already shown.
+- No "baby" framings for upper grades — a Grade 8 HARD question must challenge a Grade 8 student.
+
 Each idea MUST have:
 1. title: Short and catchy, but age-appropriate (playful for KG, neutral/clean for upper grades).
 2. concept: The specific math sub-concept this targets.

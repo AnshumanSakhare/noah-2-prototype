@@ -198,7 +198,6 @@ export default function AIGeneratorPage() {
     archetype: string
   ): Promise<string> => {
     // 1) Brainstorm one idea for this grade/difficulty/archetype.
-    setAutoStatus(`${difficulty} • brainstorming (${archetype})…`);
     let idea: any = null;
     try {
       const ideaRes = await fetch("/api/admin/generator/ideas", {
@@ -221,7 +220,6 @@ export default function AIGeneratorPage() {
     }
 
     // 2) Generate the game from that idea and save (retry once on validation/network failure).
-    setAutoStatus(`${difficulty} • generating game (${archetype})…`);
     let lastErr = "unknown error";
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -254,27 +252,28 @@ export default function AIGeneratorPage() {
     if (!confirm("Auto-generate Slot #1 for Easy, Medium and Hard (3 games with 3 distinct interaction types)? This calls the AI ~3× and saves to the DB.")) return;
 
     setAutoFilling(true);
+    setAutoStatus("Generating Easy, Medium & Hard in parallel…");
     const diffs: Array<"easy" | "medium" | "hard"> = ["easy", "medium", "hard"];
     // 3 distinct archetypes for variety.
     const picks = [...ARCHETYPES].sort(() => Math.random() - 0.5).slice(0, 3);
-    const results: string[] = [];
 
     try {
-      for (let i = 0; i < diffs.length; i++) {
-        const diff = diffs[i];
-        if (getSlot(diff, 1)) {
-          results.push(`${diff}: skipped (Slot 1 already filled)`);
-          continue;
-        }
-        const r = await autoGenerateOne(diff, picks[i]);
-        results.push(r);
-        await fetchSlots(); // show progress as each slot fills
-      }
+      // Run all three slots concurrently for speed.
+      const results = await Promise.all(
+        diffs.map((diff, i) =>
+          getSlot(diff, 1)
+            ? Promise.resolve(`${diff}: skipped (Slot 1 already filled)`)
+            : autoGenerateOne(diff, picks[i])
+        )
+      );
+      await fetchSlots();
+      alert("Auto-fill complete:\n\n" + results.join("\n"));
+    } catch (e: any) {
+      alert("Auto-fill error: " + (e?.message || "unknown"));
     } finally {
       setAutoStatus("");
       setAutoFilling(false);
       await fetchSlots();
-      alert("Auto-fill complete:\n\n" + results.join("\n"));
     }
   };
 

@@ -144,6 +144,12 @@ You MUST fully support \`window.SILENT_MODE\` as detailed in the HTML skeleton i
 
 NEVER REVEAL THE ANSWER (HARD RULE 12): the game must NOT auto-compute, animate-to, or display the correct answer anywhere. Any number/counter/marker/position on screen must reflect ONLY the student's own input/manipulation — never the target value. The student does the math and produces the answer; the game only captures it. Do not build self-solving "watch it compute" demos.
 
+ANSWER RIGOR (do not make it trivially guessable):
+- SHUFFLE the order of options/items/choices in variationDataJson so the correct answer is NOT in a sorted or sequential position. Never lay choices out as a tidy ascending/descending ladder (e.g. avoid 13,15,17,21 or 3,4,5 in row order).
+- Distractors MUST be plausible and reflect common student mistakes for THIS concept (wrong operation, off-by-one, classic misconception) — never random, evenly-spaced, or filler numbers.
+- Choose non-trivial values appropriate to the grade & difficulty. A HARD item must require real multi-step reasoning, not surface recognition; do not dumb it down for upper grades.
+- For ordering/sequence tasks, the items must NOT already appear in the correct order on screen.
+
 STRICT SKELETON PARAMETERIZATION REQUIREMENT (this OVERRIDES the skeleton doc's "static values" rule #7):
 The skeleton doc above is written for standalone static games and says to hardcode real values — IGNORE that rule here.
 In THIS pipeline the HTML is a TEMPLATE the server hydrates by substituting {{placeholders}} with variation_data values.
