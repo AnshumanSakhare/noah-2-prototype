@@ -1,5 +1,0 @@
-Use WperFrames by He;Gen to create a vertical brou video for Launch Of
-Fable 5 model by Anthropic
-Talk about how everyone expected Mythos but we got Fable and compare the
-benchmarks of this to the other popular models-
-Use imagegen skill to generate any relevant images yCXJ need for the broa
