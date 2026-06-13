@@ -1978,8 +1978,40 @@ export const QUESTION_TYPES = [
   "open_response",
 ] as const satisfies readonly QuestionType[];
 export const DIFFICULTY_BANDS = ["easy", "medium", "hard"] as const;
+
+/**
+ * Bloom levels accepted by the *filter*. The diagnostic type system collapses
+ * to three buckets, but the raw banks also store "Analyzing" — exposed here as
+ * `analyze` so callers can target it precisely. (Output `bloomLevel` still maps
+ * analyze -> apply, matching the rest of the diagnostic pipeline.)
+ */
 export const BLOOM_LEVELS = ["remember", "understand", "apply"] as const;
-export const QUESTION_ORDERINGS = ["default", "random", "difficulty"] as const;
+// The banks store six Bloom buckets (Knowing/Understanding/Applying/Analyzing/
+// Evaluating/Creating). Filtering supports all six; output `bloomLevel` still
+// collapses the upper three to "apply" (existing diagnostic behaviour).
+export const BLOOM_FILTERS = [
+  "remember",
+  "understand",
+  "apply",
+  "analyze",
+  "evaluate",
+  "create",
+] as const;
+export type BloomFilter = (typeof BLOOM_FILTERS)[number];
+
+export const DIFFICULTY_RATING_MIN = 1;
+export const DIFFICULTY_RATING_MAX = 5;
+
+export const QUESTION_ORDERINGS = [
+  "default",
+  "random",
+  "difficulty",
+  "difficulty_desc",
+  "rating",
+  "rating_desc",
+  "newest",
+  "oldest",
+] as const;
 
 export type QuestionOrdering = (typeof QUESTION_ORDERINGS)[number];
 
@@ -1999,10 +2031,13 @@ const QUESTION_TYPE_DB_ALIASES: Record<QuestionType, string[]> = {
   open_response: ["open_response"],
 };
 
-const BLOOM_DB_ALIASES: Record<BloomLevel, string[]> = {
-  remember: ["remember", "knowing"],
+const BLOOM_DB_ALIASES: Record<BloomFilter, string[]> = {
+  remember: ["remember", "remembering", "knowing"],
   understand: ["understand", "understanding"],
-  apply: ["apply"],
+  apply: ["apply", "applying"],
+  analyze: ["analyze", "analyse", "analyzing"],
+  evaluate: ["evaluate", "evaluating"],
+  create: ["create", "creating"],
 };
 
 const PLACEMENT_QUESTION_SELECT = `
@@ -2033,20 +2068,32 @@ const DIFFICULTY_ORDER_SQL = `
     ELSE 3
   END`;
 
-export interface ServeQuestionsParams {
+export interface ServeQuestionsFilters {
   source: QuestionSource;
   subject?: Subject;
   classLevel?: ClassLevel;
   /** Only applied to the region-aware diagnostic bank. */
   region: DiagnosticRegion;
-  topic?: string;
-  subtopic?: string;
-  learningObjective?: string;
+  /** Exact (case-insensitive) topic match; accepts several. */
+  topics?: string[];
+  subtopics?: string[];
+  learningObjectives?: string[];
   questionTypes?: QuestionType[];
   difficulties?: DifficultyBand[];
-  blooms?: BloomLevel[];
+  blooms?: BloomFilter[];
+  /** difficulty_rating bounds (1-5). */
+  minRating?: number;
+  maxRating?: number;
+  /** Restrict to / exclude specific question ids. */
+  ids?: string[];
+  excludeIds?: string[];
+  /** Placement only — e.g. "Q1". */
+  questionNumber?: string;
   /** Case-insensitive substring match on the question text. */
   search?: string;
+}
+
+export interface ServeQuestionsParams extends ServeQuestionsFilters {
   order: QuestionOrdering;
   limit: number;
   offset: number;
@@ -2058,14 +2105,16 @@ export interface ServeQuestionsResult {
 }
 
 /**
- * Filterable, paginated read over a question bank.
- * Returns fully-typed questions (with answer keys); callers decide whether to
- * strip them for client delivery via `toClientQuizQuestion`.
+ * Builds the shared FROM/WHERE clause (and bound values) for a filter set, so
+ * the list, count, and facet queries all apply identical predicates.
  */
-export async function serveQuestions(
-  params: ServeQuestionsParams,
-): Promise<ServeQuestionsResult> {
-  const isPlacement = params.source === "placement";
+function buildQuestionFilters(filters: ServeQuestionsFilters): {
+  table: string;
+  isPlacement: boolean;
+  where: string;
+  values: unknown[];
+} {
+  const isPlacement = filters.source === "placement";
   const table = isPlacement
     ? "placement_test_questions_v2"
     : "final_content_questions_1";
@@ -2079,51 +2128,99 @@ export async function serveQuestions(
     values.push(value);
     return `$${values.length}`;
   };
+  const lowerList = (items: string[]) =>
+    items.map((item) => item.trim().toLowerCase()).filter(Boolean);
 
-  if (params.subject) conditions.push(`subject = ${bind(params.subject)}`);
-  if (params.classLevel) {
-    conditions.push(`grade = ${bind(toDbGrade(params.classLevel))}`);
-  }
-  if (params.topic) conditions.push(`topic = ${bind(params.topic)}`);
-  if (params.subtopic) conditions.push(`subtopic = ${bind(params.subtopic)}`);
-  if (params.learningObjective) {
-    conditions.push(`learning_objective = ${bind(params.learningObjective)}`);
-  }
-  if (params.search) {
-    conditions.push(`question_text ILIKE ${bind(`%${params.search}%`)}`);
+  if (filters.subject) conditions.push(`subject = ${bind(filters.subject)}`);
+  if (filters.classLevel) {
+    conditions.push(`grade = ${bind(toDbGrade(filters.classLevel))}`);
   }
 
-  // Region + visual-mode filters only exist on the diagnostic bank.
-  if (!isPlacement) {
-    conditions.push(`region IN ('global', ${bind(params.region)})`);
-    conditions.push(`(
-      visual_mode IS NULL
-      OR lower(btrim(visual_mode)) <> 'question_svg'
-      OR lower(btrim(question_type)) = 'mcq'
-    )`);
+  if (filters.topics?.length) {
+    conditions.push(
+      `lower(btrim(topic)) = ANY(${bind(lowerList(filters.topics))}::text[])`,
+    );
+  }
+  if (filters.subtopics?.length) {
+    conditions.push(
+      `lower(btrim(subtopic)) = ANY(${bind(lowerList(filters.subtopics))}::text[])`,
+    );
+  }
+  if (filters.learningObjectives?.length) {
+    conditions.push(
+      `lower(btrim(learning_objective)) = ANY(${bind(
+        lowerList(filters.learningObjectives),
+      )}::text[])`,
+    );
+  }
+  if (filters.search) {
+    conditions.push(`question_text ILIKE ${bind(`%${filters.search}%`)}`);
   }
 
-  if (params.questionTypes?.length) {
-    const spellings = params.questionTypes.flatMap(
+  if (filters.questionTypes?.length) {
+    const spellings = filters.questionTypes.flatMap(
       (type) => QUESTION_TYPE_DB_ALIASES[type],
     );
     conditions.push(
       `lower(btrim(question_type)) = ANY(${bind(spellings)}::text[])`,
     );
   }
-  if (params.difficulties?.length) {
+  if (filters.difficulties?.length) {
     conditions.push(
-      `lower(btrim(difficulty_level)) = ANY(${bind(params.difficulties)}::text[])`,
+      `lower(btrim(difficulty_level)) = ANY(${bind(filters.difficulties)}::text[])`,
     );
   }
-  if (params.blooms?.length) {
-    const spellings = params.blooms.flatMap((bloom) => BLOOM_DB_ALIASES[bloom]);
+  if (filters.blooms?.length) {
+    const spellings = filters.blooms.flatMap(
+      (bloom) => BLOOM_DB_ALIASES[bloom],
+    );
     conditions.push(
       `lower(btrim(blooms_level)) = ANY(${bind(spellings)}::text[])`,
     );
   }
+  if (typeof filters.minRating === "number") {
+    conditions.push(`difficulty_rating >= ${bind(filters.minRating)}`);
+  }
+  if (typeof filters.maxRating === "number") {
+    conditions.push(`difficulty_rating <= ${bind(filters.maxRating)}`);
+  }
 
-  const where = `WHERE ${conditions.join("\n    AND ")}`;
+  if (filters.ids?.length) {
+    conditions.push(`id = ANY(${bind(filters.ids)}::uuid[])`);
+  }
+  if (filters.excludeIds?.length) {
+    conditions.push(`id <> ALL(${bind(filters.excludeIds)}::uuid[])`);
+  }
+
+  // Region + visual-mode filters only exist on the diagnostic bank.
+  if (!isPlacement) {
+    conditions.push(`region IN ('global', ${bind(filters.region)})`);
+    conditions.push(`(
+      visual_mode IS NULL
+      OR lower(btrim(visual_mode)) <> 'question_svg'
+      OR lower(btrim(question_type)) = 'mcq'
+    )`);
+  } else if (filters.questionNumber) {
+    conditions.push(`question_number = ${bind(filters.questionNumber)}`);
+  }
+
+  return {
+    table,
+    isPlacement,
+    where: `WHERE ${conditions.join("\n    AND ")}`,
+    values,
+  };
+}
+
+/**
+ * Filterable, paginated read over a question bank.
+ * Returns fully-typed questions (with answer keys); callers decide whether to
+ * strip them for client delivery via `toClientQuizQuestion`.
+ */
+export async function serveQuestions(
+  params: ServeQuestionsParams,
+): Promise<ServeQuestionsResult> {
+  const { table, isPlacement, where, values } = buildQuestionFilters(params);
 
   const countResult = await query(
     `SELECT count(*)::int AS total FROM ${table} ${where}`,
@@ -2131,28 +2228,110 @@ export async function serveQuestions(
   );
   const total: number = countResult.rows[0]?.total ?? 0;
 
-  const orderBy =
-    params.order === "random"
-      ? "ORDER BY random()"
-      : params.order === "difficulty"
-        ? `ORDER BY ${DIFFICULTY_ORDER_SQL}, id`
-        : isPlacement
+  const orderBy = (() => {
+    switch (params.order) {
+      case "random":
+        return "ORDER BY random()";
+      case "difficulty":
+        return `ORDER BY ${DIFFICULTY_ORDER_SQL}, id`;
+      case "difficulty_desc":
+        return `ORDER BY ${DIFFICULTY_ORDER_SQL} DESC, id`;
+      case "rating":
+        return "ORDER BY difficulty_rating ASC NULLS LAST, id";
+      case "rating_desc":
+        return "ORDER BY difficulty_rating DESC NULLS LAST, id";
+      case "newest":
+        return "ORDER BY created_at DESC NULLS LAST, id";
+      case "oldest":
+        return "ORDER BY created_at ASC NULLS LAST, id";
+      default:
+        return isPlacement
           ? "ORDER BY id"
           : "ORDER BY subject, grade, topic, learning_objective, difficulty_level, id";
+    }
+  })();
 
-  const limitPlaceholder = bind(params.limit);
-  const offsetPlaceholder = bind(params.offset);
+  const listValues = [...values, params.limit, params.offset];
+  const limitPlaceholder = `$${listValues.length - 1}`;
+  const offsetPlaceholder = `$${listValues.length}`;
   const select = isPlacement
     ? PLACEMENT_QUESTION_SELECT
     : CONTENT_QUESTION_SELECT;
 
   const result = await query(
     `${select} ${where} ${orderBy} LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}`,
-    values,
+    listValues,
   );
 
   return {
     questions: toQuestions(result.rows as ContentQuestionRow[]),
     total,
+  };
+}
+
+export interface QuestionFacetBucket {
+  value: string;
+  count: number;
+}
+
+export interface QuestionFacets {
+  total: number;
+  byQuestionType: QuestionFacetBucket[];
+  byDifficulty: QuestionFacetBucket[];
+  byBloom: QuestionFacetBucket[];
+  byRating: QuestionFacetBucket[];
+  byGrade: QuestionFacetBucket[];
+  byTopic: QuestionFacetBucket[];
+}
+
+/**
+ * Aggregated counts for the questions matching a filter set — useful for
+ * "what do we have?" dashboards and for sizing a quiz before fetching it.
+ */
+export async function getQuestionFacets(
+  filters: ServeQuestionsFilters,
+): Promise<QuestionFacets> {
+  const { table, where, values } = buildQuestionFilters(filters);
+
+  const facetOf = async (expr: string, limit = 100) => {
+    const result = await query(
+      `SELECT ${expr} AS value, count(*)::int AS count
+       FROM ${table} ${where}
+       GROUP BY ${expr}
+       ORDER BY count DESC, value ASC
+       LIMIT ${limit}`,
+      values,
+    );
+    return result.rows
+      .filter((row: { value: unknown }) => row.value !== null)
+      .map((row: { value: unknown; count: number }) => ({
+        value: String(row.value),
+        count: row.count,
+      }));
+  };
+
+  const totalResult = await query(
+    `SELECT count(*)::int AS total FROM ${table} ${where}`,
+    values,
+  );
+
+  const [byQuestionType, byDifficulty, byBloom, byRating, byGrade, byTopic] =
+    await Promise.all([
+      facetOf("lower(btrim(question_type))"),
+      facetOf("lower(btrim(difficulty_level))"),
+      facetOf("btrim(blooms_level)"),
+      facetOf("difficulty_rating::text"),
+      facetOf("grade"),
+      facetOf("topic", 200),
+    ]);
+
+  return {
+    total: totalResult.rows[0]?.total ?? 0,
+    byQuestionType,
+    byDifficulty,
+    byBloom,
+    byRating,
+    byGrade,
+    byTopic,
   };
 }

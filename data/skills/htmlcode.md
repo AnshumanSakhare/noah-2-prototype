@@ -39,6 +39,11 @@ The #1 job is **consistency + delight**: colorful and friendly, but minimal and 
 10. **Drag needs a tap fallback.** Any drag/sequence game must also work by tap-to-pick then tap-to-place.
 11. **No decorative clutter.** Do NOT scatter random floating dots, blobs, stray bars, glows, "ghost" shapes, sparkles, or background confetti around the focal element. Every element on screen must be either the interactive content, a label the child needs, or the single clean panel/stage it sits on. If a mark isn't part of the question or the answer, delete it. Decoration ≠ random circles.
 12. **Never reveal the answer — the STUDENT produces it.** The game must NOT auto-compute, auto-animate-to, or display the correct answer anywhere. Any number, counter, marker, or position shown must reflect ONLY the student's own current input/manipulation — never the target value. The child does the thinking; the game just captures their choice. (A self-solving "watch it compute" demo belongs to the learn/recap phase, NOT a graded question.) Example — for "23 − 8 = ?": ❌ a bar that drains itself and shows "15"; ✅ the child sets a marker / builds a count / taps a chip, and the only number shown is the one THEY set.
+13. **Shuffle the option order — never lay the answer out predictably.** The on-screen sequence of choices/tiles/chips/slots/items MUST be scrambled so the correct answer is NOT findable from position alone. Concretely:
+    - **tap-select / MCQ:** do NOT place the correct choice first, last, or in a fixed slot, and do NOT list choices as a tidy ascending/descending ladder (e.g. `2, 4, 6, 8` with the answer always at one end). Mix the order; the correct value can sit anywhere.
+    - **drag-drop / fill-slot:** the draggable tiles must NOT appear in the same order as their target bins/slots (no straight-down 1:1 alignment). Lay the source tiles in a different order than the answer order — e.g. for tiles `27, 64, 125` → roots `3, 4, 5`, render the tiles as `64, 27, 125` (or any non-aligned order), never `27, 64, 125` directly above `3, 4, 5`.
+    - **sequence-order:** the items must START shuffled (out of order) — that's the whole task; never render them already in the correct sequence.
+    - Distractors must be plausible and interleaved with the correct answer, not grouped or sorted. Because `getState()` keys off stable `id`s (see ID convention), scrambling the DISPLAY order never affects grading. A game whose answer can be guessed from layout position is a FAILURE.
 
 ---
 
@@ -160,6 +165,7 @@ Rules:
 - [ ] No `alert/prompt/confirm` or text feedback inside.
 - [ ] Every interactive element keyboard-focusable and tap-friendly (≥44px). Decorative emoji `aria-hidden`.
 - [ ] If drag/sequence: tap fallback works.
+- [ ] Options/tiles/items are SHUFFLED (HARD RULE 13): correct choice not first/last/fixed, choices not a sorted ladder, drag tiles not aligned 1:1 above their target bins.
 - [ ] Values are static and correct for the grade; guards respected.
 - [ ] Colorful (accent palette used on focal items) but minimal (one focal cluster, lots of whitespace).
 
