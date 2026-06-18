@@ -40,14 +40,24 @@ export async function llmStructured<T = any>(opts: {
   toolName: string;
   toolDescription?: string;
   maxTokens?: number;
+  /**
+   * Optional large static prefix to prompt-cache. On Bedrock it becomes a
+   * cache_control system block; on OpenAI it's simply prepended to `system`
+   * (OpenAI auto-caches stable prefixes). Keep it byte-identical across calls.
+   */
+  systemCachePrefix?: string;
 }): Promise<{ data: T; usage: any; provider: "openai" | "bedrock" }> {
   if (USE_OPENAI) {
     const openai = new OpenAI({ timeout: 150_000, maxRetries: 1 });
+    // Prefix first so OpenAI's automatic prefix caching can reuse it.
+    const system = opts.systemCachePrefix
+      ? `${opts.systemCachePrefix}\n${opts.system}`
+      : opts.system;
     const response = await openai.responses.parse({
       model: OPENAI_MODEL,
       reasoning: { effort: "low" },
       input: [
-        { role: "system", content: opts.system },
+        { role: "system", content: system },
         { role: "user", content: opts.user },
       ],
       text: {
@@ -69,6 +79,7 @@ export async function llmStructured<T = any>(opts: {
     toolName: opts.toolName,
     toolDescription: opts.toolDescription,
     maxTokens: opts.maxTokens,
+    systemCachePrefix: opts.systemCachePrefix,
   });
   return { data, usage, provider: "bedrock" };
 }

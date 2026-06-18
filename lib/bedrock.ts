@@ -34,7 +34,9 @@ export interface BedrockUsage {
 
 interface InvokeBody {
   max_tokens: number;
-  system?: string;
+  // string for a plain prompt, or an array of content blocks when using
+  // prompt caching (a block can carry `cache_control: {type: "ephemeral"}`).
+  system?: string | any[];
   messages: BedrockMessage[];
   tools?: any[];
   tool_choice?: any;
@@ -102,12 +104,45 @@ export async function bedrockStructured<T = any>(opts: {
   toolName: string;
   toolDescription?: string;
   maxTokens?: number;
+  /**
+   * Large static prefix (e.g. the skill/instructions) to mark for prompt
+   * caching. Sent as the first system block with `cache_control: ephemeral`;
+   * `system` becomes the volatile remainder after it. Must be byte-identical
+   * across calls to get cache hits, and ≥ the model's min cacheable prefix
+   * (~2K tokens for Sonnet 4.6).
+   */
+  systemCachePrefix?: string;
 }): Promise<{ data: T; usage: BedrockUsage }> {
-  const { system, user, schema, toolName, toolDescription, maxTokens } = opts;
+  const {
+    system,
+    user,
+    schema,
+    toolName,
+    toolDescription,
+    maxTokens,
+    systemCachePrefix,
+  } = opts;
+
+  // When a cache prefix is given, send `system` as content blocks so the static
+  // prefix can carry cache_control. The breakpoint caches tools + the prefix
+  // block; the volatile remainder sits after it and doesn't invalidate the cache.
+  const systemField: string | any[] =
+    systemCachePrefix && systemCachePrefix.trim().length > 0
+      ? [
+          {
+            type: "text",
+            text: systemCachePrefix,
+            cache_control: { type: "ephemeral" },
+          },
+          ...(system && system.trim().length > 0
+            ? [{ type: "text", text: system }]
+            : []),
+        ]
+      : system;
 
   const result = await bedrockInvoke({
     max_tokens: maxTokens ?? 8000,
-    system,
+    system: systemField,
     messages: [{ role: "user", content: user }],
     tools: [
       {

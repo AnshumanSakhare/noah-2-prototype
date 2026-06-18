@@ -33,7 +33,7 @@ The #1 job is **consistency + delight**: colorful and friendly, but minimal and 
 4b. **Minimal, modern, NOT cartoonish.** Favor flat, geometric, line/soft-fill SVG (think tidy app icons, not glossy 3D emoji or busy storybook scenes). No emoji-soup, no decorative animal pile-ups, no heavy gradients/shadows on every object. Calm, clean, premium — even at KG.
 5. **One interaction primitive.** Exactly one archetype per game. Never combine drag + sort + MCQ.
 6. **Self-contained state.** The game must track its state and answer correctly in vanilla JS. When an answer is chosen or changed, it must immediately call `checkAnswer()`.
-7. **Static values.** Real numbers/words — NOT `{{placeholders}}` in the playable content. Playable on open.
+7. **Parameterized values — never scatter hardcoded literals.** Define every question-specific value (numbers, labels, figure measurements, correct answer, distractors) ONCE in a single named config object / constants block at the top of the script, and derive all on-screen text, the SVG figure, and the answer logic from it. Use real, grade-correct values so the file is playable on open — but keep them single-source: never repeat the same literal in two places, never sprinkle bare numbers through the markup/JS, and never leave raw `{{placeholders}}` in a standalone file. (This is the RULE 14 contract — it is what lets the pipeline swap values to make variations.)
 8. **Accessibility floor.** Every interactive element is keyboard-reachable AND pointer/touch-usable. Touch targets ≥ 44×44 px. Decorative emoji get `aria-hidden="true"`.
 9. **No dialogs or feedback text.** Never `alert()`, `prompt()`, `confirm()`, or write text feedback inside the game HTML.
 10. **Drag needs a tap fallback.** Any drag/sequence game must also work by tap-to-pick then tap-to-place.
@@ -44,6 +44,7 @@ The #1 job is **consistency + delight**: colorful and friendly, but minimal and 
     - **drag-drop / fill-slot:** the draggable tiles must NOT appear in the same order as their target bins/slots (no straight-down 1:1 alignment). Lay the source tiles in a different order than the answer order — e.g. for tiles `27, 64, 125` → roots `3, 4, 5`, render the tiles as `64, 27, 125` (or any non-aligned order), never `27, 64, 125` directly above `3, 4, 5`.
     - **sequence-order:** the items must START shuffled (out of order) — that's the whole task; never render them already in the correct sequence.
     - Distractors must be plausible and interleaved with the correct answer, not grouped or sorted. Because `getState()` keys off stable `id`s (see ID convention), scrambling the DISPLAY order never affects grading. A game whose answer can be guessed from layout position is a FAILURE.
+14. **Build it variation-ready — isolate the values that change.** Author every game so a LATER variation can be produced by swapping values only, never by rewriting structure or logic. Keep every question-specific value — the numbers, the labels, the figure's key measurements, the correct answer, and the distractors — in ONE clearly-named place (a small data object / constants at the top of the script) and reference it everywhere; never hardcode the same value in two spots. Layout, interaction wiring, and answer-checking must depend ONLY on those named values, so changing the values yields a valid new question with the same look and mechanics. Where practical, DRIVE the SVG figure from those values (e.g. the side lengths set the triangle's geometry) so a new variation redraws correctly instead of showing a stale picture. Keep the choice/item set and their stable `id`s structured identically across variations (same ids, different values). This is the contract the variation pipeline relies on.
 
 ---
 
@@ -166,7 +167,7 @@ Rules:
 - [ ] Every interactive element keyboard-focusable and tap-friendly (≥44px). Decorative emoji `aria-hidden`.
 - [ ] If drag/sequence: tap fallback works.
 - [ ] Options/tiles/items are SHUFFLED (HARD RULE 13): correct choice not first/last/fixed, choices not a sorted ladder, drag tiles not aligned 1:1 above their target bins.
-- [ ] Values are static and correct for the grade; guards respected.
+- [ ] Values are parameterized (one named config source, no scattered literals) and correct for the grade; guards respected.
 - [ ] Colorful (accent palette used on focal items) but minimal (one focal cluster, lots of whitespace).
 
 ---

@@ -121,13 +121,14 @@ export async function POST(request: Request) {
     // Determine the grade key prefix (e.g. KG, Grade 3)
     const gradeLabel = grade === 0 ? "KG" : `Grade ${grade}`;
 
-    let systemPrompt = `You are an expert EduQuest Interactive Game Designer.
+    // ── Static, cacheable system prefix ──────────────────────────────────────
+    // This block is byte-identical for every request (no grade/topic/difficulty
+    // interpolation) so Bedrock prompt caching can reuse it. The big skill doc
+    // lives here. Per-request values go in `dynamicSystem` (appended AFTER, so it
+    // never invalidates the cached prefix). markdownPrompt is read from a fixed
+    // file, so its content is stable across calls.
+    const systemCachePrefix = `You are an expert EduQuest Interactive Game Designer.
 Your task is to generate or revise a self-contained, interactive, colorful math game for a student.
-
-Grade: ${gradeLabel}
-Topic Focus: ${topic}
-Target Difficulty: ${difficulty.toUpperCase()} (Index: ${variationIndex} out of 3 for this difficulty level)
-Chosen Archetype: ${interactionArchetype || "Any suitable archetype"}
 
 PEDAGOGICAL DIFFICULTY GUIDES:
 - EASY: Very straightforward recognition, counting small sets, extremely clear visuals, and single-step operations.
@@ -150,9 +151,10 @@ ANSWER RIGOR (do not make it trivially guessable):
 - Choose non-trivial values appropriate to the grade & difficulty. A HARD item must require real multi-step reasoning, not surface recognition; do not dumb it down for upper grades.
 - For ordering/sequence tasks, the items must NOT already appear in the correct order on screen.
 
-STRICT SKELETON PARAMETERIZATION REQUIREMENT (this OVERRIDES the skeleton doc's "static values" rule #7):
-The skeleton doc above is written for standalone static games and says to hardcode real values — IGNORE that rule here.
-In THIS pipeline the HTML is a TEMPLATE the server hydrates by substituting {{placeholders}} with variation_data values.
+STRICT SKELETON PARAMETERIZATION REQUIREMENT (this is the pipeline form of the skeleton doc's rule #7 / rule #14):
+The skeleton doc already requires every question-specific value to live in ONE place and never be hardcoded/scattered.
+In THIS pipeline take that one step further: the HTML is a TEMPLATE the server hydrates by substituting {{placeholders}}
+with variation_data values — so promote every such value to a {{placeholder}} backed by a variation_data key.
 
 HARD CONTRACT — placeholders MUST match variation_data EXACTLY (this is the #1 cause of broken questions):
 - EVERY {{token}} you put in templateHtml MUST be a key in variationDataJson, spelled identically.
@@ -175,27 +177,30 @@ evaluationSpecJson as serialized JSON-encoded strings. (interaction_type and out
 server from the chosen archetype — do not return them.)
 
 The exact input/output/answer contract for THIS game's archetype is given at the end of these instructions.
+
+STRICT DIRECTIVE ON USER CUSTOM PROMPT:
+If the user provides custom guidelines, revision instructions, or tester guidance (e.g. via the custom prompt or tester instructions), they take the ABSOLUTE HIGHEST PRIORITY. You must adapt the game's mechanics, colors, numbers, layout, and pedagogical goals to satisfy the custom prompt/guidelines, overriding any default rules, system objectives, or Excel curriculum contexts if they conflict.
+`;
+
+    // ── Per-request (volatile) system content — appended AFTER the cached prefix ──
+    let dynamicSystem = `THIS SPECIFIC REQUEST:
+Grade: ${gradeLabel}
+Topic Focus: ${topic}
+Target Difficulty: ${difficulty.toUpperCase()} (Index: ${variationIndex} out of 3 for this difficulty level)
+Chosen Archetype: ${interactionArchetype || "Any suitable archetype"}
 `;
 
     // Fetch context from Excel sheet
     const xlsxContext = getXlsxContext(grade, topic);
-    let xlsxPromptContext = "";
     if (xlsxContext) {
-      xlsxPromptContext = `
+      dynamicSystem += `
 EXCEL CURRICULUM CONTEXT:
 - Subtopics in Excel Plan: ${xlsxContext.subtopics.join(", ")}
 - Target Learning Objectives (LO):
 ${xlsxContext.learningObjectives.map((lo, i) => `  ${i + 1}. ${lo}`).join("\n")}
 ${xlsxContext.exampleQuestions.length > 0 ? `- Example Questions from Plan:\n${xlsxContext.exampleQuestions.map(q => `  * ${q}`).join("\n")}` : ""}
 `;
-      systemPrompt += xlsxPromptContext;
     }
-
-    // Append STRICT DIRECTIVE ON USER CUSTOM PROMPT at the very end of systemPrompt
-    systemPrompt += `
-STRICT DIRECTIVE ON USER CUSTOM PROMPT:
-If the user provides custom guidelines, revision instructions, or tester guidance (e.g. via the custom prompt or tester instructions), they take the ABSOLUTE HIGHEST PRIORITY. You must adapt the game's mechanics, colors, numbers, layout, and pedagogical goals to satisfy the custom prompt/guidelines, overriding any default rules, system objectives, or Excel curriculum contexts if they conflict.
-`;
 
     let userPrompt = "";
     let resolvedType: CanonicalType = interactionArchetype as CanonicalType;
@@ -285,23 +290,28 @@ Please update the template HTML, variables schema, and default variation data ac
       return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
     }
 
-    // Append the exact id-based input/output/answer contract for this archetype.
-    systemPrompt += `\n\n${archetypeContract(resolvedType)}\n`;
+    // Append the exact id-based input/output/answer contract for this archetype
+    // (per-request, so it stays in the volatile block — not the cached prefix).
+    dynamicSystem += `\n\n${archetypeContract(resolvedType)}\n`;
 
     // Logging prompt details and sizes
-    const systemPromptLength = systemPrompt.length;
+    const cachePrefixLength = systemCachePrefix.length;
+    const dynamicSystemLength = dynamicSystem.length;
+    const systemPromptLength = cachePrefixLength + dynamicSystemLength;
     const userPromptLength = userPrompt.length;
-    const systemPromptWordCount = systemPrompt.split(/\s+/).length;
     const userPromptWordCount = userPrompt.split(/\s+/).length;
     // Estimate tokens (roughly 1 token per 4 characters)
-    const estimatedSystemTokens = Math.round(systemPromptLength / 4);
+    const estimatedCacheTokens = Math.round(cachePrefixLength / 4);
+    const estimatedDynamicTokens = Math.round(dynamicSystemLength / 4);
     const estimatedUserTokens = Math.round(userPromptLength / 4);
-    const totalEstimatedTokens = estimatedSystemTokens + estimatedUserTokens;
+    const totalEstimatedTokens =
+      estimatedCacheTokens + estimatedDynamicTokens + estimatedUserTokens;
 
     console.log(`[AI QUESTION GENERATOR] [VERBOSE LOG] Prompt Details:`);
-    console.log(`- System Prompt Size: ${systemPromptLength} chars, ~${systemPromptWordCount} words, ~${estimatedSystemTokens} estimated tokens`);
+    console.log(`- Cached System Prefix: ${cachePrefixLength} chars, ~${estimatedCacheTokens} tokens (reused across calls)`);
+    console.log(`- Dynamic System: ${dynamicSystemLength} chars, ~${estimatedDynamicTokens} tokens`);
     console.log(`- User Prompt Size: ${userPromptLength} chars, ~${userPromptWordCount} words, ~${estimatedUserTokens} estimated tokens`);
-    console.log(`- Total Estimated Input Tokens: ~${totalEstimatedTokens}`);
+    console.log(`- Total Estimated Input Tokens: ~${totalEstimatedTokens} (System total ${systemPromptLength} chars)`);
     console.log(`- Target Model: ${activeModelLabel()}`);
     console.log(`- Action: ${action}, Topic: ${topic}, Grade: ${gradeLabel}, Difficulty: ${difficulty}`);
 
@@ -310,7 +320,8 @@ Please update the template HTML, variables schema, and default variation data ac
 
     // Structured generation via the active provider (OpenAI gpt-5.4 or Bedrock Sonnet 4.6)
     const { data: rawData, usage } = await llmStructured<any>({
-      system: systemPrompt,
+      systemCachePrefix,
+      system: dynamicSystem,
       user: userPrompt,
       zodSchema: GenerateResponseSchema,
       schemaName: "game_generator_response",
