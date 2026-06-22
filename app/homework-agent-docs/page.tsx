@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, BookOpen, ChevronRight, Database, Repeat, Sparkles } from "lucide-react";
 import { CodeBlock } from "./code-block";
+import { ResponseBlock } from "./response-block";
 
 export const metadata = {
   title: "Homework Agent Docs",
@@ -25,7 +26,10 @@ interface Endpoint {
   parity: "identical" | "similar" | "new";
   description: string;
   request?: string;
+  /** Generic shape (placeholders). */
   response: string;
+  /** Optional real-data variant; when set, the response renders a Shape / Real-data toggle. */
+  responseReal?: string;
 }
 
 const METHOD_COLOR: Record<Method, string> = {
@@ -59,8 +63,8 @@ const ENDPOINTS: Endpoint[] = [
     request: `{
   "student_id": "stu_01H8Z...",
   "grade": 5,
-  "topic": "Fractions",
-  "subtopic": "Equivalent Fractions",
+  "topic": "Fraction Arithmetic",
+  "subtopic": "Multiplying Fractions",
   "locale": "en-IN",
   "blueprint": {                       // optional; this IS the default
     "diagnostic": { "easy": 5, "medium": 5, "hard": 5 },
@@ -75,7 +79,7 @@ const ENDPOINTS: Endpoint[] = [
       "id": "hws_4f2a9c",
       "student_id": "stu_01H8Z...",
       "grade": 5,
-      "topic": "Fractions",
+      "topic": "<topic>",
       "status": "in_progress",          // in_progress | completed | abandoned
       "total_questions": 20,
       "served_count": 0,
@@ -87,13 +91,46 @@ const ENDPOINTS: Endpoint[] = [
       "interactive": 5
     },
     "questions": [                       // ordered manifest — NO answers, NO html yet
-      { "index": 0,  "kind": "diagnostic",  "question_id": 8842, "version_id": 55012,
-        "question_type": "mcq",  "difficulty_band": "easy",   "bloom_level": "understand",
-        "topic": "Fractions", "subtopic": "Equivalent Fractions" },
+      { "index": 0,  "kind": "diagnostic",  "question_id": <bigint>, "version_id": <bigint>,
+        "question_type": "mcq",  "difficulty_band": "easy",   "bloom_level": "<bloom>",
+        "topic": "<topic>", "subtopic": "<subtopic>" },
 
-      { "index": 15, "kind": "interactive", "question_id": 9001, "version_id": 71200,
-        "interaction_type": "drag-drop", "difficulty_band": "medium",
-        "template_id": "a3f1...-uuid", "template_slug": "fraction-bar-drag-v1" }
+      { "index": 15, "kind": "interactive", "question_id": <bigint>, "version_id": <bigint>,
+        "interaction_type": "<one of 7 archetypes>", "difficulty_band": "medium",
+        "template_id": "<uuid>", "template_slug": "<slug>" }
+      /* ...20 items: 0-4 easy, 5-9 medium, 10-14 hard, 15-19 interactive */
+    ]
+  },
+  "meta": { "requestId": "req_...", "timestamp": "2026-06-18T09:14:02.000Z" },
+  "error": null
+}`,
+    responseReal: `{
+  "success": true,
+  "data": {
+    "session": {
+      "id": "hws_4f2a9c",
+      "student_id": "stu_01H8Z...",
+      "grade": 5,
+      "topic": "Fraction Arithmetic",
+      "status": "in_progress",
+      "total_questions": 20,
+      "served_count": 0,
+      "answered_count": 0,
+      "created_at": "2026-06-18T09:14:02.000Z"
+    },
+    "blueprint": {
+      "diagnostic": { "easy": 5, "medium": 5, "hard": 5 },
+      "interactive": 5
+    },
+    "questions": [
+      { "index": 0,  "kind": "diagnostic",  "question_id": 770112, "version_id": 980551,
+        "question_type": "mcq",  "difficulty_band": "easy",   "bloom_level": "apply",
+        "topic": "Fraction Arithmetic", "subtopic": "Multiplying Fractions" },
+
+      { "index": 15, "kind": "interactive", "question_id": 770450, "version_id": 980880,
+        "interaction_type": "tap-select", "difficulty_band": "medium",
+        "template_id": "ab4c0c05-0069-4d54-9503-e629f6ea081b",
+        "template_slug": "gen-patterns-sequences-medium-v1" }
       /* ...20 items: 0-4 easy, 5-9 medium, 10-14 hard, 15-19 interactive */
     ]
   },
@@ -142,10 +179,10 @@ const ENDPOINTS: Endpoint[] = [
 {
   "success": true,
   "data": {
-    "index": 0, "kind": "diagnostic", "question_id": 8842, "version_id": 55012,
-    "question_type": "mcq", "difficulty_band": "easy", "bloom_level": "understand",
-    "prompt": "Which fraction is equivalent to 1/2?",
-    "options": ["2/4", "1/3", "3/5", "2/3"],
+    "index": 0, "kind": "diagnostic", "question_id": <bigint>, "version_id": <bigint>,
+    "question_type": "mcq", "difficulty_band": "easy", "bloom_level": "<bloom>",
+    "prompt": "<question text>",
+    "options": ["<a>", "<b>", "<c>", "<d>"],
     "time_allocated_ms": 60000
     // NO correct_answer, NO explanation
   }, "meta": { "...": "..." }, "error": null
@@ -155,15 +192,46 @@ const ENDPOINTS: Endpoint[] = [
 {
   "success": true,
   "data": {
-    "index": 15, "kind": "interactive", "question_id": 9001, "version_id": 71200,
-    "interaction_type": "drag-drop", "difficulty_band": "medium",
-    "template_slug": "fraction-bar-drag-v1",
-    "prompt": "Drag the shaded bars to build three-fourths.",
+    "index": 15, "kind": "interactive", "question_id": <bigint>, "version_id": <bigint>,
+    "interaction_type": "<archetype>", "difficulty_band": "medium",
+    "template_slug": "<slug>",
+    "prompt": "<instruction>",
     "render": {
       "mode": "html",
-      "html": "<div class=\\"game\\"> ...hydrated standalone HTML... </div>",
+      "html": "<!DOCTYPE html> …hydrated standalone game HTML… </html>",
       "silent_mode": true,
-      "output_schema": { "type": "object", "properties": { "...": "..." } }
+      "output_schema": { "type": "<archetype>", "fields": { "...": "..." } }
+    },
+    "time_allocated_ms": 90000
+    // NO evaluation_spec, NO answer
+  }, "meta": { "...": "..." }, "error": null
+}`,
+    responseReal: `// kind = "diagnostic"   (real question from the bank)
+{
+  "success": true,
+  "data": {
+    "index": 0, "kind": "diagnostic", "question_id": 770112, "version_id": 980551,
+    "question_type": "mcq", "difficulty_band": "easy", "bloom_level": "apply",
+    "prompt": "Choose the correct result for 3/5 × 2/7.",
+    "options": ["6/35", "5/14", "6/12", "3/14"],
+    "time_allocated_ms": 60000
+    // NO correct_answer, NO explanation
+  }, "meta": { "...": "..." }, "error": null
+}
+
+// kind = "interactive"   (real tap-select variation from the bank)
+{
+  "success": true,
+  "data": {
+    "index": 15, "kind": "interactive", "question_id": 770450, "version_id": 980880,
+    "interaction_type": "tap-select", "difficulty_band": "medium",
+    "template_slug": "gen-patterns-sequences-medium-v1",
+    "prompt": "What number comes next? 3, 6, 9, 12, …",
+    "render": {
+      "mode": "html",
+      "html": "<!DOCTYPE html> …hydrated standalone game HTML (~9 KB)… </html>",
+      "silent_mode": true,
+      "output_schema": { "type": "tap-select", "fields": { "selected": "optionId" } }
     },
     "time_allocated_ms": 90000
     // NO evaluation_spec, NO answer
@@ -181,10 +249,10 @@ const ENDPOINTS: Endpoint[] = [
     description:
       "Diagnostic → match vs correct_answer. Interactive → scoreAnswer(payload.evaluation_spec, answer). Returns an acknowledgement only.",
     request: `// diagnostic
-{ "index": 0, "version_id": 55012, "answer": "2/4", "time_taken_ms": 8200 }
+{ "index": 0, "version_id": 980551, "answer": "6/35", "time_taken_ms": 8200 }
 
-// interactive (answer = canonical output the game emits)
-{ "index": 15, "version_id": 71200, "answer": { "selected": ["bar_1","bar_2","bar_3"] }, "time_taken_ms": 41000 }`,
+// interactive (answer = canonical output the game emits; tap-select → the chosen option id)
+{ "index": 15, "version_id": 980880, "answer": { "selected": "o_15" }, "time_taken_ms": 41000 }`,
     response: `{
   "success": true,
   "data": {
@@ -251,11 +319,42 @@ const ENDPOINTS: Endpoint[] = [
     "questions": [
       { "index": 0, "kind": "diagnostic", "difficulty_band": "easy",
         "is_correct": true, "performance": 100,
-        "student_answer": "2/4", "correct_answer": "2/4", "time_taken_ms": 8200 },
-      { "index": 15, "kind": "interactive", "interaction_type": "drag-drop",
-        "is_correct": false, "performance": 40, "scoring": "partial",
-        "student_answer": { "selected": ["bar_1","bar_2","bar_3"] },
-        "score_breakdown": { "matched": 2, "expected": 3, "reason": "missing bar_4" },
+        "student_answer": "<answer>", "correct_answer": "<answer>", "time_taken_ms": 8200 },
+      { "index": 15, "kind": "interactive", "interaction_type": "<archetype>",
+        "is_correct": false, "performance": 0, "scoring": "binary",
+        "student_answer": { "...": "..." }, "correct_answer": { "...": "..." },
+        "time_taken_ms": 41000 }
+      /* ...20 */
+    ]
+  },
+  "meta": { "requestId": "req_...", "timestamp": "..." },
+  "error": null
+}`,
+    responseReal: `{
+  "success": true,
+  "data": {
+    "session_id": "hws_4f2a9c",
+    "status": "completed",
+    "overall_performance": 78,
+    "summary": {
+      "total": 20, "answered": 20, "correct": 15,
+      "by_band": {
+        "easy":   { "correct": 5, "total": 5 },
+        "medium": { "correct": 4, "total": 5 },
+        "hard":   { "correct": 3, "total": 5 }
+      },
+      "by_kind": {
+        "diagnostic":  { "correct": 12, "total": 15 },
+        "interactive": { "correct": 3,  "total": 5  }
+      }
+    },
+    "questions": [
+      { "index": 0, "kind": "diagnostic", "difficulty_band": "easy",
+        "is_correct": true, "performance": 100,
+        "student_answer": "6/35", "correct_answer": "6/35", "time_taken_ms": 8200 },
+      { "index": 15, "kind": "interactive", "interaction_type": "tap-select",
+        "is_correct": false, "performance": 0, "scoring": "binary",
+        "student_answer": { "selected": "o_13" }, "correct_answer": { "selected": "o_15" },
         "time_taken_ms": 41000 }
       /* ...20 */
     ]
@@ -460,7 +559,10 @@ export default function HomeworkAgentDocsPage() {
           </div>
           <p className="mt-3 text-sm" style={{ color: "var(--text-dim)" }}>
             The <strong>Same as before</strong> tags map each endpoint to its diagnostic /
-            placement test counterpart so the parallels are obvious.
+            placement test counterpart so the parallels are obvious. The JSON examples use{" "}
+            <strong>real questions pulled from the bank</strong> (a grade-5 fraction MCQ and a real{" "}
+            <code className="font-mono">tap-select</code> interactive variation); IDs are shown as
+            bigints per the merged schema.
           </p>
         </section>
 
@@ -518,7 +620,11 @@ export default function HomeworkAgentDocsPage() {
                 )}
 
                 {e.request && <CodeBlock label="Request" code={e.request} />}
-                <CodeBlock label="Response" code={e.response} />
+                {e.responseReal ? (
+                  <ResponseBlock label="Response" shape={e.response} real={e.responseReal} />
+                ) : (
+                  <CodeBlock label="Response" code={e.response} />
+                )}
               </div>
             </details>
           ))}

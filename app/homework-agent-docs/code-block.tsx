@@ -136,6 +136,11 @@ function highlightSql(code: string): ReactNode[] {
   return out;
 }
 
+/** Reusable highlighter — safe to call from client components (pure, no server APIs). */
+export function highlightCode(code: string, lang: "json" | "sql" = "json"): ReactNode[] {
+  return lang === "sql" ? highlightSql(code) : highlightJson(code);
+}
+
 export function CodeBlock({
   label,
   code,
@@ -145,7 +150,7 @@ export function CodeBlock({
   code: string;
   lang?: "json" | "sql";
 }) {
-  const nodes = lang === "sql" ? highlightSql(code) : highlightJson(code);
+  const nodes = highlightCode(code, lang);
   return (
     <div className="mt-4">
       {label && (

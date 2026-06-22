@@ -30,12 +30,21 @@ const TEMPLATES_SQL = `CREATE TABLE public.question_templates (
   updated_at              TIMESTAMPTZ DEFAULT now()
 );`;
 
+// real tap-select variation pulled from the bank (slug: gen-patterns-sequences-medium-v1)
 const PAYLOAD_JSON = `{
-  "variation_data":  { "...filled numbers/words/positions..." },
-  "evaluation_spec": { "...canonical answer + binary/partial flag (server-only)..." },
+  "variation_data": {
+    "n1": "3", "n2": "6", "n3": "9", "n4": "12",
+    "rule_label": "3s",
+    "option_1_id": "o_16", "option_1_label": "16",
+    "option_2_id": "o_15", "option_2_label": "15",
+    "option_3_id": "o_13", "option_3_label": "13",
+    "option_4_id": "o_14", "option_4_label": "14",
+    "correct_answer_id": "o_15"
+  },
+  "evaluation_spec": { "type": "tap-select", "answer": "o_15", "scoring": "binary" },
   "locale": "en-IN",
   "content_hash": "…",
-  "verifier_notes": "…"
+  "verifier_notes": "verified"
 }`;
 
 // [#, field, purpose]
