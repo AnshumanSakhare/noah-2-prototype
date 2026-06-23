@@ -19,9 +19,10 @@ export async function GET(request: Request) {
     const verifierStatus = searchParams.get("verifier_status");
     const search = searchParams.get("search");
 
-    // Pagination
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    // Pagination (clamp limit to a sane range so large requests stay safe)
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
+    const rawLimit = parseInt(searchParams.get("limit") || "10") || 10;
+    const limit = Math.min(Math.max(rawLimit, 1), 500);
     const offset = (page - 1) * limit;
 
     // Build dynamic query
@@ -34,7 +35,10 @@ export async function GET(request: Request) {
     let paramIndex = 1;
 
     if (grade) {
-      const grades = grade.split(",").map(g => parseInt(g.trim())).filter(g => !isNaN(g));
+      const grades = grade
+        .split(",")
+        .map((g) => parseInt(g.trim()))
+        .filter((g) => !isNaN(g));
       if (grades.length > 0) {
         baseQuery += ` AND qt.grade = ANY($${paramIndex})`;
         params.push(grades);
@@ -55,7 +59,7 @@ export async function GET(request: Request) {
     }
 
     if (interactionType) {
-      const types = interactionType.split(",").map(t => t.trim());
+      const types = interactionType.split(",").map((t) => t.trim());
       if (types.length > 0) {
         baseQuery += ` AND qt.interaction_type = ANY($${paramIndex})`;
         params.push(types);
@@ -88,7 +92,10 @@ export async function GET(request: Request) {
     }
 
     // Count query
-    const countRes = await query(`SELECT COUNT(*)::integer as total ${baseQuery}`, params);
+    const countRes = await query(
+      `SELECT COUNT(*)::integer as total ${baseQuery}`,
+      params,
+    );
     const total = countRes.rows[0]?.total || 0;
 
     // Fetch query
@@ -128,13 +135,15 @@ export async function GET(request: Request) {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     });
-
   } catch (error: any) {
     console.error("GET /api/admin/questions error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 },
+    );
   }
 }
 
@@ -145,50 +154,73 @@ export async function PUT(request: Request) {
     const { ids, action, statusValue } = body; // ids is UUID[]
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return NextResponse.json({ success: false, error: "Invalid variation IDs list" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Invalid variation IDs list" },
+        { status: 400 },
+      );
     }
 
     if (action === "mark_status") {
       if (!statusValue) {
-        return NextResponse.json({ success: false, error: "Missing status value" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, error: "Missing status value" },
+          { status: 400 },
+        );
       }
 
       await query(
         `UPDATE public.question_variations SET status = $1, updated_at = now() WHERE id = ANY($2)`,
-        [statusValue, ids]
+        [statusValue, ids],
       );
 
       // Log bulk edit
       for (const id of ids) {
-        await query(`
+        await query(
+          `
           INSERT INTO public.generation_runs (run_type, variation_id, triggered_by, notes)
           VALUES ('human_edit', $1, 'system_bulk_admin', $2)
-        `, [id, `Bulk set status to: ${statusValue}`]);
+        `,
+          [id, `Bulk set status to: ${statusValue}`],
+        );
       }
 
-      return NextResponse.json({ success: true, message: `Successfully updated status to ${statusValue} for ${ids.length} questions` });
-    } 
-    
+      return NextResponse.json({
+        success: true,
+        message: `Successfully updated status to ${statusValue} for ${ids.length} questions`,
+      });
+    }
+
     if (action === "flag_reverify") {
       await query(
         `UPDATE public.question_variations SET verifier_status = 'pending', updated_at = now() WHERE id = ANY($1)`,
-        [ids]
+        [ids],
       );
 
       for (const id of ids) {
-        await query(`
+        await query(
+          `
           INSERT INTO public.generation_runs (run_type, variation_id, triggered_by, notes)
           VALUES ('re_verify', $1, 'system_bulk_admin', 'Bulk flagged for re-verification')
-        `, [id]);
+        `,
+          [id],
+        );
       }
 
-      return NextResponse.json({ success: true, message: `Successfully flagged ${ids.length} questions for re-verification` });
+      return NextResponse.json({
+        success: true,
+        message: `Successfully flagged ${ids.length} questions for re-verification`,
+      });
     }
 
-    return NextResponse.json({ success: false, error: "Invalid action type" }, { status: 400 });
-
+    return NextResponse.json(
+      { success: false, error: "Invalid action type" },
+      { status: 400 },
+    );
   } catch (error: any) {
     console.error("PUT /api/admin/questions error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 },
+    );
   }
 }

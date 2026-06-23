@@ -146,7 +146,7 @@ export interface HomeworkContextType {
   eventLog: any[];
   logEvent: (e: any) => void;
   selectAssignment: (id: string) => void;
-  assignHomeworkDb: (topic: string | string[], count: number, diff: string) => Promise<string | null>;
+  assignHomeworkDb: (topic: string | string[], count: number, diff: string, grade?: string) => Promise<string | null>;
   selectedMathGrade: string;
   setSelectedMathGrade: React.Dispatch<React.SetStateAction<string>>;
   activeTab: 'dynamic' | 'templates' | 'analytics';
@@ -788,21 +788,28 @@ export const HomeworkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     }
 
+    fetchDbAssignments();
+  }, []);
+
+  // Topic "DB Qs" counts are scoped to the selected grade so the builder badge
+  // matches what a homework for that grade will actually draw from. Refetches
+  // whenever the grade changes.
+  useEffect(() => {
     async function fetchTopicCounts() {
       try {
-        const res = await fetch("/api/homework/topic-counts");
+        const res = await fetch(
+          `/api/homework/topic-counts?grade=${encodeURIComponent(selectedMathGrade)}`,
+        );
         const json = await res.json();
         if (json.success && json.counts) {
           setTopicDbCounts(json.counts);
         }
       } catch (err) {
-        console.error("Error fetching topic counts on mount:", err);
+        console.error("Error fetching topic counts:", err);
       }
     }
-
-    fetchDbAssignments();
     fetchTopicCounts();
-  }, []);
+  }, [selectedMathGrade]);
 
   // Toast notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -850,7 +857,7 @@ export const HomeworkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const assignHomeworkDb = async (topic: string | string[], count: number, diff: string): Promise<string | null> => {
+  const assignHomeworkDb = async (topic: string | string[], count: number, diff: string, grade?: string): Promise<string | null> => {
     try {
       // An array of topics → combine-all mode (every question across all selected topics).
       const isMulti = Array.isArray(topic);
@@ -863,6 +870,7 @@ export const HomeworkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           ...(isMulti ? { topics: topic } : { topic }),
           activity_count: count,
           difficulty_mode: diff,
+          ...(grade ? { grade } : {}), // scope selection to this grade when provided
           teacher_id: "00000000-0000-0000-0000-000000000002" // Mock teacher
         })
       });

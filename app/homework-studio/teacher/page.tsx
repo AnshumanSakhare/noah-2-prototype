@@ -27,7 +27,8 @@ export default function TeacherPage() {
     activeTab,
     setActiveTab,
     assignHomeworkDb,
-    topicDbCounts
+    topicDbCounts,
+    selectedMathGrade
   } = useHomework();
   const [viewMode, setViewMode] = useState<'builder' | 'assembling' | 'preview'>('builder');
 
@@ -44,7 +45,12 @@ export default function TeacherPage() {
     setViewMode('assembling');
     // Math → combine-all across every selected topic; Science keeps single-topic path.
     const assignTarget: string | string[] = builderState.subject === 'math' ? selectedTopics : selectedTopics[0];
-    const assignedId = await assignHomeworkDb(assignTarget, builderState.length, builderState.diff);
+    const assignedId = await assignHomeworkDb(
+      assignTarget,
+      builderState.length,
+      builderState.diff,
+      builderState.subject === 'math' ? selectedMathGrade : undefined,
+    );
     if (assignedId) {
       setTimeout(() => {
         handleAssemblyComplete();
