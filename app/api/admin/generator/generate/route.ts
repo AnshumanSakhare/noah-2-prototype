@@ -247,7 +247,7 @@ Return a completely unique design suited for this topic, avoiding repeating the 
           qt.interaction_type,
           qt.learning_objective
         FROM public.question_variations qv
-        JOIN public.question_templates qt ON qv.template_id = qt.id
+        JOIN public.question_templates_1 qt ON qv.template_id = qt.id
         WHERE qv.id = $1`,
         [variationId]
       );
@@ -414,7 +414,7 @@ Please update the template HTML, variables schema, and default variation data ac
       try {
         // 1. Insert Template (Stringify JSONB columns for binding)
         const templateRes = await query(
-          `INSERT INTO public.question_templates (slug, grade, topic, subtopic, learning_objective, interaction_type, template_html, props_schema, output_schema, status, difficulty)
+          `INSERT INTO public.question_templates_1 (slug, grade, topic, subtopic, learning_objective, interaction_type, template_html, props_schema, output_schema, status, difficulty)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
           RETURNING id`,
           [templateSlug, grade, topic, "Interactive AI", learningObjective, interactionType, templateHtml, JSON.stringify(propsSchema), JSON.stringify(outputSchema), "draft", difficulty]
@@ -470,7 +470,7 @@ Please update the template HTML, variables schema, and default variation data ac
       try {
         // 1. Update Template (Stringify JSONB columns for binding)
         await query(
-          `UPDATE public.question_templates
+          `UPDATE public.question_templates_1
           SET template_html = $1, props_schema = $2, output_schema = $3, learning_objective = $4, interaction_type = $5
           WHERE id = $6`,
           [templateHtml, JSON.stringify(propsSchema), JSON.stringify(outputSchema), learningObjective, interactionType, templateId]

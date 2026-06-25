@@ -51,8 +51,8 @@ async function clearDb() {
     console.log("Truncating public.question_variations...");
     await client.query("TRUNCATE TABLE public.question_variations CASCADE");
 
-    console.log("Truncating public.question_templates...");
-    await client.query("TRUNCATE TABLE public.question_templates CASCADE");
+    console.log("Truncating public.question_templates_1...");
+    await client.query("TRUNCATE TABLE public.question_templates_1 CASCADE");
 
     await client.query("COMMIT");
     console.log("✅ Database successfully cleared of all question, variation, and homework records!");

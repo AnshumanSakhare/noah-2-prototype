@@ -39,7 +39,7 @@ export async function GET(
         qt.output_schema,
         qt.answer_key_fn
       FROM public.question_variations qv
-      JOIN public.question_templates qt ON qv.template_id = qt.id
+      JOIN public.question_templates_1 qt ON qv.template_id = qt.id
       WHERE qv.id = $1
     `, [variationId]);
 

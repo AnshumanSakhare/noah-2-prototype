@@ -15,7 +15,7 @@
 
 import { CanonicalType } from "./scoring";
 
-// Server-owned snapshot written into question_templates.output_schema.
+// Server-owned snapshot written into question_templates_1.output_schema.
 export const OUTPUT_SCHEMA: Record<CanonicalType, object> = {
   "tap-select": { type: "tap-select", fields: { selected: "optionId — or [optionId, ...] when multi:true" } },
   "drag-drop": { type: "drag-drop", fields: { placements: "{ [itemId]: binId }" } },

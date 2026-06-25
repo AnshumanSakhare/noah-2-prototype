@@ -38,7 +38,7 @@ async function run() {
     const res = await query(`
       SELECT qv.id, qv.status, qv.verifier_status, qt.topic, qt.status as template_status
       FROM public.question_variations qv
-      JOIN public.question_templates qt ON qv.template_id = qt.id
+      JOIN public.question_templates_1 qt ON qv.template_id = qt.id
     `);
     console.log("Total variations in DB:", res.rows.length);
     console.log("Variations details:", JSON.stringify(res.rows.slice(0, 10), null, 2));

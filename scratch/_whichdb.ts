@@ -12,7 +12,7 @@ async function main(){
   await safe("identity", `SELECT current_database() AS db, current_user AS usr, inet_server_addr()::text AS server_ip, inet_server_port() AS port`);
   await safe("databases on this server", `SELECT datname FROM pg_database WHERE datistemplate=false ORDER BY 1`);
   // team's NEW artifacts:
-  await safe("question_templates has template_uuid? (team's new design)", `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='question_templates' AND column_name IN ('template_uuid','status','interaction_type') ORDER BY 1`);
+  await safe("question_templates_1 has template_uuid? (team's new design)", `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='question_templates_1' AND column_name IN ('template_uuid','status','interaction_type') ORDER BY 1`);
   await safe("questions has template_id? (migration 0017)", `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='questions' AND column_name='template_id'`);
   await safe("enum_question_type has interactive? (migration 0016)", `SELECT 1 AS present FROM pg_type t JOIN pg_enum e ON e.enumtypid=t.oid WHERE t.typname='enum_question_type' AND e.enumlabel='interactive'`);
   // migration tracking tables

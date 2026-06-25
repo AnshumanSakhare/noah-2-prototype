@@ -12,7 +12,7 @@ export async function GET() {
     const { rows } = await query(`
       SELECT qt.grade, qt.topic, COUNT(*)::int AS count
       FROM public.question_variations qv
-      JOIN public.question_templates qt ON qv.template_id = qt.id
+      JOIN public.question_templates_1 qt ON qv.template_id = qt.id
       GROUP BY qt.grade, qt.topic
       HAVING COUNT(*) > 9
       ORDER BY COUNT(*) DESC, qt.grade, qt.topic

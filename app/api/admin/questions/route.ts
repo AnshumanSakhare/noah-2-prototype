@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     // Build dynamic query
     let baseQuery = `
       FROM public.question_variations qv
-      JOIN public.question_templates qt ON qv.template_id = qt.id
+      JOIN public.question_templates_1 qt ON qv.template_id = qt.id
       WHERE 1=1
     `;
     const params: any[] = [];

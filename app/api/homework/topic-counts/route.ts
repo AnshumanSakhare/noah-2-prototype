@@ -24,7 +24,7 @@ export async function GET(request: Request) {
       `
       SELECT qt.topic, COUNT(qv.id)::int as count
       FROM public.question_variations qv
-      JOIN public.question_templates qt ON qv.template_id = qt.id
+      JOIN public.question_templates_1 qt ON qv.template_id = qt.id
       WHERE qv.status != 'deprecated' AND qv.verifier_status != 'failed'${gradeClause}
       GROUP BY qt.topic
     `,

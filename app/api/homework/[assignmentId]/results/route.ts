@@ -65,7 +65,7 @@ export async function GET(
         qt.template_html
       FROM public.homework_attempts ha
       JOIN public.question_variations qv ON ha.question_id = qv.id
-      JOIN public.question_templates qt ON qv.template_id = qt.id
+      JOIN public.question_templates_1 qt ON qv.template_id = qt.id
       WHERE ha.assignment_id = $1
       ORDER BY ha.created_at ASC
     `, [assignmentId]);

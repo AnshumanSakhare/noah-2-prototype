@@ -51,13 +51,13 @@ async function runMigration() {
       DROP TABLE IF EXISTS public.homework_attempts CASCADE;
       DROP TABLE IF EXISTS public.homework_assignments CASCADE;
       DROP TABLE IF EXISTS public.question_variations CASCADE;
-      DROP TABLE IF EXISTS public.question_templates CASCADE;
+      DROP TABLE IF EXISTS public.question_templates_1 CASCADE;
     `);
 
-    // 1. Create question_templates
-    console.log("Creating table 'question_templates'...");
+    // 1. Create question_templates_1
+    console.log("Creating table 'question_templates_1'...");
     await client.query(`
-      CREATE TABLE IF NOT EXISTS public.question_templates (
+      CREATE TABLE IF NOT EXISTS public.question_templates_1 (
         id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         slug                TEXT NOT NULL UNIQUE,             -- e.g. "position-drag-drop-v1"
         grade               SMALLINT NOT NULL,                -- 0=KG, 1–8
@@ -87,7 +87,7 @@ async function runMigration() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS public.question_variations (
         id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        template_id         UUID NOT NULL REFERENCES public.question_templates(id),
+        template_id         UUID NOT NULL REFERENCES public.question_templates_1(id),
         variation_index     SMALLINT NOT NULL,               -- 1–9 within the topic's slate
         variation_data      JSONB NOT NULL,                  -- Input JSONB: filled values (numbers, words, positions)
         evaluation_spec     JSONB NOT NULL,                  -- Eval JSONB: canonical answer + binary/partial flag — SERVER ONLY
@@ -155,7 +155,7 @@ async function runMigration() {
       CREATE TABLE IF NOT EXISTS public.generation_runs (
         id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         run_type            TEXT NOT NULL CHECK (run_type IN ('ai_generate','human_edit','re_verify')),
-        template_id         UUID REFERENCES public.question_templates(id),
+        template_id         UUID REFERENCES public.question_templates_1(id),
         variation_id        UUID REFERENCES public.question_variations(id),
         triggered_by        TEXT,                            -- user email or "system"
         input_params        JSONB,                           -- prompt params used
@@ -180,11 +180,11 @@ async function runMigration() {
       $$ language 'plpgsql';
     `);
 
-    // Add trigger to question_templates
+    // Add trigger to question_templates_1
     await client.query(`
-      DROP TRIGGER IF EXISTS update_question_templates_modtime ON public.question_templates;
-      CREATE TRIGGER update_question_templates_modtime
-          BEFORE UPDATE ON public.question_templates
+      DROP TRIGGER IF EXISTS update_question_templates_1_modtime ON public.question_templates_1;
+      CREATE TRIGGER update_question_templates_1_modtime
+          BEFORE UPDATE ON public.question_templates_1
           FOR EACH ROW
           EXECUTE FUNCTION update_updated_at_column();
     `);
@@ -206,7 +206,7 @@ async function runMigration() {
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public'
-        AND table_name IN ('question_templates', 'question_variations', 'homework_assignments', 'homework_attempts', 'generation_runs')
+        AND table_name IN ('question_templates_1', 'question_variations', 'homework_assignments', 'homework_attempts', 'generation_runs')
       ORDER BY table_name
     `);
     

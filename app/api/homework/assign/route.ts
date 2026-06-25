@@ -44,7 +44,7 @@ export async function POST(request: Request) {
         `
         SELECT qv.id, qv.difficulty
         FROM public.question_variations qv
-        JOIN public.question_templates qt ON qv.template_id = qt.id
+        JOIN public.question_templates_1 qt ON qv.template_id = qt.id
         WHERE qt.topic = ANY($1)
           AND qv.status != 'deprecated'
           AND qv.verifier_status != 'failed'${allGradeClause}
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
         SELECT ha.performance, ha.is_correct, qv.difficulty
         FROM public.homework_attempts ha
         JOIN public.question_variations qv ON ha.question_id = qv.id
-        JOIN public.question_templates qt ON qv.template_id = qt.id
+        JOIN public.question_templates_1 qt ON qv.template_id = qt.id
         WHERE ha.student_id = $1 AND qt.topic = $2
         ORDER BY ha.created_at DESC
         LIMIT 10
@@ -166,7 +166,7 @@ export async function POST(request: Request) {
       SELECT DISTINCT ha.question_id
       FROM public.homework_attempts ha
       JOIN public.question_variations qv ON ha.question_id = qv.id
-      JOIN public.question_templates qt ON qv.template_id = qt.id
+      JOIN public.question_templates_1 qt ON qv.template_id = qt.id
       WHERE ha.student_id = $1 
         AND qt.topic = $2 
         AND ha.created_at >= now() - interval '30 days'
@@ -186,7 +186,7 @@ export async function POST(request: Request) {
       `
       SELECT qv.id
       FROM public.question_variations qv
-      JOIN public.question_templates qt ON qv.template_id = qt.id
+      JOIN public.question_templates_1 qt ON qv.template_id = qt.id
       WHERE qt.topic = $1
         AND qv.difficulty = $2
         AND qv.status != 'deprecated'
@@ -209,7 +209,7 @@ export async function POST(request: Request) {
         `
         SELECT qv.id
         FROM public.question_variations qv
-        JOIN public.question_templates qt ON qv.template_id = qt.id
+        JOIN public.question_templates_1 qt ON qv.template_id = qt.id
         WHERE qt.topic = $1
           AND qv.status != 'deprecated'
           AND qv.verifier_status != 'failed'${fbGradeClause}

@@ -16,7 +16,7 @@ export async function POST(
     const { rows } = await query(`
       SELECT qv.variation_data, qv.evaluation_spec, qt.answer_key_fn, qt.interaction_type, qt.id as template_id
       FROM public.question_variations qv
-      JOIN public.question_templates qt ON qv.template_id = qt.id
+      JOIN public.question_templates_1 qt ON qv.template_id = qt.id
       WHERE qv.id = $1
     `, [variationId]);
 

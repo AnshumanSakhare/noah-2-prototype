@@ -59,7 +59,7 @@ export async function GET(
         qt.learning_objective,
         qt.slug as template_slug
       FROM public.question_variations qv
-      JOIN public.question_templates qt ON qv.template_id = qt.id
+      JOIN public.question_templates_1 qt ON qv.template_id = qt.id
       WHERE qv.id = $1
     `, [targetQuestionId]);
 

@@ -18,7 +18,7 @@ import { scoreAnswer } from "@/lib/scoring";
  *   • 15 from the DIAGNOSTIC pool (final_content_questions_1): 5 easy / 5 med /
  *     5 hard, with variety across mcq / drag_drop / fitb. If a difficulty band
  *     is short in the DB it borrows from the nearest band.
- *   • 5 from the INTERACTIVE pool (question_variations + question_templates):
+ *   • 5 from the INTERACTIVE pool (question_variations + question_templates_1):
  *     2 easy / 2 med / 1 hard, hydrated to runnable HTML.
  *
  * Serve order (20 slots):
@@ -126,7 +126,7 @@ export async function getPrototypeTopics(
     inter AS (
       SELECT btrim(qt.topic) AS topic, count(*)::int AS ic
       FROM question_variations qv
-      JOIN question_templates qt ON qv.template_id = qt.id
+      JOIN question_templates_1 qt ON qv.template_id = qt.id
       WHERE qv.status <> 'deprecated'
         AND qv.verifier_status <> 'failed'
         AND qt.grade = $2
@@ -358,7 +358,7 @@ async function selectInteractive(
            qt.learning_objective,
            qt.template_html
     FROM question_variations qv
-    JOIN question_templates qt ON qv.template_id = qt.id
+    JOIN question_templates_1 qt ON qv.template_id = qt.id
     WHERE qt.grade = $1
       AND lower(btrim(qt.topic)) = lower($2)
       AND qv.status <> 'deprecated'

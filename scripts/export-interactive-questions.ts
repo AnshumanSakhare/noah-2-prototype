@@ -1,9 +1,9 @@
 /**
  * export-interactive-questions.ts
  * --------------------------------
- * Exports the interactive question bank (question_variations ⋈ question_templates)
+ * Exports the interactive question bank (question_variations ⋈ question_templates_1)
  * to CSV, mapped onto the MERGED schema in "Schema Merging"
- * (questions + question_versions + question_templates / html_templates).
+ * (questions + question_versions + question_templates_1 / html_templates).
  *
  * Leading columns follow the Placement CSV sequence:
  *   id (= OLD question_variations.id / the stable id we already generate — also the
@@ -103,7 +103,7 @@ const HEADER = [
   "time_allocated_ms",
   "version_created_at",
   "version_created_by_admin_user_id",
-  // ---- question_templates (html_templates) ----
+  // ---- question_templates_1 (html_templates) ----
   "template_slug",
   "template_interaction_type",
   "template_html",
@@ -169,7 +169,7 @@ async function main() {
       qt.version AS t_version, qt.status AS t_status,
       qt.created_at AS t_created, qt.updated_at AS t_updated
     FROM public.question_variations qv
-    JOIN public.question_templates qt ON qt.id = qv.template_id
+    JOIN public.question_templates_1 qt ON qt.id = qv.template_id
     ${where}
     ORDER BY qt.interaction_type, qt.topic, qv.created_at, qv.id
     ${limitSql}
@@ -224,7 +224,7 @@ async function main() {
         "", // time_allocated_ms (not stored)
         r.created_at, // version_created_at
         r.last_edited_by, // version_created_by_admin_user_id
-        // ---- question_templates ----
+        // ---- question_templates_1 ----
         r.t_slug,
         r.t_interaction_type,
         r.t_html,

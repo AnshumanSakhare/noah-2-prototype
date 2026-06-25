@@ -252,7 +252,7 @@ async function fetchHydrated(variationId: string) {
   const res = await pool.query(
     `SELECT qv.variation_data, qt.template_html, qt.interaction_type, qt.learning_objective
      FROM public.question_variations qv
-     JOIN public.question_templates qt ON qv.template_id = qt.id
+     JOIN public.question_templates_1 qt ON qv.template_id = qt.id
      WHERE qv.id = $1`,
     [variationId],
   );
