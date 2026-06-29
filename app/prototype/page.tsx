@@ -69,6 +69,27 @@ export default function PrototypePage() {
     }
   }, []);
 
+  // Allow deep-linking a grade via ?grade=KG (or 0–8, G1, grade3, …).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = new URLSearchParams(window.location.search).get("grade");
+    if (!raw) return;
+    const cleaned = raw
+      .trim()
+      .toLowerCase()
+      .replace(/^(class|grade|g)/, "");
+    if (
+      cleaned === "kg" ||
+      cleaned === "k" ||
+      raw.trim().toLowerCase() === "kg"
+    ) {
+      setGrade(0);
+      return;
+    }
+    const n = Number(cleaned);
+    if (Number.isInteger(n) && n >= 0 && n <= 8) setGrade(n);
+  }, []);
+
   useEffect(() => {
     loadTopics(grade);
   }, [grade, loadTopics]);

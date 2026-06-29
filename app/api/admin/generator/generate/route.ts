@@ -13,7 +13,17 @@ export const dynamic = "force-dynamic";
 // LLM generation can take 20–40s; raise the serverless function timeout (clamped to plan limit on Vercel).
 export const maxDuration = 300;
 
-// Helper to fetch subtopics, learning objectives and examples from Excel
+// Normalize for matching: lowercase, unify dashes (en/em -> hyphen), collapse spaces.
+const normKey = (s: unknown) =>
+  String(s ?? "")
+    .toLowerCase()
+    .replace(/[‐-―]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+
+// Helper to fetch subtopics, learning objectives and examples from the Excel plan.
+// The plan is the SINGLE SOURCE OF TRUTH for learning objectives — they are never
+// authored by the AI, only selected from the list returned here.
 function getXlsxContext(grade: number, topic: string) {
   try {
     const filePath = path.resolve(process.cwd(), "Question Bank Plan - 13 ap.xlsx");
@@ -25,26 +35,44 @@ function getXlsxContext(grade: number, topic: string) {
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const data: any[] = XLSX.utils.sheet_to_json(worksheet);
 
-    const gradeLabel = grade === 0 ? "KG" : `G${grade}`;
+    // Accept common grade spellings (KG / G3 / Grade 3 / 3).
+    const gradeCandidates =
+      grade === 0
+        ? ["kg", "kindergarten", "grade kg"]
+        : [`g${grade}`, `grade ${grade}`, `${grade}`];
+    const topicKey = normKey(topic);
     const matchingRows = data.filter((row) => {
-      const g = String(row.Grade || row.grade || "").trim();
-      const t = String(row.Topic || row.topic || "").trim();
-      return g === gradeLabel && t === topic;
+      const g = normKey(row.Grade || row.grade || "");
+      const t = normKey(row.Topic || row.topic || "");
+      return gradeCandidates.includes(g) && t === topicKey;
     });
 
     if (matchingRows.length === 0) {
       return null;
     }
 
-    const subtopics = Array.from(new Set(matchingRows.map((r) => r.Subtopic || r.subtopic || "").filter(Boolean)));
-    const learningObjectives = Array.from(new Set(matchingRows.map((r) => r["Learning Objective"] || r.learning_objective || "").filter(Boolean)));
-    const exampleQuestions = Array.from(new Set(matchingRows.map((r) => r["Example Question"] || r.example_question || "").filter(Boolean)));
+    // Ordered (subtopic, LO) pairs, deduped by LO text — verbatim from the plan.
+    const pairs: { subtopic: string; lo: string }[] = [];
+    const seen = new Set<string>();
+    for (const r of matchingRows) {
+      const lo = String(r["Learning Objective"] || r.learning_objective || "").trim();
+      if (!lo || seen.has(lo)) continue;
+      seen.add(lo);
+      pairs.push({
+        subtopic: String(r.Subtopic || r.subtopic || "").trim(),
+        lo,
+      });
+    }
 
-    return {
-      subtopics,
-      learningObjectives,
-      exampleQuestions
-    };
+    const subtopics = Array.from(
+      new Set(matchingRows.map((r) => String(r.Subtopic || r.subtopic || "").trim()).filter(Boolean)),
+    );
+    const learningObjectives = pairs.map((p) => p.lo);
+    const exampleQuestions = Array.from(
+      new Set(matchingRows.map((r) => String(r["Example Question"] || r.example_question || "").trim()).filter(Boolean)),
+    );
+
+    return { subtopics, learningObjectives, exampleQuestions, pairs };
   } catch (err) {
     console.error("Failed to read context from Excel sheet:", err);
     return null;
@@ -53,10 +81,11 @@ function getXlsxContext(grade: number, topic: string) {
 
 // Define Zod response schema for OpenAI Structured Outputs
 // We use JSON-encoded strings for properties, variationData and answerKey to bypass schema constraints
-// The AI authors only these. interaction_type and output_schema are server-owned
-// (the requested archetype + a constant), so the model can't drift them.
+// The AI authors only these. interaction_type, output_schema, AND the learning
+// objective are server-owned: the model only SELECTS which plan LO it targets
+// (learningObjectiveIndex), it never writes the LO text — so it can't drift.
 const GenerateResponseSchema = z.object({
-  learningObjective: z.string(),
+  learningObjectiveIndex: z.number().int().min(1),
   templateHtml: z.string(),
   propsSchemaJson: z.string(),       // Input contract (variation_data shape) — flexible, AI-authored
   variationDataJson: z.string(),     // Default input values (id-based collections)
@@ -67,13 +96,13 @@ const GenerateResponseSchema = z.object({
 const GENERATE_SCHEMA = {
   type: "object",
   properties: {
-    learningObjective: { type: "string" },
+    learningObjectiveIndex: { type: "integer", minimum: 1 },
     templateHtml: { type: "string" },
     propsSchemaJson: { type: "string" },
     variationDataJson: { type: "string" },
     evaluationSpecJson: { type: "string" }
   },
-  required: ["learningObjective", "templateHtml", "propsSchemaJson", "variationDataJson", "evaluationSpecJson"],
+  required: ["learningObjectiveIndex", "templateHtml", "propsSchemaJson", "variationDataJson", "evaluationSpecJson"],
   additionalProperties: false
 };
 
@@ -199,7 +228,24 @@ EXCEL CURRICULUM CONTEXT:
 - Target Learning Objectives (LO):
 ${xlsxContext.learningObjectives.map((lo, i) => `  ${i + 1}. ${lo}`).join("\n")}
 ${xlsxContext.exampleQuestions.length > 0 ? `- Example Questions from Plan:\n${xlsxContext.exampleQuestions.map(q => `  * ${q}`).join("\n")}` : ""}
+
+LEARNING OBJECTIVE (MANDATORY): Do NOT write your own learning objective. Set "learningObjectiveIndex" to the NUMBER (1-based) of the single Target LO above that your question assesses. The LO text is owned by the curriculum plan and will be stored verbatim from that list.
 `;
+    }
+
+    // The learning objective MUST come from the plan. Without a plan entry we
+    // cannot assign a canonical LO, so we refuse to generate (never fabricate one).
+    if (
+      action === "create" &&
+      (!xlsxContext || xlsxContext.learningObjectives.length === 0)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `No curriculum learning objective found in the Excel plan for ${gradeLabel} / "${topic}". The LO must come from the plan, so generation is blocked. Check the grade/topic spelling matches the plan.`,
+        },
+        { status: 422 },
+      );
     }
 
     let userPrompt = "";
@@ -349,7 +395,7 @@ Please update the template HTML, variables schema, and default variation data ac
     }
 
     const {
-      learningObjective,
+      learningObjectiveIndex,
       templateHtml,
       propsSchemaJson,
       variationDataJson,
@@ -405,6 +451,13 @@ Please update the template HTML, variables schema, and default variation data ac
     }
 
     if (action === "create") {
+      // Resolve the learning objective + subtopic VERBATIM from the plan, using
+      // the index the AI selected (clamped to a valid range). Never AI-authored.
+      const pairs = xlsxContext?.pairs ?? [];
+      const sel = pairs[Math.min(Math.max((learningObjectiveIndex || 1) - 1, 0), pairs.length - 1)];
+      const canonicalLO = sel.lo;
+      const canonicalSubtopic = sel.subtopic || "";
+
       // Create a unique slug for the new template
       const topicSlug = topic.toLowerCase().replace(/[^a-z0-9]+/g, "-");
       const templateSlug = `gen-${topicSlug}-${difficulty}-v${variationIndex}-${Date.now()}`;
@@ -417,7 +470,7 @@ Please update the template HTML, variables schema, and default variation data ac
           `INSERT INTO public.question_templates_1 (slug, grade, topic, subtopic, learning_objective, interaction_type, template_html, props_schema, output_schema, status, difficulty)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
           RETURNING id`,
-          [templateSlug, grade, topic, "Interactive AI", learningObjective, interactionType, templateHtml, JSON.stringify(propsSchema), JSON.stringify(outputSchema), "draft", difficulty]
+          [templateSlug, grade, topic, canonicalSubtopic, canonicalLO, interactionType, templateHtml, JSON.stringify(propsSchema), JSON.stringify(outputSchema), "draft", difficulty]
         );
 
         const templateId = templateRes.rows[0].id;
@@ -468,12 +521,13 @@ Please update the template HTML, variables schema, and default variation data ac
       // Start database transaction
       const client = await query("BEGIN");
       try {
-        // 1. Update Template (Stringify JSONB columns for binding)
+        // 1. Update Template — learning_objective is curriculum-owned and is NOT
+        // touched on regenerate (preserve the canonical plan LO).
         await query(
           `UPDATE public.question_templates_1
-          SET template_html = $1, props_schema = $2, output_schema = $3, learning_objective = $4, interaction_type = $5
-          WHERE id = $6`,
-          [templateHtml, JSON.stringify(propsSchema), JSON.stringify(outputSchema), learningObjective, interactionType, templateId]
+          SET template_html = $1, props_schema = $2, output_schema = $3, interaction_type = $4
+          WHERE id = $5`,
+          [templateHtml, JSON.stringify(propsSchema), JSON.stringify(outputSchema), interactionType, templateId]
         );
 
         // 2. Update Variation (Stringify variationData and evaluationSpec for JSONB binding)

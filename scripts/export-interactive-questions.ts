@@ -259,7 +259,9 @@ async function main() {
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
     XLSX.writeFile(wb, abs);
   } else {
-    writeFileSync(abs, `${lines.join("\n")}\n`, "utf8");
+    // Prepend a UTF-8 BOM so Excel decodes box-drawing / unicode chars correctly
+    // (otherwise it falls back to Windows-1252 and shows mojibake like "ââ").
+    writeFileSync(abs, `﻿${lines.join("\n")}\n`, "utf8");
   }
 
   const scope = gradeFilter !== null ? ` (grade ${gradeLabel})` : "";
