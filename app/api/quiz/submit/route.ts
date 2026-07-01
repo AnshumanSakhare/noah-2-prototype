@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 import { runDiagnostic } from "@/agents/diagnostic/diagnosticAgent";
 import { generatePlacementAIInsights } from "@/agents/diagnostic/placementTopicInsights";
 import { generateResultNarrative } from "@/agents/diagnostic/resultNarrative";
+import {
+  DEFAULT_DIAGNOSTIC_REGION,
+  DIAGNOSTIC_REGIONS,
+} from "@/agents/diagnostic/tools/contentQuiz";
+import type { DiagnosticRegion } from "@/agents/diagnostic/types/index";
 import { saveDiagnosticResult } from "@/lib/diagnostic-results-store";
 
 export const runtime = "nodejs";
@@ -17,6 +22,7 @@ export async function POST(request: Request) {
       classLevel?: string;
       topic?: string | null;
       maxQuestions?: number;
+      region?: string;
       parentAssessmentId?: string;
       answers?: Array<{
         questionId?: string;
@@ -47,10 +53,14 @@ export async function POST(request: Request) {
           : body.testMode === "recurring"
             ? "recurring"
             : "topic";
+    const region = DIAGNOSTIC_REGIONS.includes(body.region as DiagnosticRegion)
+      ? (body.region as DiagnosticRegion)
+      : DEFAULT_DIAGNOSTIC_REGION;
 
     const diagnosticReport = await runDiagnostic({
       studentId: body.studentId?.trim() || "Riya Sharma",
       testMode,
+      region: testMode === "placement" ? undefined : region,
       subject: body.subject as never,
       classLevel: body.classLevel as never,
       topic: body.topic ?? "",

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "biome check",
-    "format": "biome format --write"
+    "format": "biome format --write",
+    "geometry:pilot": "tsx scripts/geometry-pilot/run.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -47,8 +48,10 @@
     "@types/react-dom": "^19",
     "@types/react-syntax-highlighter": "^15.5.13",
     "babel-plugin-react-compiler": "1.0.0",
+    "playwright": "^1.49.0",
     "postcss": "^8",
     "tailwindcss": "^4",
+    "tsx": "^4.19.0",
     "typescript": "^5"
   }
 }

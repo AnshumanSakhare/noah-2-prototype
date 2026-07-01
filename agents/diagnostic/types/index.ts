@@ -10,6 +10,7 @@ export type ClassLevel =
   | "class7"
   | "class8";
 export type TestMode = "topic" | "grade" | "recurring" | "placement";
+export type DiagnosticRegion = "US" | "UK" | "UAE" | "Ontario" | "Australia";
 
 export type BloomLevel = "remember" | "understand" | "apply";
 export type ReachedBloomLevel = BloomLevel | "not_attempted";
@@ -154,6 +155,8 @@ export interface QuestionBankQuestion {
   focus?: string;
   keywords: string[];
   gradeLevel?: string;
+  region?: DiagnosticRegion | "global";
+  parentId?: string | null;
   payload?: QuestionPayload;
 }
 
@@ -373,6 +376,7 @@ export interface BatchEvaluationResult {
 export interface DiagnosticConfig {
   studentId: string;
   testMode?: TestMode;
+  region?: DiagnosticRegion;
   subject: Subject;
   classLevel: ClassLevel;
   topic: string;
@@ -389,6 +393,7 @@ export interface DiagnosticConfig {
 export interface DiagnosticReport {
   studentId: string;
   mode: "topic" | "grade" | "recurring" | "placement";
+  region?: DiagnosticRegion;
   subject: Subject;
   classLevel: ClassLevel;
   topic: string;

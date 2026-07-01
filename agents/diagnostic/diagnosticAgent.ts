@@ -1275,12 +1275,14 @@ export async function runDiagnostic(
         ? await getGradeQuizQuestions({
             subject: config.subject,
             classLevel: config.classLevel,
+            region: config.region,
           })
         : await getTopicQuizQuestions({
             subject: config.subject,
             classLevel: config.classLevel,
             topic: config.topic,
             maxQuestions: config.maxQuestions,
+            region: config.region,
           });
   }
 
@@ -1362,6 +1364,7 @@ export async function runDiagnostic(
   return {
     studentId: config.studentId,
     mode,
+    region: config.region,
     subject: config.subject,
     classLevel: config.classLevel,
     topic: reportTopic,

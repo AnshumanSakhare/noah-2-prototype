@@ -1,0 +1,2095 @@
+/* Scoped Stylesheet for Homework Studio */
+
+.homework-studio {
+  /* CSS Variables - Overhauled to match newUI.html premium design system */
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f9fafb;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --text: #1a1c20;
+  --text-dim: #444654;
+  --accent: #2a4dd7;
+  --accent-glow: rgba(42, 77, 215, 0.08);
+  --accent-2: #4555ba;
+  --accent-3: #bbc3ff;
+  --accent-4: #dee0ff;
+  --correct: #3baa6f;
+  --correct-bg: rgba(59, 170, 111, 0.08);
+  --wrong: #ba1a1a;
+  --wrong-bg: rgba(186, 26, 26, 0.06);
+  --hw: #2a4dd7;
+  --hw-soft: rgba(42, 77, 215, 0.1);
+  --hw-deep: #14278f;
+  --path: #3baa6f;
+  --path-soft: rgba(59, 170, 111, 0.12);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.02), 0 4px 12px rgba(0,0,0,0.015);
+  --shadow-md: 0 12px 30px rgba(42, 77, 215, 0.08);
+  --shadow-lg: 0 16px 40px rgba(42, 77, 215, 0.12);
+  
+  --hand-font: 'Patrick Hand', cursive;
+  --chalk-font: 'Kalam', cursive;
+
+  color: var(--text);
+  font-family: 'Nunito', sans-serif;
+  position: relative;
+  min-height: 100vh;
+}
+
+/* Animations */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideOutLeft {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(-24px); }
+}
+@keyframes slideOutRight {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(24px); }
+}
+@keyframes bounceIn {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes floatSubtle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes shakeX {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+@keyframes ripple {
+  0% { box-shadow: 0 0 0 0 rgba(59,170,111,.4); }
+  100% { box-shadow: 0 0 0 18px rgba(59,170,111,0); }
+}
+@keyframes orbPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(91,106,191,.3); transform: scale(1); }
+  50% { box-shadow: 0 0 0 22px rgba(91,106,191,0); transform: scale(1.05); }
+}
+@keyframes orbPulseSm {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212,84,138,.3); }
+  50% { box-shadow: 0 0 0 10px rgba(212,84,138,0); }
+}
+@keyframes typing {
+  0%, 60%, 100% { opacity: .3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.homework-studio .app-mode-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 24px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--border);
+  margin-bottom: 22px; box-shadow: var(--shadow-sm);
+  animation: slideDown .6s cubic-bezier(.22,1,.36,1) both;
+}
+.homework-studio .logo {
+  width: 46px; height: 46px; border-radius: 14px;
+  background: linear-gradient(140deg, #e8734a, #d4548a);
+  display: grid; place-items: center; font-size: 22px;
+  box-shadow: 0 4px 16px rgba(232,115,74,.22);
+}
+.homework-studio .app-mode-switch {
+  display: flex; gap: 3px; background: var(--surface-2); border-radius: 10px; padding: 3px; border: 1px solid var(--border);
+}
+.homework-studio .ams-tab {
+  padding: 8px 16px; border-radius: 7px; border: none; cursor: pointer;
+  font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .8rem; color: var(--text-dim);
+  background: transparent; transition: all .2s; display: flex; align-items: center; gap: 7px;
+}
+.homework-studio .ams-tab:hover { color: var(--text); }
+.homework-studio .ams-tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.homework-studio .ams-tab[data-app="teacher"].active { color: var(--accent); }
+.homework-studio .ams-tab[data-app="student"].active { color: var(--hw-deep); }
+.homework-studio .ams-tab .amst-dot { width: 7px; height: 7px; border-radius: 50%; }
+.homework-studio .ams-tab[data-app="teacher"] .amst-dot { background: var(--accent); }
+.homework-studio .ams-tab[data-app="student"] .amst-dot { background: var(--hw); }
+
+/* Builder */
+.homework-studio .builder-screen { animation: fadeUp .6s cubic-bezier(.22,1,.36,1) both; }
+.homework-studio .builder-head { margin-bottom: 24px; }
+.homework-studio .builder-head .bh-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px; background: rgba(91,106,191,.1); color: var(--accent);
+  padding: 6px 15px; border-radius: 30px; font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 12px;
+}
+.homework-studio .builder-head h2 { font-size: 1.7rem; font-weight: 900; letter-spacing: -.02em; margin-bottom: 6px; }
+.homework-studio .builder-head p { color: var(--text-dim); font-size: .92rem; font-weight: 600; max-width: 600px; }
+
+.homework-studio .builder-grid { display: grid; grid-template-columns: 1fr 340px; gap: 22px; align-items: start; }
+@media(max-width: 860px) { .homework-studio .builder-grid { grid-template-columns: 1fr; } }
+
+.homework-studio .builder-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px 28px; box-shadow: var(--shadow-sm); margin-bottom: 20px; }
+.homework-studio .bp-step-label { font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--text-dim); display: flex; align-items: center; gap: 12px; }
+.homework-studio .bp-step-label .bp-num { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: .85rem; font-weight: 700; font-family: 'Nunito', sans-serif; flex-shrink: 0; }
+.homework-studio .builder-panel h3 { font-size: 1.25rem; font-weight: 800; margin-top: 14px; margin-bottom: 6px; letter-spacing: -.02em; }
+.homework-studio .builder-panel .bp-sub { font-size: .88rem; color: var(--text-dim); font-weight: 600; margin-bottom: 20px; }
+
+/* Subject cards */
+.homework-studio .subject-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+.homework-studio .subject-card {
+  flex: 1; min-width: 120px; max-width: 180px; height: 135px; border: 1px solid var(--border); border-radius: 12px;
+  cursor: pointer; transition: all .22s ease; background: var(--surface);
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+}
+.homework-studio .subject-card:hover { box-shadow: var(--shadow-sm); border-color: var(--accent); }
+.homework-studio .subject-card.selected { border: 2px solid var(--accent); background: var(--accent-glow); }
+.homework-studio .subject-card.coming-soon { opacity: .55; cursor: not-allowed; border-color: var(--border); background: var(--surface-2); }
+.homework-studio .subject-card.coming-soon:hover { transform: none; box-shadow: none; border-color: var(--border); }
+.homework-studio .sc-icon { font-size: 2.2rem; display: flex; align-items: center; justify-content: center; height: 42px; margin-bottom: 0; }
+.homework-studio .sc-name { font-weight: 800; font-size: 1.1rem; color: var(--text); }
+.homework-studio .sc-soon { font-size: .66rem; font-weight: 800; color: var(--text-dim); background: var(--surface-2); padding: 3px 10px; border-radius: 20px; display: inline-block; margin-top: 4px; border: 1px solid var(--border); }
+.homework-studio .step-title-lg { font-size: 1.5rem; font-weight: 800; margin-top: 14px; margin-bottom: 6px; letter-spacing: -.024em; color: var(--text); }
+
+/* Preset cards */
+.homework-studio .presets-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+@media(max-width:560px) { .homework-studio .presets-grid { grid-template-columns: 1fr; } }
+.homework-studio .preset-card { border: 1px solid var(--border); border-radius: 12px; padding: 18px; cursor: pointer; transition: all .22s ease; background: var(--surface); position: relative; }
+.homework-studio .preset-card:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
+.homework-studio .preset-card.selected { border: 2px solid var(--accent); background: var(--accent-glow); }
+.homework-studio .pc-icon { font-size: 1.5rem; margin-bottom: 8px; display: block; }
+.homework-studio .pc-title { font-size: .94rem; font-weight: 800; margin-bottom: 4px; color: var(--text); }
+.homework-studio .pc-desc { font-size: .78rem; color: var(--text-dim); font-weight: 600; line-height: 1.45; }
+.homework-studio .preset-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 0.65rem; font-weight: 800; padding: 3px 8px; border-radius: 6px; margin-top: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+.homework-studio .preset-tag.class-wide { background: var(--accent-glow); color: var(--accent); border: 1px solid rgba(42, 77, 215, 0.15); }
+.homework-studio .preset-tag.targeted { background: rgba(69, 85, 186, 0.1); color: var(--accent-2); border: 1px solid rgba(69, 85, 186, 0.15); }
+
+/* Homework Types */
+.homework-studio .hw-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media(max-width: 560px) { .homework-studio .hw-type-grid { grid-template-columns: 1fr; } }
+.homework-studio .hw-type-card { border: 1px solid var(--border); border-radius: 12px; padding: 22px; cursor: pointer; transition: all .22s ease; background: var(--surface); position: relative; }
+.homework-studio .hw-type-card:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
+.homework-studio .hw-type-card.selected { border: 2px solid var(--accent); background: var(--accent-glow); }
+.homework-studio .htc-icon { font-size: 1.8rem; margin-bottom: 10px; display: block; }
+.homework-studio .htc-title { font-size: 1rem; font-weight: 800; margin-bottom: 5px; color: var(--text); }
+.homework-studio .htc-desc { font-size: .8rem; color: var(--text-dim); font-weight: 600; line-height: 1.5; }
+
+/* Custom Check Badge */
+.homework-studio .sc-check-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 6px rgba(42, 77, 215, 0.2);
+  z-index: 10;
+  animation: bounceIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Source block + agent fetch */
+.homework-studio .source-block { margin-top: 20px; display: none; }
+.homework-studio .source-block.show { display: block; animation: fadeUp .4s ease both; }
+.homework-studio .source-block h4 { font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--text-dim); margin-bottom: 12px; }
+.homework-studio .agent-fetch {
+  display: none; align-items: center; gap: 16px; padding: 20px 24px; border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border); margin-bottom: 20px;
+}
+.homework-studio .agent-fetch.show { display: flex; animation: fadeUp .35s ease both; }
+.homework-studio .agent-orb-sm {
+  width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  position: relative;
+  box-shadow: 0 4px 16px rgba(42, 77, 215, 0.15);
+}
+.homework-studio .agent-orb-sm::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  border-bottom-color: var(--accent-3);
+  animation: orbRotate 1.5s linear infinite;
+}
+@keyframes orbRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.homework-studio .agent-fetch .af-text { flex: 1; }
+.homework-studio .agent-fetch .af-title { font-weight: 800; font-size: .92rem; display: flex; align-items: center; gap: 8px; color: var(--text); }
+.homework-studio .agent-fetch .af-status { font-size: .8rem; color: var(--text-dim); font-weight: 600; margin-top: 2px; min-height: 1.1em; }
+.homework-studio .af-dots { display: inline-flex; gap: 3px; }
+.homework-studio .af-dots span { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); animation: typing 1.2s ease infinite; }
+.homework-studio .af-dots span:nth-child(2) { animation-delay: .2s; }
+.homework-studio .af-dots span:nth-child(3) { animation-delay: .4s; }
+.homework-studio .agent-badge { display: inline-flex; align-items: center; gap: 6px; font-size: .68rem; font-weight: 800; color: var(--accent); background: var(--accent-glow); padding: 3px 10px; border-radius: 20px; border: 1px solid rgba(42, 77, 215, 0.15); }
+.homework-studio .af-progress { display: flex; gap: 8px; margin-top: 10px; }
+.homework-studio .af-step { display: flex; align-items: center; gap: 6px; font-size: .74rem; font-weight: 700; color: var(--text-dim); transition: color .3s; }
+.homework-studio .af-step.done { color: var(--correct); }
+.homework-studio .af-step .af-check { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid var(--border); display: grid; place-items: center; font-size: .55rem; transition: all .3s; }
+.homework-studio .af-step.done .af-check { background: var(--correct); border-color: var(--correct); color: #fff; }
+
+/* Student List dropdowns */
+.homework-studio .student-list-wrap { display: none; }
+.homework-studio .student-list-wrap.show { display: block; animation: fadeUp .4s ease both; }
+.homework-studio .student-pick {
+  display: block; padding: 14px 16px; border-radius: 12px;
+  border: 1.5px solid var(--border); background: var(--surface-2); margin-bottom: 10px; cursor: pointer; transition: all .2s;
+}
+.homework-studio .student-pick:hover { border-color: var(--hw); }
+.homework-studio .student-pick.selected { border-color: var(--hw); background: var(--hw-soft); }
+.homework-studio .sp-head { display: flex; align-items: center; gap: 12px; }
+.homework-studio .sp-avatar { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 900; color: #fff; flex-shrink: 0; font-size: .86rem; }
+.homework-studio .sp-name { font-weight: 800; font-size: .92rem; }
+.homework-studio .sp-detail { font-size: .74rem; color: var(--text-dim); font-weight: 600; margin-top: 1px; }
+.homework-studio .sp-tag { margin-left: auto; font-size: .68rem; font-weight: 800; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+.homework-studio .sp-tag.weak { background: rgba(217,74,74,.08); color: var(--wrong); }
+.homework-studio .sp-tag.mid { background: rgba(212,160,60,.12); color: #b08828; }
+.homework-studio .sp-profile { max-height: 0; overflow: hidden; transition: max-height .4s cubic-bezier(.22,1,.36,1); }
+.homework-studio .student-pick.selected .sp-profile { max-height: 260px; margin-top: 12px; }
+.homework-studio .sp-profile-inner { border-top: 1px dashed var(--border); padding-top: 12px; }
+.homework-studio .sp-pills { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+.homework-studio .sp-pill { font-size: .7rem; font-weight: 800; padding: 4px 11px; border-radius: 20px; display: inline-flex; align-items: center; gap: 5px; }
+.homework-studio .sp-pill.strong { background: rgba(59,170,111,.1); color: var(--correct); }
+.homework-studio .sp-pill.weak { background: rgba(217,74,74,.08); color: var(--wrong); }
+.homework-studio .sp-memory { font-size: .78rem; color: var(--text); font-weight: 600; line-height: 1.5; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 10px 13px; display: flex; gap: 9px; }
+.homework-studio .manual-toggle { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; font-size: .78rem; font-weight: 700; color: var(--text-dim); cursor: pointer; padding: 8px 0; }
+.homework-studio .manual-toggle:hover { color: var(--hw-deep); }
+.homework-studio .manual-toggle input { accent-color: var(--hw); width: 16px; height: 16px; cursor: pointer; }
+
+/* Topic Selector */
+.homework-studio .topic-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.homework-studio .topic-chip {
+  display: flex; align-items: center; gap: 9px; padding: 11px 16px; border-radius: 11px;
+  border: 2px solid var(--border); background: var(--card); cursor: pointer; transition: all .2s;
+  font-weight: 800; font-size: .85rem;
+}
+.homework-studio .topic-chip:hover { border-color: var(--accent); }
+.homework-studio .topic-chip.selected { border-color: var(--accent); background: rgba(91,106,191,.06); }
+.homework-studio .topic-chip .tc-box { width: 18px; height: 18px; border-radius: 5px; border: 2px solid var(--border); display: grid; place-items: center; font-size: .6rem; color: transparent; transition: all .2s; }
+.homework-studio .topic-chip.selected .tc-box { background: var(--accent); border-color: var(--accent); color: #fff; }
+.homework-studio .topic-chip .tc-auto { font-size: .66rem; font-weight: 800; color: var(--wrong); background: rgba(217,74,74,.08); padding: 2px 8px; border-radius: 20px; }
+
+/* Difficulty & Format */
+.homework-studio .diff-seg { display: flex; gap: 3px; background: var(--surface-2); border-radius: 10px; padding: 3px; border: 1px solid var(--border); max-width: 380px; }
+.homework-studio .diff-opt { flex: 1; padding: 9px 0; border-radius: 7px; border: none; background: transparent; cursor: pointer; font-family: 'Nunito', sans-serif; font-weight: 800; font-size: .8rem; color: var(--text-dim); transition: all .2s; }
+.homework-studio .diff-opt:hover { color: var(--text); }
+.homework-studio .diff-opt.active { background: var(--surface); color: var(--accent); box-shadow: var(--shadow-sm); }
+.homework-studio .len-row { display: flex; align-items: center; gap: 16px; margin-top: 6px; }
+.homework-studio .len-slider { flex: 1; -webkit-appearance: none; appearance: none; height: 8px; border-radius: 8px; background: var(--surface-2); outline: none; border: 1px solid var(--border); }
+.homework-studio .len-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); cursor: pointer; box-shadow: 0 2px 8px var(--accent-glow); border: 3px solid #fff; }
+.homework-studio .len-slider::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 3px solid #fff; }
+.homework-studio .len-val { font-family: 'Space Mono', monospace; font-weight: 700; font-size: 1.1rem; color: var(--accent); min-width: 110px; text-align: right; }
+
+/* Recipe card */
+.homework-studio .recipe-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow-sm); position: sticky; top: 20px; }
+.homework-studio .recipe-card h3 { font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--text-dim); margin-bottom: 16px; }
+.homework-studio .recipe-row { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--border); font-size: .84rem; font-weight: 700; }
+.homework-studio .recipe-row:last-of-type { border-bottom: none; }
+.homework-studio .recipe-row .rr-ico { font-size: .95rem; }
+.homework-studio .recipe-row .rr-val { margin-left: auto; font-weight: 800; color: var(--text); }
+.homework-studio .recipe-row .rr-val.dim { color: var(--text-dim); font-weight: 700; }
+.homework-studio .generate-btn {
+  width: 100%; margin-top: 16px; padding: 11px 0; border-radius: var(--radius-sm); border: none; cursor: pointer;
+  font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 0.88rem; color: #fff;
+  background: var(--accent); box-shadow: none !important; transition: all .2s ease;
+}
+.homework-studio .generate-btn:hover:not(:disabled) { background: var(--hw-deep); transform: none; box-shadow: none !important; }
+.homework-studio .generate-btn:disabled { opacity: .5; cursor: not-allowed; }
+.homework-studio .recipe-hint { margin-top: 12px; font-size: .74rem; color: var(--text-dim); font-weight: 600; text-align: center; }
+
+/* Assembly animation */
+.homework-studio .assembly-screen { display: none; }
+.homework-studio .assembly-screen.show { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 72vh; text-align: center; }
+.homework-studio .assembly-orb {
+  width: 90px; height: 90px; border-radius: 50%; margin-bottom: 26px; position: relative;
+  background: linear-gradient(135deg,var(--accent),var(--accent-3));
+  box-shadow: 0 0 0 0 var(--accent-glow); animation: orbPulse 1.8s ease-in-out infinite;
+  display: grid; place-items: center; font-size: 2.4rem;
+}
+.homework-studio .assembly-screen h2 { font-size: 1.5rem; font-weight: 900; margin-bottom: 8px; }
+.homework-studio .assembly-status { font-size: .92rem; color: var(--text-dim); font-weight: 700; min-height: 1.4em; transition: opacity .3s; }
+.homework-studio .assembly-log { margin-top: 26px; width: 100%; max-width: 440px; text-align: left; }
+.homework-studio .al-item {
+  display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-radius: 11px; margin-bottom: 9px;
+  background: var(--surface); border: 1px solid var(--border); font-weight: 700; font-size: .86rem;
+  opacity: 0; transform: translateX(-10px); transition: all .4s cubic-bezier(.22,1,.36,1);
+}
+.homework-studio .al-item.show { opacity: 1; transform: translateX(0); }
+.homework-studio .al-item .al-check { width: 22px; height: 22px; border-radius: 50%; background: var(--surface-2); border: 2px solid var(--border); display: grid; place-items: center; font-size: .66rem; flex-shrink: 0; transition: all .3s; }
+.homework-studio .al-item.done .al-check { background: var(--correct); border-color: var(--correct); color: #fff; }
+.homework-studio .al-item .al-spin { width: 22px; height: 22px; flex-shrink: 0; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+
+/* Preview */
+.homework-studio .preview-banner {
+  background: linear-gradient(135deg,rgba(91,140,111,.12),rgba(91,106,191,.06));
+  border: 1px solid rgba(91,140,111,.25); border-radius: var(--radius);
+  padding: 18px 24px; margin-bottom: 22px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  animation: fadeUp .5s ease both;
+}
+.homework-studio .preview-banner .pb-ico { font-size: 1.6rem; }
+.homework-studio .preview-banner .pb-text { flex: 1; min-width: 200px; }
+.homework-studio .preview-banner h4 { font-size: 1rem; font-weight: 900; margin-bottom: 2px; }
+.homework-studio .preview-banner p { font-size: .82rem; color: var(--text-dim); font-weight: 600; }
+.homework-studio .pb-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.homework-studio .preview-steps { max-width: 660px; margin: 0 auto; }
+.homework-studio .preview-step {
+  display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: var(--radius-sm);
+  background: var(--surface); border: 1px solid var(--border); margin-bottom: 10px;
+  animation: fadeUp .4s cubic-bezier(.22,1,.36,1) both;
+}
+.homework-studio .preview-step .ps-icon { font-size: 1.3rem; width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; flex-shrink: 0; }
+.homework-studio .preview-step .ps-icon.recap { background: rgba(91,106,191,.1); }
+.homework-studio .preview-step .ps-icon.flashcard { background: rgba(212,160,60,.12); }
+.homework-studio .preview-step .ps-icon.animation { background: var(--path-soft); }
+.homework-studio .preview-step .ps-icon.question { background: var(--hw-soft); }
+.homework-studio .preview-step .ps-icon.divider { background: rgba(212,84,138,.08); }
+.homework-studio .ps-info { flex: 1; }
+.homework-studio .ps-info h4 { font-size: .88rem; font-weight: 800; }
+.homework-studio .ps-info p { font-size: .74rem; color: var(--text-dim); font-weight: 600; margin-top: 1px; }
+.homework-studio .ps-type { font-size: .64rem; font-weight: 800; text-transform: uppercase; padding: 3px 10px; border-radius: 20px; letter-spacing: .04em; }
+.homework-studio .ps-type.content { background: rgba(91,106,191,.1); color: var(--accent); }
+.homework-studio .ps-type.question { background: var(--hw-soft); color: var(--hw-deep); }
+.homework-studio .ps-remove-btn {
+  background: transparent; border: none; color: var(--text-dim);
+  font-size: 1.05rem; font-weight: 700; cursor: pointer; padding: 6px 10px;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  transition: all .2s ease; margin-left: 8px; z-index: 2;
+}
+.homework-studio .ps-remove-btn:hover { background: var(--wrong-bg); color: var(--wrong); transform: scale(1.1); }
+
+/* Teacher view page styles */
+.homework-studio .teacher-screen { animation: fadeUp .6s cubic-bezier(.22,1,.36,1) both; }
+.homework-studio .t-hero {
+  background: linear-gradient(135deg, #2a4dd7 0%, #14278f 100%) !important;
+  border-radius: var(--radius) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  padding: 30px 32px !important;
+  color: #ffffff !important;
+  margin-bottom: 20px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+.homework-studio .t-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 85% 20%,rgba(255,255,255,.12),transparent 50%); }
+.homework-studio .t-hero > * { position: relative; }
+.homework-studio .t-hero .th-eyebrow { font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; opacity: .85; margin-bottom: 8px; color: rgba(255, 255, 255, 0.9) !important; }
+.homework-studio .t-hero h2 { font-size: 1.6rem; font-weight: 900; letter-spacing: -.02em; margin-bottom: 4px; color: #ffffff !important; }
+.homework-studio .t-hero .th-meta { font-size: .86rem; opacity: .9; font-weight: 600; color: rgba(255, 255, 255, 0.75) !important; }
+.homework-studio .t-time-strip { display: flex; gap: 14px; margin-top: 22px; flex-wrap: wrap; }
+.homework-studio .t-time-pill { background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.2); border-radius: 14px; padding: 13px 20px; backdrop-filter: blur(4px); }
+.homework-studio .t-time-pill .ttv { font-family: 'Space Mono', monospace; font-size: 1.4rem; font-weight: 700; }
+.homework-studio .t-time-pill .ttl { font-size: .7rem; opacity: .85; font-weight: 700; margin-top: 2px; text-transform: uppercase; letter-spacing: .04em; }
+.homework-studio .t-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px 28px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
+.homework-studio .t-section h3 { font-size: .96rem; font-weight: 900; margin-bottom: 4px; letter-spacing: -.01em; display: flex; align-items: center; gap: 9px; }
+.homework-studio .t-section .ts-sub { font-size: .82rem; color: var(--text-dim); font-weight: 600; margin-bottom: 20px; }
+.homework-studio .t-bd-row { display: flex; align-items: center; gap: 16px; padding: 15px 0; border-bottom: 1px solid var(--border); }
+.homework-studio .t-bd-row:last-child { border-bottom: none; }
+.homework-studio .t-bd-name { flex: 1; font-weight: 800; font-size: .92rem; }
+.homework-studio .t-bd-name small { display: block; font-weight: 600; color: var(--text-dim); font-size: .74rem; margin-top: 2px; }
+.homework-studio .t-bd-bar { flex: 1.2; max-width: 220px; height: 9px; border-radius: 9px; background: var(--surface-2); overflow: hidden; }
+.homework-studio .t-bd-fill { height: 100%; border-radius: 9px; transition: width 1s .2s cubic-bezier(.22,1,.36,1); }
+.homework-studio .t-bd-fill.green { background: #10b981 !important; }
+.homework-studio .t-bd-fill.yellow { background: #06b6d4 !important; }
+.homework-studio .t-bd-fill.red { background: #6366f1 !important; }
+.homework-studio .t-bd-tag { font-size: .7rem; font-weight: 800; padding: 4px 12px; border-radius: 20px; white-space: nowrap; border: 1px solid transparent; }
+.homework-studio .t-bd-tag.over { background: rgba(16, 185, 129, 0.08); color: #10b981; border-color: rgba(16, 185, 129, 0.15); }
+.homework-studio .t-bd-tag.dev { background: rgba(6, 182, 212, 0.08); color: #0891b2; border-color: rgba(6, 182, 212, 0.15); }
+.homework-studio .t-bd-tag.struggle { background: rgba(99, 102, 241, 0.08); color: #6366f1; border-color: rgba(99, 102, 241, 0.15); }
+.homework-studio .t-focus-banner {
+  background: linear-gradient(135deg,var(--hw-soft),rgba(212,84,138,.06));
+  border: 1px solid rgba(232,115,74,.2); border-radius: var(--radius); padding: 22px 26px;
+  display: flex; gap: 16px; align-items: flex-start;
+}
+.homework-studio .t-focus-banner .tf-icon { font-size: 1.8rem; flex-shrink: 0; }
+.homework-studio .t-focus-banner h4 { font-size: .96rem; font-weight: 900; margin-bottom: 5px; }
+.homework-studio .t-focus-banner p { font-size: .86rem; line-height: 1.55; font-weight: 600; color: var(--text); }
+.homework-studio .t-focus-banner strong { color: var(--hw-deep); }
+
+/* Misconception Analytics Dashboard */
+.homework-studio .analytics-dashboard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 26px 28px;
+  box-shadow: var(--shadow-sm);
+  margin-top: 30px;
+  animation: fadeUp .6s cubic-bezier(.22,1,.36,1) both;
+}
+
+.homework-studio .ad-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+
+.homework-studio .ad-header h2 {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--text);
+  margin: 0;
+}
+
+.homework-studio .ad-header .ad-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--accent);
+  background: var(--accent-glow);
+  border: 1px solid rgba(42, 77, 215, 0.12);
+  padding: 3px 10px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.homework-studio .ad-header .ad-badge::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px rgba(42, 77, 215, 0.25);
+  animation: pulse-dot-accent 2s infinite;
+}
+
+@keyframes pulse-dot-accent {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(42, 77, 215, 0.4); }
+  70% { transform: scale(1); box-shadow: 0 0 0 4px rgba(42, 77, 215, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(42, 77, 215, 0); }
+}
+
+.homework-studio .analytics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 24px;
+}
+
+@media(max-width: 960px) {
+  .homework-studio .analytics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.homework-studio .student-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.homework-studio .analytics-dashboard .saas-card {
+  background: var(--surface);
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: none !important;
+  margin-bottom: 0;
+}
+
+.homework-studio .status-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  overflow: hidden;
+  position: relative;
+}
+
+.homework-studio .status-row:hover {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+.homework-studio .status-row.expanded {
+  border-color: var(--accent);
+  box-shadow: none !important;
+}
+
+.homework-studio .status-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  width: 100%;
+}
+
+.homework-studio .status-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: #ffffff;
+  font-size: 0.84rem;
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.05);
+  text-shadow: 0 1px 1px rgba(0,0,0,0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.homework-studio .status-avatar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(0, 0, 0, 0.05) 100%);
+  pointer-events: none;
+}
+
+.homework-studio .status-info {
+  flex: 1;
+}
+
+.homework-studio .status-name {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.homework-studio .status-time {
+  font-size: 0.74rem;
+  color: var(--text-dim);
+  font-weight: 600;
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.homework-studio .status-score-wrap {
+  text-align: right;
+  margin-right: 6px;
+}
+
+.homework-studio .status-score {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.homework-studio .status-score.strong {
+  color: var(--correct);
+}
+
+.homework-studio .status-score.mid {
+  color: #0d9488;
+}
+
+.homework-studio .status-score.weak {
+  color: #d97706;
+}
+
+.homework-studio .status-badge {
+  font-size: 0.66rem;
+  font-weight: 700;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  display: inline-block;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.homework-studio .status-badge.strong {
+  color: var(--correct);
+}
+
+.homework-studio .status-badge.mid {
+  color: #0d9488;
+}
+
+.homework-studio .status-badge.weak {
+  color: #d97706;
+}
+
+.homework-studio .status-arrow-icon {
+  color: var(--text-dim);
+  transition: transform 0.25s ease;
+  margin-left: 4px;
+}
+
+.homework-studio .status-arrow-icon.rotated {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+
+.homework-studio .status-details {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
+  padding: 0 16px;
+  background: var(--surface-2);
+}
+
+.homework-studio .status-row.expanded .status-details {
+  max-height: 800px;
+  padding: 16px;
+  border-top: 1px dashed var(--border);
+}
+
+.homework-studio .details-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.homework-studio .db-title {
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+
+.homework-studio .db-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.homework-studio .db-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-radius: 0;
+}
+
+.homework-studio .db-item:last-child {
+  border-bottom: none !important;
+}
+
+.homework-studio .db-item-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.homework-studio .db-item.correct {
+  color: var(--correct);
+}
+
+.homework-studio .db-item.wrong {
+  color: var(--wrong);
+}
+
+.homework-studio .db-item-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.homework-studio .db-q {
+  font-weight: 800;
+  font-size: 0.82rem;
+  flex: 1;
+}
+
+.homework-studio .db-meta {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-family: 'Space Mono', monospace;
+  margin-left: 18px;
+}
+
+.homework-studio .db-item.wrong .db-meta {
+  color: var(--wrong);
+  font-weight: 800;
+}
+
+.homework-studio .db-insight {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: transparent !important;
+  border: none !important;
+  padding: 12px 0 0 0;
+  margin-top: 6px;
+  border-top: 1px dashed var(--border) !important;
+  border-radius: 0;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.homework-studio .db-insight strong {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.homework-studio .misconception-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.homework-studio .misconception-panel .saas-section-title {
+  color: var(--text-dim);
+}
+
+.homework-studio .misconception-card {
+  padding: 18px 20px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  background: rgba(239, 68, 68, 0.02);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.25s ease;
+}
+
+.homework-studio .misconception-card:hover {
+  border-color: var(--accent);
+  box-shadow: none !important;
+}
+
+.homework-studio .misconception-card.mild {
+  border: 1px solid rgba(6, 182, 212, 0.25) !important;
+  background: rgba(6, 182, 212, 0.02);
+}
+
+.homework-studio .mc-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.homework-studio .mc-topic {
+  font-weight: 700;
+  font-size: 0.94rem;
+  color: var(--text);
+}
+
+.homework-studio .misconception-card.mild .mc-topic {
+  color: var(--text);
+}
+
+.homework-studio .mc-alert-tag {
+  margin-left: auto;
+  font-size: 0.66rem;
+  font-weight: 700;
+  background: transparent !important;
+  color: #ef4444;
+  border: none !important;
+  padding: 0 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.homework-studio .misconception-card.mild .mc-alert-tag {
+  background: transparent !important;
+  color: #0891b2;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.homework-studio .mc-statement {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  font-weight: 500;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.homework-studio .mc-statement strong {
+  color: #ef4444;
+  background: transparent !important;
+  padding: 0 !important;
+  font-weight: 700;
+}
+
+.homework-studio .misconception-card.mild .mc-statement strong {
+  color: #0891b2;
+  background: transparent !important;
+  padding: 0 !important;
+  font-weight: 700;
+}
+
+.homework-studio .mc-action {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: transparent !important;
+  border: none !important;
+  padding: 10px 0 0 0;
+  margin-top: 10px;
+  border-top: 1px dashed var(--border) !important;
+  border-radius: 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.homework-studio .mc-action strong {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.homework-studio .mc-action em {
+  font-style: italic;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.homework-studio .text-orange {
+  color: #ea580c !important;
+}
+
+.homework-studio .text-amber {
+  color: #d97706 !important;
+}
+
+.homework-studio .text-indigo {
+  color: var(--accent) !important;
+}
+
+.homework-studio .text-violet {
+  color: #6366f1 !important;
+}
+
+.homework-studio .text-teal {
+  color: #0d9488 !important;
+}
+
+.homework-studio .text-red {
+  color: #ef4444 !important;
+}
+
+/* Global components overlays */
+.homework-studio .particles { position: absolute; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.homework-studio .particle { position: absolute; border-radius: 50%; animation: floatUp linear infinite; opacity: 0; }
+.homework-studio .confetti-container { position: fixed; inset: 0; pointer-events: none; z-index: 999; }
+.homework-studio .confetti-piece { position: absolute; animation: confettiFall linear forwards; opacity: 0; }
+@keyframes confettiFall { 0% { transform: translateY(-10vh) rotate(0); opacity: 1; } 100% { transform: translateY(110vh) rotate(720deg); opacity: 0; } }
+
+/* Student toast alerts moved to student-studio.css */
+
+.homework-studio .hidden { display: none !important; }
+.homework-studio .q-type-badge { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 4px 12px; border-radius: 6px; display: inline-block; margin-bottom: 14px; border: 1px solid transparent; }
+.homework-studio .q-type-badge.mcq { background: rgba(42, 77, 215, 0.06); color: var(--accent); border-color: rgba(42, 77, 215, 0.12); }
+.homework-studio .q-type-badge.fill { background: rgba(59, 170, 111, 0.06); color: var(--correct); border-color: rgba(59, 170, 111, 0.12); }
+.homework-studio .q-type-badge.blanks { background: rgba(245, 158, 11, 0.07); color: #b45309; border-color: rgba(245, 158, 11, 0.14); }
+.homework-studio .q-type-badge.drag { background: rgba(42, 77, 215, 0.06); color: var(--accent); border-color: rgba(42, 77, 215, 0.12); }
+.homework-studio .q-text { font-size: 0.95rem; line-height: 1.5; font-weight: 600; color: var(--text); }
+
+/* Custom animations card exit/enter styles */
+.homework-studio .card-exit-left { animation: slideOutLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards !important; }
+.homework-studio .card-enter-right { animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) both !important; }
+.homework-studio .card-exit-right { animation: slideOutRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards !important; }
+.homework-studio .card-enter-left { animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) both !important; }
+
+/* Student notebook themes & floatUp animations moved to student-studio.css */
+
+/* ==========================================================================
+   Premium SaaS Style Overlays & Portal Gateway Selector
+   ========================================================================== */
+
+.homework-studio {
+  --slate-50: #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+}
+
+/* Scoped SaaS Styles for Teacher Console Cards */
+.homework-studio .saas-card-wrapper {
+  animation: fadeUp .6s cubic-bezier(.22,1,.36,1) both;
+}
+.homework-studio .saas-card {
+  background: var(--surface);
+  border: 1px solid var(--slate-200) !important;
+  border-radius: var(--radius);
+  padding: 28px;
+  box-shadow: none !important;
+  margin-bottom: 20px;
+}
+.homework-studio .saas-section-title {
+  display: flex;
+  align-items: center;
+  font-size: .84rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--slate-600);
+  margin-bottom: 16px;
+  font-weight: 800;
+}
+.homework-studio .saas-pill {
+  background: var(--slate-50) !important;
+  border: 1px solid var(--slate-200) !important;
+  color: var(--slate-900) !important;
+}
+.homework-studio .saas-progress-list .t-bd-row {
+  border-bottom: 1px solid var(--slate-100);
+  padding: 14px 0;
+}
+.homework-studio .saas-progress-list .t-bd-row:last-child {
+  border-bottom: none;
+}
+.homework-studio .saas-progress-list .t-bd-bar {
+  background: var(--slate-100);
+  border-radius: 8px;
+  height: 8px;
+}
+.homework-studio .saas-tip-card {
+  display: flex;
+  gap: 14px;
+  padding: 20px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, rgba(91, 106, 191, 0.04), rgba(212, 84, 138, 0.03));
+  border: 1px dashed rgba(91, 106, 191, 0.25);
+  margin-top: 24px;
+}
+.homework-studio .saas-tip-card h4 {
+  font-size: 0.94rem;
+  font-weight: 800;
+  margin: 0 0 4px;
+  color: var(--slate-900);
+}
+
+/* Accordion Collapsing Transitions */
+.homework-studio .saas-accordion-panel {
+  transition: border 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+  overflow: hidden;
+  margin-bottom: 16px !important;
+  padding: 0 !important;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.homework-studio .saas-accordion-panel .panel-header {
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  background: var(--surface);
+  transition: background 0.2s;
+}
+.homework-studio .saas-accordion-panel .panel-header:hover {
+  background: var(--surface-2);
+}
+.homework-studio .saas-accordion-panel .panel-content {
+  padding: 0 24px;
+  border-top: 1px solid transparent;
+  background: var(--surface);
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: 
+    max-height 0.45s cubic-bezier(0.16, 1, 0.3, 1), 
+    opacity 0.35s ease-in-out, 
+    padding 0.45s cubic-bezier(0.16, 1, 0.3, 1), 
+    border-color 0.4s;
+}
+.homework-studio .saas-accordion-panel.expanded .panel-content {
+  max-height: 850px;
+  opacity: 1;
+  padding: 24px 24px 28px;
+  border-top: 1px solid var(--border);
+}
+.homework-studio .saas-accordion-panel.expanded {
+  border: 2px solid var(--accent);
+  box-shadow: var(--shadow-md);
+}
+.homework-studio .saas-accordion-panel .arrow-icon {
+  transition: transform 0.3s;
+  color: var(--text-dim);
+}
+.homework-studio .saas-accordion-panel.expanded .arrow-icon {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+.homework-studio .panel-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.homework-studio .collapsed-summary {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--accent);
+  background: var(--accent-glow);
+  padding: 5px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* Saas cards inside builder accordion */
+.homework-studio .audience-section h3, .homework-studio .presets-section h3 {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+.homework-studio .presets-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+.homework-studio .preset-card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  position: relative;
+}
+.homework-studio .preset-card:hover {
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.homework-studio .preset-card.selected {
+  border: 2px solid var(--accent);
+  background: var(--accent-glow);
+}
+.homework-studio .preset-card:last-child:nth-child(odd) {
+  grid-column: span 2;
+}
+.homework-studio .preset-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.homework-studio .pc-title {
+  font-size: .95rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.homework-studio .pc-desc {
+  font-size: .8rem;
+  color: var(--text-dim);
+  font-weight: 600;
+  line-height: 1.45;
+  margin-bottom: 12px;
+  flex-grow: 1;
+}
+.homework-studio .hw-type-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+.homework-studio .hw-type-card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  height: 100%;
+  cursor: pointer;
+}
+.homework-studio .hw-type-card:hover {
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.homework-studio .hw-type-card.selected {
+  border: 2px solid var(--accent);
+  background: var(--accent-glow);
+}
+.homework-studio .htc-icon-wrapper {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--surface);
+  display: grid;
+  place-items: center;
+  margin-bottom: 12px;
+  border: 1px solid var(--slate-200);
+}
+.homework-studio .hw-type-card.selected .htc-icon-wrapper {
+  border-color: var(--accent);
+}
+.homework-studio .htc-title {
+  font-size: 0.94rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.homework-studio .htc-desc {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.45;
+  font-weight: 600;
+}
+.homework-studio .student-dashboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.homework-studio .student-pick-card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.homework-studio .student-pick-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.homework-studio .student-pick-card.selected {
+  border: 2px solid var(--accent);
+  background: var(--accent-glow);
+  box-shadow: 0 4px 16px rgba(42, 77, 215, 0.04);
+}
+.homework-studio .sp-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.homework-studio .sp-card-info {
+  flex: 1;
+}
+.homework-studio .sp-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: #fff;
+  font-size: 0.9rem;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.homework-studio .sp-name {
+  font-weight: 800;
+  font-size: 0.96rem;
+  color: var(--text);
+}
+.homework-studio .sp-detail {
+  font-size: 0.74rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.homework-studio .sp-tag-badge {
+  font-size: 0.66rem;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+.homework-studio .sp-tag-badge.weak { background: rgba(217,74,74,.08); color: var(--wrong); border: 1px solid rgba(217,74,74,0.15); }
+.homework-studio .sp-tag-badge.mid { background: rgba(212,160,60,.12); color: #b08828; border: 1px solid rgba(212,160,60,0.15); }
+.homework-studio .sp-tag-badge.strong { background: var(--correct-bg); color: var(--correct); border: 1px solid rgba(59,170,111,0.15); }
+.homework-studio .student-pick-card.selected .sp-profile {
+  max-height: 200px;
+  margin-top: 12px;
+  border-top: 1px dashed var(--border);
+  padding-top: 12px;
+}
+
+.homework-studio .manual-toggle-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  margin-top: 12px;
+  cursor: pointer;
+}
+.homework-studio .manual-toggle-checkbox input {
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+}
+.homework-studio .saas-recipe-card {
+  border: 1px solid var(--slate-200);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 4px 12px rgba(0,0,0,0.015);
+  background: var(--surface);
+}
+.homework-studio .saas-recipe-card h3 {
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--slate-600);
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.homework-studio .saas-recipe-card .recipe-row {
+  border-bottom: 1px solid var(--slate-100);
+  padding: 10px 0;
+}
+.homework-studio .saas-recipe-card .recipe-row:last-of-type {
+  border-bottom: none;
+}
+.homework-studio .saas-recipe-card .rr-ico {
+  display: flex;
+  align-items: center;
+}
+.homework-studio .saas-primary-btn {
+  background: var(--accent) !important;
+  box-shadow: none !important;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.homework-studio .saas-primary-btn:hover {
+  background: var(--hw-deep) !important;
+  box-shadow: none !important;
+}
+
+/* Scoped styles for the selector portal */
+.homework-studio .portal-container {
+  padding: 40px 10px 80px;
+  max-width: 960px;
+  margin: 0 auto;
+  text-align: center;
+  animation: fadeUp .6s ease both;
+}
+.homework-studio .portal-header {
+  margin-bottom: 48px;
+}
+.homework-studio .portal-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(91, 106, 191, 0.08);
+  color: var(--accent);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 16px;
+}
+.homework-studio .portal-header h1 {
+  font-size: 2.5rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  margin: 0 0 12px;
+}
+.homework-studio .portal-header p {
+  font-size: 1.05rem;
+  color: var(--text-dim);
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+  font-weight: 600;
+}
+.homework-studio .portal-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  margin-bottom: 40px;
+}
+@media(max-width: 768px) {
+  .homework-studio .portal-cards {
+    grid-template-columns: 1fr;
+  }
+}
+.homework-studio .portal-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 24px;
+  padding: 40px 32px;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-sm);
+}
+.homework-studio .portal-card:hover {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--accent);
+}
+.homework-studio .student-portal-card:hover {
+  border-color: var(--hw);
+}
+.homework-studio .portal-icon-wrapper {
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 24px;
+  position: relative;
+  color: #fff;
+}
+.homework-studio .portal-icon-wrapper.bg-indigo {
+  background: linear-gradient(135deg, var(--accent), #7a85d8);
+  box-shadow: 0 8px 24px var(--accent-glow);
+}
+.homework-studio .portal-icon-wrapper.bg-amber {
+  background: linear-gradient(135deg, var(--hw), #e59d5c);
+  box-shadow: 0 8px 24px var(--hw-soft);
+}
+.homework-studio .portal-card-body h3 {
+  font-size: 1.35rem;
+  font-weight: 900;
+  margin: 0 0 10px;
+  letter-spacing: -0.015em;
+}
+.homework-studio .portal-card-body p {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  line-height: 1.55;
+  font-weight: 600;
+  margin: 0 0 24px;
+}
+.homework-studio .portal-feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.homework-studio .portal-feature-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.homework-studio .feature-check {
+  color: var(--correct);
+  flex-shrink: 0;
+}
+.homework-studio .portal-btn {
+  width: 100%;
+  padding: 13px 0;
+  border-radius: 12px;
+  border: none;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 0.94rem;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  margin-top: auto;
+}
+.homework-studio .btn-indigo {
+  background: linear-gradient(135deg, var(--accent), #7a85d8);
+  box-shadow: 0 4px 14px var(--accent-glow);
+}
+.homework-studio .btn-amber {
+  background: linear-gradient(135deg, var(--hw), var(--hw-deep));
+  box-shadow: 0 4px 14px var(--hw-soft);
+}
+.homework-studio .portal-footer {
+  margin-top: 48px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+/* Student workspace playground dashboard moved to student-studio.css */
+
+/* Details and lists styling for preview nodes inside PreviewScreen */
+.homework-studio .preview-steps-list {
+  max-width: 660px;
+  margin: 0 auto;
+}
+.homework-studio .preview-step-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--slate-200);
+  margin-bottom: 10px;
+  animation: fadeUp .4s cubic-bezier(.22,1,.36,1) both;
+}
+.homework-studio .preview-step-row.is-q {
+  border-left: 4px solid var(--hw);
+}
+.homework-studio .preview-step-row.is-c {
+  border-left: 4px solid var(--accent);
+}
+.homework-studio .ps-icon-outer {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--slate-50);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1px solid var(--slate-200);
+}
+.homework-studio .ps-type-tag {
+  font-size: .64rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: .04em;
+}
+.homework-studio .ps-type-tag.content {
+  background: rgba(91,106,191,.1);
+  color: var(--accent);
+}
+.homework-studio .ps-type-tag.question {
+  background: var(--hw-soft);
+  color: var(--hw-deep);
+}
+.homework-studio .ps-remove-node-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  margin-left: 8px;
+}
+.homework-studio .ps-remove-node-btn:hover {
+  background: var(--wrong-bg);
+  color: var(--wrong);
+}
+.homework-studio .pb-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--correct-bg);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+/* Modern role-based top header bar - High-end flat minimal enterprise layout */
+.homework-studio .app-mode-bar-modern {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 28px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(196, 197, 215, 0.5);
+  margin-bottom: 26px;
+  box-shadow: 0 4px 20px rgba(42, 77, 215, 0.03);
+  animation: slideDown .6s cubic-bezier(.22,1,.36,1) both;
+}
+.homework-studio .logo-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--accent);
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+.homework-studio .brand-texts {
+  margin-left: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: left;
+}
+.homework-studio .brand-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  margin: 0;
+  line-height: 1.2;
+}
+.homework-studio .brand-subtitle {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-weight: 700;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+}
+.homework-studio .logo-sparkle {
+  color: #fff;
+}
+.homework-studio .amb-left {
+  display: flex;
+  align-items: center;
+}
+.homework-studio .amb-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.homework-studio .role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  border: 1px solid transparent;
+}
+.homework-studio .role-badge.teacher-badge {
+  background: var(--accent-4);
+  color: var(--accent-2);
+  border-color: rgba(69, 85, 186, 0.15);
+}
+.homework-studio .role-badge.student-badge {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-color: rgba(42, 77, 215, 0.15);
+}
+.homework-studio .portal-home-btn-premium {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.homework-studio .portal-home-btn-premium:hover {
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Static minimal status dot */
+.homework-studio .live-status-dot {
+  width: 6px;
+  height: 6px;
+  background-color: #3baa6f;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+  position: relative;
+}
+.homework-studio .live-status-dot.student {
+  background-color: var(--accent);
+}
+
+/* ==========================================================================
+   INTERACTIVE MATH SANDBOXES STYLE SYSTEM
+   ========================================================================== */
+
+/* Math Recap Card Container Layout */
+.homework-studio .math-recap-card-layout {
+  border-top: 5px solid var(--accent);
+}
+
+/* Balance Scale KG Sandbox */
+.homework-studio .math-sandbox-balance {
+  width: 100%;
+}
+.homework-studio .math-balance-visualizer {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  margin: 10px auto;
+  background: var(--slate-50);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--slate-200);
+  padding: 10px;
+}
+.homework-studio .balance-scale-svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.homework-studio .math-balance-badge {
+  position: absolute;
+  top: 35%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  background: var(--surface);
+  border: 3.5px solid var(--accent);
+  box-shadow: 0 0 18px var(--accent-glow);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  opacity: 0;
+  pointer-events: none;
+}
+.homework-studio .math-balance-badge.show {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+.homework-studio .badge-symbol {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: var(--accent);
+  font-family: 'Inter', sans-serif;
+  line-height: 1;
+}
+.homework-studio .math-balance-grid {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--slate-200);
+  text-align: center;
+}
+.homework-studio .math-balance-grid .grid-label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+.homework-studio .numbers-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+.homework-studio .num-pill {
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--slate-300);
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text);
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+.homework-studio .num-pill:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+  transform: translateY(-1.5px);
+}
+.homework-studio .num-pill:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.homework-studio .num-pill.chosen {
+  background: var(--slate-200);
+  color: var(--text-dim);
+  border-color: var(--slate-300);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Pizza Slicer Fractions G3 Sandbox */
+.homework-studio .math-sandbox-pizza {
+  width: 100%;
+}
+.homework-studio .pizza-svg-canvas {
+  width: 100%;
+  max-width: 380px;
+  height: auto;
+  margin: 0 auto;
+  overflow: visible;
+}
+.homework-studio .pizza-slice-interactive {
+  cursor: pointer;
+  transition: fill 0.25s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.2s;
+  outline: none;
+}
+.homework-studio .pizza-slice-interactive:hover {
+  filter: brightness(1.05) saturate(1.1);
+  stroke-width: 2.2px;
+}
+.homework-studio .pizzas-visual-container {
+  background: var(--slate-50);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--slate-200);
+  padding: 14px;
+}
+.homework-studio .pizza-sliders-grid {
+  margin-top: 14px;
+}
+.homework-studio .pizza-ctrl-panel {
+  background: var(--surface);
+  border: 1px solid var(--slate-200);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
+}
+.homework-studio .pizza-ctrl-panel.border-rose {
+  border-color: rgba(244, 63, 94, 0.25);
+  background: rgba(244, 63, 94, 0.01);
+}
+.homework-studio .ctrl-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.homework-studio .pizza-label {
+  font-family: 'Nunito', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.homework-studio .pizza-label.yellow {
+  color: #d97706;
+}
+.homework-studio .pizza-label.rose {
+  color: #e11d48;
+}
+.homework-studio .pizza-percentage {
+  color: var(--text-dim);
+  font-family: monospace;
+}
+.homework-studio .small-action-btn {
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: var(--slate-100);
+  border: 1px solid var(--slate-200);
+  color: var(--text-dim);
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+}
+.homework-studio .small-action-btn:hover {
+  background: var(--slate-200);
+  color: var(--text);
+}
+.homework-studio .small-action-btn.rose:hover {
+  background: #ffe4e6;
+  color: #be123c;
+  border-color: rgba(244, 63, 94, 0.3);
+}
+.homework-studio .denom-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  font-weight: 700;
+  margin-top: 2px;
+}
+.homework-studio .equiv-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--slate-100);
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s;
+  outline: none;
+}
+.homework-studio .equiv-toggle-btn:hover {
+  background: var(--slate-200);
+  color: var(--text);
+  border-color: var(--slate-300);
+}
+
+/* Pythagoras Theorem G7 Sandbox */
+.homework-studio .math-sandbox-pythagoras {
+  width: 100%;
+}
+.homework-studio .pythagoras-canvas-container {
+  background: var(--slate-50);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--slate-200);
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+}
+.homework-studio .pythagoras-svg-canvas {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  overflow: visible;
+}
+
+/* Global Math Sandboxes Sub Elements */
+.homework-studio .math-sandbox-insight {
+  background: rgba(42, 77, 215, 0.02);
+  border: 1.2px solid rgba(42, 77, 215, 0.08);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text);
+  font-weight: 650;
+  text-align: center;
+  box-shadow: inset 0 2px 6px rgba(42, 77, 215, 0.01);
+}
+
+/* Pop/Scale micro animations */
+@keyframes pop {
+  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+  70% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+.homework-studio .animate-pop {
+  animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes pulseSlow {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.65; }
+}
+.homework-studio .text-animated-pulse {
+  animation: pulseSlow 2s infinite ease-in-out;
+}
+
+/* ────────────────────────────────────────────────────────── */
+/* Math Concept Card Premium Takeaway Widgets Styling        */
+/* ────────────────────────────────────────────────────────── */
+.homework-studio .math-concept-takeaway {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.homework-studio .takeaway-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--accent);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-bottom-left-radius: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.homework-studio .takeaway-tip {
+  margin: 12px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+/* A. Balance Scale takeaway style */
+.homework-studio .takeaway-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+.homework-studio .takeaway-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.homework-studio .takeaway-item:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.05);
+}
+.homework-studio .takeaway-item .symbol {
+  font-size: 1.8rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.homework-studio .takeaway-item.greater .symbol {
+  color: #10b981;
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+.homework-studio .takeaway-item.less .symbol {
+  color: #f59e0b;
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+.homework-studio .takeaway-item.equal .symbol {
+  color: #6366f1;
+  text-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+}
+.homework-studio .takeaway-item .label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.homework-studio .takeaway-item .example {
+  font-size: 0.85rem;
+  font-weight: 800;
+  font-family: monospace;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: var(--text);
+}
+
+/* B. Fraction Anatomy takeaway style */
+.homework-studio .fraction-anatomy-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 10px 0;
+}
+.homework-studio .anatomy-part {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120px;
+}
+.homework-studio .anatomy-part .val {
+  font-size: 2.2rem;
+  font-weight: 900;
+  font-family: monospace;
+  line-height: 1;
+}
+.homework-studio .numerator-part .val {
+  color: #0ea5e9;
+  text-shadow: 0 0 12px rgba(14, 165, 233, 0.3);
+}
+.homework-studio .denominator-part .val {
+  color: #ec4899;
+  text-shadow: 0 0 12px rgba(236, 72, 153, 0.3);
+}
+.homework-studio .anatomy-part .label {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  text-align: center;
+  margin-top: 4px;
+}
+.homework-studio .fraction-bar-symbol {
+  font-size: 2.5rem;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+/* C. Pythagoras Formula takeaway style */
+.homework-studio .pythagoras-formula-display {
+  display: flex;
+  justify-content: center;
+  margin: 10px 0;
+}
+.homework-studio .formula-box {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.homework-studio .formula-box .term {
+  font-size: 1.8rem;
+  font-weight: 900;
+  font-family: monospace;
+}
+.homework-studio .formula-box .term-a {
+  color: #3b82f6;
+  text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+}
+.homework-studio .formula-box .term-b {
+  color: #10b981;
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+.homework-studio .formula-box .term-c {
+  color: #8b5cf6;
+  text-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
+}
+.homework-studio .formula-box .operator {
+  font-size: 1.4rem;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+.homework-studio .pythagoras-labels {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 12px;
+}
+.homework-studio .pythagoras-labels p {
+  margin: 0;
+}
+
+

@@ -1,5 +1,6 @@
 import type {
   ClassLevel,
+  DiagnosticRegion,
   DiagnosticReport,
   QuestionBankQuestion,
   Subject,
@@ -25,6 +26,7 @@ export interface CreateSessionInput {
   classLevel: ClassLevel;
   topic: string;
   maxQuestions: number;
+  region?: DiagnosticRegion;
 }
 
 export type DemoQuizQuestion = Omit<
@@ -48,6 +50,7 @@ export interface DemoLoadedQuiz {
   expectedLearningObjectives: string[];
   topicsInGrade?: string[];
   maxQuestions: number;
+  region?: DiagnosticRegion;
   gradeTargets?: Record<string, number>;
   questions: DemoQuizQuestion[];
   parentAssessmentId?: string;

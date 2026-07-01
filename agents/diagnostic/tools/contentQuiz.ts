@@ -10,6 +10,7 @@ import { getGradeTestPlan, getTopicTestQuestionCount } from "@/lib/quiz-counts";
 import type {
   BloomLevel,
   ClassLevel,
+  DiagnosticRegion,
   DifficultyBand,
   DragDropQuestionPayload,
   FitbQuestionPayload,
@@ -41,7 +42,18 @@ type ContentQuestionRow = {
   options: unknown;
   explanation: string | null;
   generation_metadata: unknown;
+  region?: string | null;
+  parent_id?: string | null;
 };
+
+export const DIAGNOSTIC_REGIONS = [
+  "US",
+  "UK",
+  "UAE",
+  "Ontario",
+  "Australia",
+] as const satisfies readonly DiagnosticRegion[];
+export const DEFAULT_DIAGNOSTIC_REGION: DiagnosticRegion = "US";
 
 const INTERACTIVE_QUESTION_TYPES = ["fitb", "drag_drop"] as const;
 const MIN_INTERACTIVE_QUESTION_COUNTS: Record<
@@ -167,6 +179,16 @@ function toClassLevel(value: string | null | undefined): ClassLevel {
   if (grade === 6) return "class6";
   if (grade === 7) return "class7";
   return "class8";
+}
+
+function toDiagnosticRegion(
+  value: string | null | undefined,
+): DiagnosticRegion {
+  const normalized = normalizeKey(value);
+  return (
+    DIAGNOSTIC_REGIONS.find((region) => normalizeKey(region) === normalized) ??
+    DEFAULT_DIAGNOSTIC_REGION
+  );
 }
 
 function toDbGrade(classLevel: ClassLevel) {
@@ -355,21 +377,89 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
       normalizeText(fitbPayload.hint ?? "") || explanationFromColumn;
     typedPayload = { ...fitbPayload, ...(questionSvg ? { questionSvg } : {}) };
   } else if (questionType === "matching") {
-    const matchingPayload = payload as unknown as MatchingQuestionPayload;
+    const matchingPayload = payload as any;
+
+    // Support both new (items/targets) and old (premises/responses) schema
+    let premises: string[] = matchingPayload.premises ?? [];
+    if (premises.length === 0 && Array.isArray(matchingPayload.items)) {
+      premises = matchingPayload.items.map(
+        (i: any) => i.label || i.text || i.value || "",
+      );
+    }
+    let responses: string[] = matchingPayload.responses ?? [];
+    if (responses.length === 0 && Array.isArray(matchingPayload.targets)) {
+      responses = matchingPayload.targets.map(
+        (t: any) => t.label || t.text || t.value || "",
+      );
+    }
+
+    let answerKey: any[] = matchingPayload.answerKey ?? [];
+    if (answerKey.length > 0 && answerKey[0].itemId) {
+      answerKey = answerKey.map((ans: any) => {
+        const itemObj = (matchingPayload.items || []).find(
+          (i: any) => i.id === ans.itemId,
+        );
+        const targetObj = (matchingPayload.targets || []).find(
+          (t: any) => t.id === ans.targetId,
+        );
+        return {
+          prompt: itemObj
+            ? itemObj.label || itemObj.text || ""
+            : ans.prompt || "",
+          match: targetObj
+            ? targetObj.label || targetObj.text || ""
+            : ans.match || "",
+        };
+      });
+    }
+
     explanation =
       normalizeText(matchingPayload.scoringGuidance ?? "") ||
       explanationFromColumn;
     typedPayload = {
       ...matchingPayload,
-      premises: matchingPayload.premises ?? [],
-      responses: matchingPayload.responses ?? [],
-      answerKey: matchingPayload.answerKey ?? [],
+      premises,
+      responses,
+      answerKey,
       ...(questionSvg ? { questionSvg } : {}),
     };
   } else if (questionType === "drag_drop") {
-    const dragDropPayload = payload as unknown as DragDropQuestionPayload;
-    const dropZones = dragDropPayload.dropZones ?? [];
-    const answerKey = dragDropPayload.answerKey ?? [];
+    const dragDropPayload = payload as any;
+
+    // Support both new (items/targets) and old (draggableItems/dropZones) schema
+    let draggableItems: string[] = dragDropPayload.draggableItems ?? [];
+    if (draggableItems.length === 0 && Array.isArray(dragDropPayload.items)) {
+      draggableItems = dragDropPayload.items.map(
+        (i: any) => i.label || i.text || i.value || "",
+      );
+    }
+
+    let dropZones: string[] = dragDropPayload.dropZones ?? [];
+    if (dropZones.length === 0 && Array.isArray(dragDropPayload.targets)) {
+      dropZones = dragDropPayload.targets.map(
+        (t: any) => t.label || t.text || t.value || "",
+      );
+    }
+
+    let answerKey: any[] = dragDropPayload.answerKey ?? [];
+    if (answerKey.length > 0 && answerKey[0].itemId) {
+      // Map itemId/targetId pointers back to actual string labels
+      answerKey = answerKey.map((ans: any) => {
+        const itemObj = (dragDropPayload.items || []).find(
+          (i: any) => i.id === ans.itemId,
+        );
+        const targetObj = (dragDropPayload.targets || []).find(
+          (t: any) => t.id === ans.targetId,
+        );
+        return {
+          item: itemObj ? itemObj.label || itemObj.text || "" : ans.item || "",
+          target: targetObj
+            ? targetObj.label || targetObj.text || ""
+            : ans.target || "",
+        };
+      });
+    }
+
     const visibleDropZones = dropZones.filter(
       (dropZone) => !isNotCorrectDropZone(dropZone),
     );
@@ -381,7 +471,7 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
       explanationFromColumn;
     typedPayload = {
       ...dragDropPayload,
-      draggableItems: dragDropPayload.draggableItems ?? [],
+      draggableItems,
       dropZones: visibleDropZones,
       answerKey: visibleAnswerKey,
       ...(questionSvg ? { questionSvg } : {}),
@@ -446,6 +536,15 @@ function buildQuestion(row: ContentQuestionRow): QuestionBankQuestion {
       ].join(" "),
     ),
     gradeLevel: row.grade_level ? normalizeText(row.grade_level) : undefined,
+    ...(row.region
+      ? {
+          region:
+            normalizeKey(row.region) === "global"
+              ? "global"
+              : toDiagnosticRegion(row.region),
+        }
+      : {}),
+    ...(row.parent_id ? { parentId: normalizeText(row.parent_id) } : {}),
     payload: typedPayload,
   };
 }
@@ -466,8 +565,10 @@ const CONTENT_QUESTION_SELECT = `
     difficulty_rating,
     options,
     explanation,
-    generation_metadata
-  FROM final_content_questions
+    generation_metadata,
+    region,
+    parent_id::text AS parent_id
+  FROM final_content_questions_1
 `;
 
 const QUESTION_VISUAL_MODE_TYPE_FILTER = `
@@ -518,9 +619,10 @@ async function loadDiagnosticQuizCatalog(): Promise<DemoQuizCatalog> {
         WHERE learning_objective IS NOT NULL AND btrim(learning_objective) <> ''
       ) AS learning_objectives,
       count(*)::int AS question_count
-    FROM final_content_questions
+    FROM final_content_questions_1
     WHERE question_text IS NOT NULL
       AND question_type IS NOT NULL
+      AND region IN ('global', '${DEFAULT_DIAGNOSTIC_REGION}')
       ${QUESTION_VISUAL_MODE_TYPE_FILTER}
       AND subject IS NOT NULL
       AND grade IS NOT NULL
@@ -589,6 +691,7 @@ async function loadTopicQuestions(input: {
   subject: Subject;
   classLevel: ClassLevel;
   topic: string;
+  region: DiagnosticRegion;
 }) {
   const rawTopics = getRawTopicNames(input.classLevel, input.topic);
   const result = await query(
@@ -596,13 +699,14 @@ async function loadTopicQuestions(input: {
       ${CONTENT_QUESTION_SELECT}
       WHERE subject = $1
         AND grade = $2
-        AND topic = ANY($3::text[])
+        AND topic = $3
+        AND region IN ('global', $4)
         AND question_text IS NOT NULL
         AND question_type IS NOT NULL
         ${QUESTION_VISUAL_MODE_TYPE_FILTER}
       ORDER BY learning_objective, difficulty_level, id
     `,
-    [input.subject, toDbGrade(input.classLevel), rawTopics],
+    [input.subject, toDbGrade(input.classLevel), input.topic, input.region],
   );
 
   const questions = toQuestions(result.rows as ContentQuestionRow[]);
@@ -615,6 +719,7 @@ async function loadTopicQuestions(input: {
 async function loadGradeQuestions(input: {
   subject: Subject;
   classLevel: ClassLevel;
+  region: DiagnosticRegion;
 }) {
   const targets = getGradeTestPlan(input.classLevel).difficultyTargets;
   const perTopicCandidateLimit = Math.max(
@@ -641,6 +746,8 @@ async function loadGradeQuestions(input: {
           options,
           explanation,
           generation_metadata,
+          region,
+          parent_id::text AS parent_id,
           row_number() OVER (
             PARTITION BY difficulty_level, topic
             ORDER BY
@@ -651,9 +758,10 @@ async function loadGradeQuestions(input: {
               END,
               random()
           ) AS topic_difficulty_rank
-        FROM final_content_questions
+        FROM final_content_questions_1
         WHERE subject = $1
           AND grade = $2
+          AND region IN ('global', $4)
           AND question_text IS NOT NULL
           AND question_type IS NOT NULL
           ${QUESTION_VISUAL_MODE_TYPE_FILTER}
@@ -673,12 +781,19 @@ async function loadGradeQuestions(input: {
         difficulty_rating,
         options,
         explanation,
-        generation_metadata
+        generation_metadata,
+        region,
+        parent_id
       FROM ranked_questions
       WHERE topic_difficulty_rank <= $3
       ORDER BY topic, learning_objective, difficulty_level, id
     `,
-    [input.subject, toDbGrade(input.classLevel), perTopicCandidateLimit],
+    [
+      input.subject,
+      toDbGrade(input.classLevel),
+      perTopicCandidateLimit,
+      input.region,
+    ],
   );
 
   return toQuestions(result.rows as ContentQuestionRow[]);
@@ -689,6 +804,7 @@ async function getPreviouslyAnsweredQuestionIds(input: {
   testMode: "topic" | "grade";
   subject: Subject;
   classLevel: ClassLevel;
+  region: DiagnosticRegion;
   topic?: string | null;
 }) {
   const normalizedStudentName = normalizeStudentName(input.studentId);
@@ -718,7 +834,8 @@ async function getPreviouslyAnsweredQuestionIds(input: {
           AND a.test_mode = $3
           AND a.subject = $4
           AND a.class_level = $2
-          AND ($5::text[] IS NULL OR a.topic = ANY($5::text[]))
+          AND ($5::text IS NULL OR a.topic = $5)
+          AND COALESCE(a.region, '${DEFAULT_DIAGNOSTIC_REGION}') = $6
         LIMIT 1000
       `,
       [
@@ -726,7 +843,10 @@ async function getPreviouslyAnsweredQuestionIds(input: {
         toDbGrade(input.classLevel),
         input.testMode,
         input.subject,
-        rawTopics,
+        input.testMode === "topic" && input.topic
+          ? normalizeText(input.topic)
+          : null,
+        input.region,
       ],
     );
 
@@ -787,6 +907,7 @@ async function loadRecurringTestQuestions(input: {
   failedTopics: string[];
   failedLOs: string[];
   excludedQuestionIds: string[];
+  region: DiagnosticRegion;
 }) {
   if (input.failedTopics.length === 0 && input.failedLOs.length === 0)
     return [];
@@ -800,6 +921,7 @@ async function loadRecurringTestQuestions(input: {
           topic = ANY($3::text[])
           OR learning_objective = ANY($5::text[])
         )
+        AND region IN ('global', $6)
         AND id::text != ALL($4::text[])
         AND question_text IS NOT NULL
         AND question_type IS NOT NULL
@@ -812,6 +934,7 @@ async function loadRecurringTestQuestions(input: {
       input.failedTopics,
       input.excludedQuestionIds,
       input.failedLOs,
+      input.region,
     ],
   );
 
@@ -1665,6 +1788,7 @@ export async function getQuizQuestionsByIds(input: {
   subject: Subject;
   classLevel: ClassLevel;
   topic?: string | null;
+  region?: DiagnosticRegion;
 }) {
   const questionIds = Array.from(new Set(input.questionIds.filter(Boolean)));
 
@@ -1734,10 +1858,15 @@ export async function getTopicQuizQuestions(input: {
   classLevel: ClassLevel;
   topic: string;
   maxQuestions: number;
+  region?: DiagnosticRegion;
   questions?: QuestionBankQuestion[];
 }) {
   const matchingQuestions =
-    input.questions ?? (await loadTopicQuestions(input));
+    input.questions ??
+    (await loadTopicQuestions({
+      ...input,
+      region: input.region ?? DEFAULT_DIAGNOSTIC_REGION,
+    }));
 
   const { questions, coverageWarnings } =
     selectQuestionsAcrossLearningObjectives(
@@ -1776,9 +1905,15 @@ export async function getTopicQuizQuestions(input: {
 export async function getGradeQuizQuestions(input: {
   subject: Subject;
   classLevel: ClassLevel;
+  region?: DiagnosticRegion;
   questions?: QuestionBankQuestion[];
 }) {
-  const gradeQuestions = input.questions ?? (await loadGradeQuestions(input));
+  const gradeQuestions =
+    input.questions ??
+    (await loadGradeQuestions({
+      ...input,
+      region: input.region ?? DEFAULT_DIAGNOSTIC_REGION,
+    }));
   const { questions, coverageWarnings } = selectQuestionsForGradeTest(
     gradeQuestions,
     input.classLevel,
@@ -1809,13 +1944,16 @@ export async function getTopicQuizForClient(input: {
   classLevel: ClassLevel;
   topic: string;
   maxQuestions: number;
+  region?: DiagnosticRegion;
 }) {
-  const matchingQuestions = await loadTopicQuestions(input);
+  const region = input.region ?? DEFAULT_DIAGNOSTIC_REGION;
+  const matchingQuestions = await loadTopicQuestions({ ...input, region });
   const seenQuestionIds = await getPreviouslyAnsweredQuestionIds({
     studentId: input.studentId,
     testMode: "topic",
     subject: input.subject,
     classLevel: input.classLevel,
+    region,
     topic: input.topic,
   });
   const quiz = await getTopicQuizQuestions({
@@ -1832,6 +1970,7 @@ export async function getTopicQuizForClient(input: {
 
   return {
     studentId: input.studentId,
+    region,
     testMode: "topic" as const,
     subject: quiz.subject,
     classLevel: quiz.classLevel,
@@ -1846,13 +1985,16 @@ export async function getGradeQuizForClient(input: {
   studentId: string;
   subject: Subject;
   classLevel: ClassLevel;
+  region?: DiagnosticRegion;
 }) {
-  const gradeQuestions = await loadGradeQuestions(input);
+  const region = input.region ?? DEFAULT_DIAGNOSTIC_REGION;
+  const gradeQuestions = await loadGradeQuestions({ ...input, region });
   const seenQuestionIds = await getPreviouslyAnsweredQuestionIds({
     studentId: input.studentId,
     testMode: "grade",
     subject: input.subject,
     classLevel: input.classLevel,
+    region,
   });
   const quiz = await getGradeQuizQuestions({
     ...input,
@@ -1872,6 +2014,7 @@ export async function getGradeQuizForClient(input: {
 
   return {
     studentId: input.studentId,
+    region,
     testMode: "grade" as const,
     subject: input.subject,
     classLevel: input.classLevel,
@@ -1922,10 +2065,12 @@ export async function getRecurringTestForClient(input: {
   studentId: string;
   subject: Subject;
   classLevel: ClassLevel;
+  region?: DiagnosticRegion;
   failedTopics: string[];
   failedLOs: string[];
   excludedQuestionIds: string[];
 }) {
+  const region = input.region ?? DEFAULT_DIAGNOSTIC_REGION;
   const targetCount = recurringTestQuestionCount(input.failedTopics.length);
 
   // Load fresh candidate questions from failed topics only, excluding seen IDs
@@ -1935,6 +2080,7 @@ export async function getRecurringTestForClient(input: {
     failedTopics: input.failedTopics,
     failedLOs: input.failedLOs,
     excludedQuestionIds: input.excludedQuestionIds,
+    region,
   });
 
   const selected = selectQuestionsForRecurringTest(candidates, targetCount);
@@ -1942,6 +2088,7 @@ export async function getRecurringTestForClient(input: {
 
   return {
     studentId: input.studentId,
+    region,
     testMode: "recurring" as const,
     subject: input.subject,
     classLevel: input.classLevel,
@@ -2066,5 +2213,385 @@ export async function getPlacementQuizForClient(input: {
     ),
     maxQuestions: sortedQuestions.length,
     questions: sortedQuestions.map(toClientQuizQuestion),
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Generic question-serving API                                              */
+/*  Flexible, filterable read access over the question banks. Reuses the same */
+/*  row -> typed-question mapping (buildQuestion) as the diagnostic flow so    */
+/*  the output shape is identical everywhere.                                  */
+/* -------------------------------------------------------------------------- */
+
+/** Which physical question bank a request reads from. */
+export type QuestionSource = "diagnostic" | "placement";
+
+export const QUESTION_SOURCES = ["diagnostic", "placement"] as const;
+export const QUESTION_TYPES = [
+  "mcq",
+  "true_false",
+  "fitb",
+  "matching",
+  "drag_drop",
+  "short_answer",
+  "word_problem",
+  "open_response",
+] as const satisfies readonly QuestionType[];
+export const DIFFICULTY_BANDS = ["easy", "medium", "hard"] as const;
+
+/**
+ * Bloom levels accepted by the *filter*. The diagnostic type system collapses
+ * to three buckets, but the raw banks also store "Analyzing" — exposed here as
+ * `analyze` so callers can target it precisely. (Output `bloomLevel` still maps
+ * analyze -> apply, matching the rest of the diagnostic pipeline.)
+ */
+export const BLOOM_LEVELS = ["remember", "understand", "apply"] as const;
+// The banks store six Bloom buckets (Knowing/Understanding/Applying/Analyzing/
+// Evaluating/Creating). Filtering supports all six; output `bloomLevel` still
+// collapses the upper three to "apply" (existing diagnostic behaviour).
+export const BLOOM_FILTERS = [
+  "remember",
+  "understand",
+  "apply",
+  "analyze",
+  "evaluate",
+  "create",
+] as const;
+export type BloomFilter = (typeof BLOOM_FILTERS)[number];
+
+export const DIFFICULTY_RATING_MIN = 1;
+export const DIFFICULTY_RATING_MAX = 5;
+
+export const QUESTION_ORDERINGS = [
+  "default",
+  "random",
+  "difficulty",
+  "difficulty_desc",
+  "rating",
+  "rating_desc",
+  "newest",
+  "oldest",
+] as const;
+
+export type QuestionOrdering = (typeof QUESTION_ORDERINGS)[number];
+
+/**
+ * Canonical question type -> every spelling that appears in the DB.
+ * Lets us filter accurately at the SQL layer even though the source data is
+ * inconsistent (e.g. "drag n drop" vs "drag_drop").
+ */
+const QUESTION_TYPE_DB_ALIASES: Record<QuestionType, string[]> = {
+  mcq: ["mcq"],
+  true_false: ["true_false"],
+  fitb: ["fitb"],
+  matching: ["matching"],
+  drag_drop: ["drag_drop", "drag n drop", "drag_n_drop", "drag-and-drop"],
+  short_answer: ["short_answer"],
+  word_problem: ["word_problem"],
+  open_response: ["open_response"],
+};
+
+const BLOOM_DB_ALIASES: Record<BloomFilter, string[]> = {
+  remember: ["remember", "remembering", "knowing"],
+  understand: ["understand", "understanding"],
+  apply: ["apply", "applying"],
+  analyze: ["analyze", "analyse", "analyzing"],
+  evaluate: ["evaluate", "evaluating"],
+  create: ["create", "creating"],
+};
+
+const PLACEMENT_QUESTION_SELECT = `
+  SELECT
+    id::text,
+    question_type,
+    question_text,
+    subject,
+    grade,
+    grade_level,
+    topic,
+    subtopic,
+    learning_objective,
+    blooms_level,
+    difficulty_level,
+    difficulty_rating,
+    options,
+    explanation,
+    generation_metadata
+  FROM placement_test_questions_v2
+`;
+
+const DIFFICULTY_ORDER_SQL = `
+  CASE lower(btrim(difficulty_level))
+    WHEN 'easy' THEN 0
+    WHEN 'medium' THEN 1
+    WHEN 'hard' THEN 2
+    ELSE 3
+  END`;
+
+export interface ServeQuestionsFilters {
+  source: QuestionSource;
+  subject?: Subject;
+  classLevel?: ClassLevel;
+  /** Only applied to the region-aware diagnostic bank. */
+  region: DiagnosticRegion;
+  /** Exact (case-insensitive) topic match; accepts several. */
+  topics?: string[];
+  subtopics?: string[];
+  learningObjectives?: string[];
+  questionTypes?: QuestionType[];
+  difficulties?: DifficultyBand[];
+  blooms?: BloomFilter[];
+  /** difficulty_rating bounds (1-5). */
+  minRating?: number;
+  maxRating?: number;
+  /** Restrict to / exclude specific question ids. */
+  ids?: string[];
+  excludeIds?: string[];
+  /** Placement only — e.g. "Q1". */
+  questionNumber?: string;
+  /** Case-insensitive substring match on the question text. */
+  search?: string;
+}
+
+export interface ServeQuestionsParams extends ServeQuestionsFilters {
+  order: QuestionOrdering;
+  limit: number;
+  offset: number;
+}
+
+export interface ServeQuestionsResult {
+  questions: QuestionBankQuestion[];
+  total: number;
+}
+
+/**
+ * Builds the shared FROM/WHERE clause (and bound values) for a filter set, so
+ * the list, count, and facet queries all apply identical predicates.
+ */
+function buildQuestionFilters(filters: ServeQuestionsFilters): {
+  table: string;
+  isPlacement: boolean;
+  where: string;
+  values: unknown[];
+} {
+  const isPlacement = filters.source === "placement";
+  const table = isPlacement
+    ? "placement_test_questions_v2"
+    : "final_content_questions_1";
+
+  const conditions: string[] = [
+    "question_text IS NOT NULL",
+    "question_type IS NOT NULL",
+  ];
+  const values: unknown[] = [];
+  const bind = (value: unknown) => {
+    values.push(value);
+    return `$${values.length}`;
+  };
+  const lowerList = (items: string[]) =>
+    items.map((item) => item.trim().toLowerCase()).filter(Boolean);
+
+  if (filters.subject) conditions.push(`subject = ${bind(filters.subject)}`);
+  if (filters.classLevel) {
+    conditions.push(`grade = ${bind(toDbGrade(filters.classLevel))}`);
+  }
+
+  if (filters.topics?.length) {
+    conditions.push(
+      `lower(btrim(topic)) = ANY(${bind(lowerList(filters.topics))}::text[])`,
+    );
+  }
+  if (filters.subtopics?.length) {
+    conditions.push(
+      `lower(btrim(subtopic)) = ANY(${bind(lowerList(filters.subtopics))}::text[])`,
+    );
+  }
+  if (filters.learningObjectives?.length) {
+    conditions.push(
+      `lower(btrim(learning_objective)) = ANY(${bind(
+        lowerList(filters.learningObjectives),
+      )}::text[])`,
+    );
+  }
+  if (filters.search) {
+    conditions.push(`question_text ILIKE ${bind(`%${filters.search}%`)}`);
+  }
+
+  if (filters.questionTypes?.length) {
+    const spellings = filters.questionTypes.flatMap(
+      (type) => QUESTION_TYPE_DB_ALIASES[type],
+    );
+    conditions.push(
+      `lower(btrim(question_type)) = ANY(${bind(spellings)}::text[])`,
+    );
+  }
+  if (filters.difficulties?.length) {
+    conditions.push(
+      `lower(btrim(difficulty_level)) = ANY(${bind(filters.difficulties)}::text[])`,
+    );
+  }
+  if (filters.blooms?.length) {
+    const spellings = filters.blooms.flatMap(
+      (bloom) => BLOOM_DB_ALIASES[bloom],
+    );
+    conditions.push(
+      `lower(btrim(blooms_level)) = ANY(${bind(spellings)}::text[])`,
+    );
+  }
+  if (typeof filters.minRating === "number") {
+    conditions.push(`difficulty_rating >= ${bind(filters.minRating)}`);
+  }
+  if (typeof filters.maxRating === "number") {
+    conditions.push(`difficulty_rating <= ${bind(filters.maxRating)}`);
+  }
+
+  if (filters.ids?.length) {
+    conditions.push(`id = ANY(${bind(filters.ids)}::uuid[])`);
+  }
+  if (filters.excludeIds?.length) {
+    conditions.push(`id <> ALL(${bind(filters.excludeIds)}::uuid[])`);
+  }
+
+  // Region + visual-mode filters only exist on the diagnostic bank.
+  if (!isPlacement) {
+    conditions.push(`region IN ('global', ${bind(filters.region)})`);
+    conditions.push(`(
+      visual_mode IS NULL
+      OR lower(btrim(visual_mode)) <> 'question_svg'
+      OR lower(btrim(question_type)) = 'mcq'
+    )`);
+  } else if (filters.questionNumber) {
+    conditions.push(`question_number = ${bind(filters.questionNumber)}`);
+  }
+
+  return {
+    table,
+    isPlacement,
+    where: `WHERE ${conditions.join("\n    AND ")}`,
+    values,
+  };
+}
+
+/**
+ * Filterable, paginated read over a question bank.
+ * Returns fully-typed questions (with answer keys); callers decide whether to
+ * strip them for client delivery via `toClientQuizQuestion`.
+ */
+export async function serveQuestions(
+  params: ServeQuestionsParams,
+): Promise<ServeQuestionsResult> {
+  const { table, isPlacement, where, values } = buildQuestionFilters(params);
+
+  const countResult = await query(
+    `SELECT count(*)::int AS total FROM ${table} ${where}`,
+    values,
+  );
+  const total: number = countResult.rows[0]?.total ?? 0;
+
+  const orderBy = (() => {
+    switch (params.order) {
+      case "random":
+        return "ORDER BY random()";
+      case "difficulty":
+        return `ORDER BY ${DIFFICULTY_ORDER_SQL}, id`;
+      case "difficulty_desc":
+        return `ORDER BY ${DIFFICULTY_ORDER_SQL} DESC, id`;
+      case "rating":
+        return "ORDER BY difficulty_rating ASC NULLS LAST, id";
+      case "rating_desc":
+        return "ORDER BY difficulty_rating DESC NULLS LAST, id";
+      case "newest":
+        return "ORDER BY created_at DESC NULLS LAST, id";
+      case "oldest":
+        return "ORDER BY created_at ASC NULLS LAST, id";
+      default:
+        return isPlacement
+          ? "ORDER BY id"
+          : "ORDER BY subject, grade, topic, learning_objective, difficulty_level, id";
+    }
+  })();
+
+  const listValues = [...values, params.limit, params.offset];
+  const limitPlaceholder = `$${listValues.length - 1}`;
+  const offsetPlaceholder = `$${listValues.length}`;
+  const select = isPlacement
+    ? PLACEMENT_QUESTION_SELECT
+    : CONTENT_QUESTION_SELECT;
+
+  const result = await query(
+    `${select} ${where} ${orderBy} LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}`,
+    listValues,
+  );
+
+  return {
+    questions: toQuestions(result.rows as ContentQuestionRow[]),
+    total,
+  };
+}
+
+export interface QuestionFacetBucket {
+  value: string;
+  count: number;
+}
+
+export interface QuestionFacets {
+  total: number;
+  byQuestionType: QuestionFacetBucket[];
+  byDifficulty: QuestionFacetBucket[];
+  byBloom: QuestionFacetBucket[];
+  byRating: QuestionFacetBucket[];
+  byGrade: QuestionFacetBucket[];
+  byTopic: QuestionFacetBucket[];
+}
+
+/**
+ * Aggregated counts for the questions matching a filter set — useful for
+ * "what do we have?" dashboards and for sizing a quiz before fetching it.
+ */
+export async function getQuestionFacets(
+  filters: ServeQuestionsFilters,
+): Promise<QuestionFacets> {
+  const { table, where, values } = buildQuestionFilters(filters);
+
+  const facetOf = async (expr: string, limit = 100) => {
+    const result = await query(
+      `SELECT ${expr} AS value, count(*)::int AS count
+       FROM ${table} ${where}
+       GROUP BY ${expr}
+       ORDER BY count DESC, value ASC
+       LIMIT ${limit}`,
+      values,
+    );
+    return result.rows
+      .filter((row: { value: unknown }) => row.value !== null)
+      .map((row: { value: unknown; count: number }) => ({
+        value: String(row.value),
+        count: row.count,
+      }));
+  };
+
+  const totalResult = await query(
+    `SELECT count(*)::int AS total FROM ${table} ${where}`,
+    values,
+  );
+
+  const [byQuestionType, byDifficulty, byBloom, byRating, byGrade, byTopic] =
+    await Promise.all([
+      facetOf("lower(btrim(question_type))"),
+      facetOf("lower(btrim(difficulty_level))"),
+      facetOf("btrim(blooms_level)"),
+      facetOf("difficulty_rating::text"),
+      facetOf("grade"),
+      facetOf("topic", 200),
+    ]);
+
+  return {
+    total: totalResult.rows[0]?.total ?? 0,
+    byQuestionType,
+    byDifficulty,
+    byBloom,
+    byRating,
+    byGrade,
+    byTopic,
   };
 }

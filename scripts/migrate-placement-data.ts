@@ -79,9 +79,14 @@ function sanitizeJson(val: any) {
 }
 
 async function migrate() {
-  const csvPath = path.resolve(process.cwd(), "csv/placement test.csv");
-  const content = fs.readFileSync(csvPath, "utf-8");
-  const data = parseCSV(content);
+  const csvFiles = [
+    "placement test.csv",
+    "one.csv",
+    "two.csv",
+    "three.csv",
+    "four.csv",
+    "five.csv"
+  ];
 
   const client = await pool.connect();
   try {
@@ -202,15 +207,16 @@ async function migrate() {
     }
 
     await client.query("COMMIT");
-    console.log("Migration completed successfully.");
-  } catch (error) {
-    await client.query("ROLLBACK");
-    console.error("Migration failed:", error);
-  } finally {
-    client.release();
-    await pool.end();
-    process.exit();
+    console.log(`Migration of ${fileName} completed successfully.`);
   }
+  } catch (error) {
+  await client.query("ROLLBACK");
+  console.error("Migration failed:", error);
+} finally {
+  client.release();
+  await pool.end();
+  process.exit();
+}
 }
 
 migrate();

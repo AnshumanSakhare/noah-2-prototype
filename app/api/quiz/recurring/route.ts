@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 
-import { getRecurringTestForClient } from "@/agents/diagnostic/tools/contentQuiz";
-import type { ClassLevel, Subject } from "@/agents/diagnostic/types/index";
+import {
+  DEFAULT_DIAGNOSTIC_REGION,
+  DIAGNOSTIC_REGIONS,
+  getRecurringTestForClient,
+} from "@/agents/diagnostic/tools/contentQuiz";
+import type {
+  ClassLevel,
+  DiagnosticRegion,
+  Subject,
+} from "@/agents/diagnostic/types/index";
 import pool from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -30,6 +38,7 @@ export async function POST(request: Request) {
       student_id: string;
       subject: string;
       class_level: string;
+      region: string | null;
       readiness_score: number;
       topic_results: Array<{ topic: string; status: string }>;
       learning_objective_results: Array<{
@@ -38,7 +47,7 @@ export async function POST(request: Request) {
       }>;
     }>(
       `
-        SELECT id, student_id, subject, class_level, readiness_score, topic_results, learning_objective_results
+        SELECT id, student_id, subject, class_level, region, readiness_score, topic_results, learning_objective_results
         FROM diagnostic_assessments
         WHERE id = $1
       `,
@@ -52,6 +61,11 @@ export async function POST(request: Request) {
         { status: 404 },
       );
     }
+    const region = DIAGNOSTIC_REGIONS.includes(
+      assessment.region as DiagnosticRegion,
+    )
+      ? (assessment.region as DiagnosticRegion)
+      : DEFAULT_DIAGNOSTIC_REGION;
 
     // 2. Check if student is underperforming
     if (assessment.readiness_score >= UNDERPERFORMANCE_THRESHOLD) {
@@ -65,8 +79,8 @@ export async function POST(request: Request) {
     const topicResults: Array<{ topic: string; status: string }> =
       Array.isArray(assessment.topic_results) ? assessment.topic_results : [];
     const loResults: Array<{ learningObjective: string; score: number }> =
-      Array.isArray((assessment as any).learning_objective_results)
-        ? (assessment as any).learning_objective_results
+      Array.isArray(assessment.learning_objective_results)
+        ? assessment.learning_objective_results
         : [];
 
     const failedTopics = topicResults
@@ -102,6 +116,7 @@ export async function POST(request: Request) {
       subject: assessment.subject as Subject,
       classLevel:
         `class${assessment.class_level === "kg" ? "KG" : assessment.class_level}` as ClassLevel,
+      region,
       failedTopics,
       failedLOs,
       excludedQuestionIds,

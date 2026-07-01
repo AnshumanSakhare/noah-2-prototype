@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 
 import {
+  DEFAULT_DIAGNOSTIC_REGION,
+  DIAGNOSTIC_REGIONS,
   getDiagnosticQuizCatalog,
   getGradeQuizForClient,
   getPlacementQuizForClient,
   getTopicQuizForClient,
 } from "@/agents/diagnostic/tools/contentQuiz";
-import type { ClassLevel, Subject } from "@/agents/diagnostic/types/index";
+import type {
+  ClassLevel,
+  DiagnosticRegion,
+  Subject,
+} from "@/agents/diagnostic/types/index";
 import { getTopicTestQuestionCount } from "@/lib/quiz-counts";
 
 export const runtime = "nodejs";
@@ -21,6 +27,7 @@ export async function POST(request: Request) {
       topic?: string;
       testMode?: string;
       maxQuestions?: number;
+      region?: string;
     };
 
     const studentId = body.studentId?.trim() || "Riya Sharma";
@@ -30,6 +37,9 @@ export async function POST(request: Request) {
         : body.testMode === "grade"
           ? "grade"
           : "topic";
+    const region = DIAGNOSTIC_REGIONS.includes(body.region as DiagnosticRegion)
+      ? (body.region as DiagnosticRegion)
+      : DEFAULT_DIAGNOSTIC_REGION;
 
     if (testMode === "placement") {
       if (!body.subject || !body.classLevel) {
@@ -60,6 +70,7 @@ export async function POST(request: Request) {
         studentId,
         subject: body.subject as Subject,
         classLevel: body.classLevel as ClassLevel,
+        region,
       });
 
       return NextResponse.json({ quiz });
@@ -86,6 +97,7 @@ export async function POST(request: Request) {
       classLevel: entry.classLevel,
       topic: entry.topic,
       maxQuestions: getTopicTestQuestionCount(entry.learningObjectives.length),
+      region,
     });
 
     return NextResponse.json({ quiz });

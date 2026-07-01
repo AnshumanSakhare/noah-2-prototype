@@ -1,5 +1,11 @@
-import { ArrowRight, GraduationCap, Stethoscope } from "lucide-react";
 import Link from "next/link";
+import {
+  ArrowRight,
+  GraduationCap,
+  Stethoscope,
+  Database,
+  BookOpen,
+} from "lucide-react";
 
 const ASSESSMENT_OPTIONS = [
   {
@@ -20,12 +26,30 @@ const ASSESSMENT_OPTIONS = [
     icon: GraduationCap,
     accent: "#A78BFA",
   },
+  {
+    href: "/visualize-questions",
+    title: "Question Explorer",
+    tagline: "Explore the database",
+    description:
+      "Visualize all Multiple Choice, Fill in the Blanks, and Drag & Drop questions in the database with interactive formatting.",
+    icon: Database,
+    accent: "#F5A623",
+  },
+  {
+    href: "/homework-studio",
+    title: "Homework Studio",
+    tagline: "AI Homework Builder",
+    description:
+      "Create and run custom interactive homework journeys with recaps, flashcards, physics sandboxes, and mixed questions.",
+    icon: BookOpen,
+    accent: "#E8734A",
+  },
 ] as const;
 
 export default function HomePage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--bg-warm)] px-6 py-16">
-      <div className="w-full max-w-4xl">
+      <div className="w-full max-w-7xl">
         <div className="mb-12 text-center">
           <h1 className="text-4xl font-bold tracking-tight text-[var(--heading)] sm:text-5xl">
             Choose your assessment
@@ -35,7 +59,7 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {ASSESSMENT_OPTIONS.map(
             ({ href, title, tagline, description, icon: Icon, accent }) => (
               <Link
