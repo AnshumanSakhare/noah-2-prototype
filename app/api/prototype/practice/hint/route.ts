@@ -1,7 +1,6 @@
 import type { NextRequest } from "next/server";
 
 import { apiError, apiSuccess } from "@/lib/api-response";
-import { providerKeyConfigured, providerKeyName } from "@/lib/llm";
 import {
   generatePracticeHint,
   type HintLevel,
@@ -24,12 +23,10 @@ export const maxDuration = 60;
  * Stateless AI hint — the client passes its own try history; nothing is stored.
  */
 export async function POST(request: NextRequest) {
-  if (!providerKeyConfigured()) {
-    return apiError(
-      "INTERNAL_ERROR",
-      `${providerKeyName()} is not configured.`,
-      { status: 500 },
-    );
+  if (!process.env.OPENAI_API_KEY) {
+    return apiError("INTERNAL_ERROR", "OPENAI_API_KEY is not configured.", {
+      status: 500,
+    });
   }
 
   let body: {

@@ -1,5 +1,7 @@
 import "server-only";
 
+import OpenAI from "openai";
+import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import {
   serveQuestions,
@@ -9,7 +11,6 @@ import type {
   ClassLevel,
   DifficultyBand,
 } from "@/agents/diagnostic/types/index";
-import { llmStructured } from "@/lib/llm";
 import {
   gradePrototypeAnswers,
   PROTOTYPE_GRADES,
@@ -253,12 +254,10 @@ Rules:
 - Output ONLY the message text for the "content" field, no preamble, no markdown headers.`;
 
 const HintSchema = z.object({ content: z.string() });
-const HINT_JSON_SCHEMA = {
-  type: "object",
-  properties: { content: { type: "string" } },
-  required: ["content"],
-  additionalProperties: false,
-} as const;
+// Prototypes use OpenAI only. Call OpenAI directly here (not the provider-
+// switching llmStructured) so hints never route to Bedrock/Claude.
+// minimal reasoning + bounded output ⇒ faster hints.
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4";
 
 /**
  * Generate the next AI hint for a question. Stateless: the client passes the
@@ -273,52 +272,63 @@ export async function generatePracticeHint(opts: {
 }): Promise<PracticeHint> {
   const { questionId, grade, level, tries } = opts;
 
-  const { questions } = await serveQuestions({
-    source: "diagnostic",
-    region: "US",
-    ids: [questionId],
-    order: "default",
-    limit: 1,
-    offset: 0,
-  });
-  const q = questions[0];
-  if (!q) throw new Error(`Question ${questionId} not found`);
-
-  // The display-ready correct answer (only used to steer the model + reveal).
-  const check = await gradePrototypeAnswers([
-    { id: questionId, kind: "diagnostic", studentAnswer: undefined },
+  // Fetch the question + its correct answer in parallel (both hit the DB).
+  const [served, check] = await Promise.all([
+    serveQuestions({
+      source: "diagnostic",
+      region: "US",
+      ids: [questionId],
+      order: "default",
+      limit: 1,
+      offset: 0,
+    }),
+    gradePrototypeAnswers([
+      { id: questionId, kind: "diagnostic", studentAnswer: undefined },
+    ]),
   ]);
+  const q = served.questions[0];
+  if (!q) throw new Error(`Question ${questionId} not found`);
   const correctAnswer = check[0]?.correctAnswer ?? "—";
-
-  const recent = tries
-    .slice(-3)
-    .map(
-      (t, i) =>
-        `  ${i + 1}. "${t.answer}" (${t.correct ? "correct" : "wrong"})`,
-    )
-    .join("\n");
 
   const gradeLabelText = grade <= 0 ? "KG" : `Grade ${grade}`;
   const levelWord = level === 1 ? "nudge" : level === 2 ? "method" : "reveal";
 
+  // Level 1 (nudge) gets just the question — no previous-answer context.
+  // Levels 2 and 3 include the student's recent wrong tries to target the mistake.
+  let triesBlock = "";
+  if (level >= 2) {
+    const recent = tries
+      .slice(-3)
+      .map(
+        (t, i) =>
+          `  ${i + 1}. "${t.answer}" (${t.correct ? "correct" : "wrong"})`,
+      )
+      .join("\n");
+    triesBlock = `\nStudent's recent tries:\n${recent || "  (none yet)"}`;
+  }
+
   const user = `Student: ${gradeLabelText}
 Question: ${q.question}
-Correct answer (server-side, do not reveal unless level is reveal): ${correctAnswer}
-Student's recent tries:
-${recent || "  (none yet)"}
+Correct answer (server-side, do not reveal unless level is reveal): ${correctAnswer}${triesBlock}
 
 Give a LEVEL ${level} (${levelWord}) hint following the rules.`;
 
-  const { data } = await llmStructured<{ content: string }>({
-    system: HINT_SYSTEM,
-    user,
-    zodSchema: HintSchema,
-    schemaName: "practice_hint",
-    jsonSchema: HINT_JSON_SCHEMA,
-    toolName: "emit_practice_hint",
-    toolDescription: "Return one short, kid-friendly hint message.",
-    maxTokens: 400,
+  const openai = new OpenAI({ timeout: 30_000, maxRetries: 1 });
+  const response = await openai.responses.parse({
+    model: OPENAI_MODEL,
+    reasoning: { effort: "minimal" }, // fastest — effectively no reasoning
+    max_output_tokens: 300, // a hint is 1–2 sentences; bound generation time
+    input: [
+      { role: "system", content: HINT_SYSTEM },
+      { role: "user", content: user },
+    ],
+    text: {
+      verbosity: "low",
+      format: zodTextFormat(HintSchema, "practice_hint"),
+    },
   });
+  const data = response.output_parsed;
+  if (!data) throw new Error("OpenAI returned no parsed hint");
 
   const isReveal = level >= REVEAL_LEVEL;
   return {

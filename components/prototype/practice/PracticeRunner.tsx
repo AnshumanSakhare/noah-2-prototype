@@ -142,7 +142,7 @@ export default function PracticeRunner({
   const [finals, setFinals] = useState<
     Record<string, { answer: string; svg?: string }>
   >({});
-  const [helpUsed, setHelpUsed] = useState<Set<string>>(new Set());
+  const [hintCount, setHintCount] = useState(0); // total AI hints taken (all levels, all questions)
   const [wrongCount, setWrongCount] = useState(0);
   const [noah, setNoah] = useState<Noah>({ phase: "intro" });
   const [elapsed, setElapsed] = useState(0);
@@ -181,7 +181,7 @@ export default function PracticeRunner({
     if (isLast) {
       onComplete({
         elapsedMs: elapsed,
-        aiHelpCount: helpUsed.size,
+        aiHelpCount: hintCount,
         incorrectAttempts: wrongCount,
         log: questions.map((q) => ({
           index: q.index,
@@ -238,7 +238,6 @@ export default function PracticeRunner({
   };
 
   const requestHint = async (level: number) => {
-    setHelpUsed((prev) => new Set(prev).add(step.id));
     setNoah({ phase: "loading", level });
     try {
       const res = await fetch("/api/prototype/practice/hint", {
@@ -271,6 +270,7 @@ export default function PracticeRunner({
           [step.id]: { answer: revealAns, svg: matchedSvg },
         }));
       }
+      setHintCount((c) => c + 1);
       setNoah({
         phase: "hint",
         level: d.level,
