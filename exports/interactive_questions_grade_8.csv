@@ -11993,7 +11993,7 @@ function resetGame(){
 </script>
 </body>
 </html>","{""type"":""object"",""required"":[""chip_1_id"",""chip_1_label"",""chip_2_id"",""chip_2_label"",""chip_3_id"",""chip_3_label"",""chip_4_id"",""chip_4_label"",""bin_a_id"",""bin_a_label"",""bin_b_id"",""bin_b_label"",""bin_ab_id"",""bin_ab_label"",""bin_neither_id"",""bin_neither_label"",""set_a_label"",""set_b_label""],""properties"":{""bin_a_id"":{""type"":""string"",""description"":""Stable id for Cricket-only drop zone""},""bin_b_id"":{""type"":""string"",""description"":""Stable id for Football-only drop zone""},""bin_ab_id"":{""type"":""string"",""description"":""Stable id for Both (intersection) drop zone""},""chip_1_id"":{""type"":""string"",""description"":""Stable id for chip 1 (Cricket-only statement)""},""chip_2_id"":{""type"":""string"",""description"":""Stable id for chip 2 (Football-only statement)""},""chip_3_id"":{""type"":""string"",""description"":""Stable id for chip 3 (Both statement)""},""chip_4_id"":{""type"":""string"",""description"":""Stable id for chip 4 (Neither statement)""},""bin_a_label"":{""type"":""string"",""description"":""Label for Cricket-only drop zone""},""bin_b_label"":{""type"":""string"",""description"":""Label for Football-only drop zone""},""set_a_label"":{""type"":""string"",""description"":""Name of Set A circle (e.g. Cricket)""},""set_b_label"":{""type"":""string"",""description"":""Name of Set B circle (e.g. Football)""},""bin_ab_label"":{""type"":""string"",""description"":""Label for intersection drop zone""},""chip_1_label"":{""type"":""string"",""description"":""Display label for chip 1""},""chip_2_label"":{""type"":""string"",""description"":""Display label for chip 2""},""chip_3_label"":{""type"":""string"",""description"":""Display label for chip 3""},""chip_4_label"":{""type"":""string"",""description"":""Display label for chip 4""},""bin_neither_id"":{""type"":""string"",""description"":""Stable id for Neither drop zone""},""bin_neither_label"":{""type"":""string"",""description"":""Label for Neither drop zone""}}}","{""type"":""drag-drop"",""fields"":{""placements"":""{ [itemId]: binId }""}}",,,1,draft,2026-06-19T07:48:08.657Z,2026-06-19T07:48:08.657Z,draft,pending,2026-06-19T07:48:08.657Z,medium,Interactive AI
-ae7dc5d1-301c-4dec-9414-facc1b65532c,interactive,,Math,8,8,0,Logical Reasoning,,"Students can solve problems using Venn diagrams with two overlapping sets — determining Cricket-only, Football-only, Both, and Neither region counts from given totals and intersections.",,hard,,never_repeat,,,ai_generator,2026-06-19T07:51:45.924Z,2026-06-19T07:51:45.924Z,,3303f174-9bb6-4ebb-b12f-b3d6aee19eef,,3,,,,,,"{""variation_data"":{""total"":40,""card_a_id"":""c-v10"",""card_b_id"":""c-v5"",""card_c_id"":""c-v15"",""card_d_id"":""c-v20"",""both_given"":10,""card_a_label"":""10"",""card_b_label"":""5"",""card_c_label"":""15"",""card_d_label"":""20"",""zone_both_id"":""z-bt"",""cricket_total"":25,""label_cricket"":""Cricket"",""correct_a_zone"":""z-bt"",""correct_b_zone"":""z-ne"",""correct_c_zone"":""z-co"",""correct_d_zone"":""z-fo"",""football_total"":20,""label_football"":""Football"",""zone_neither_id"":""z-ne"",""zone_cricket_only_id"":""z-co"",""zone_football_only_id"":""z-fo""},""evaluation_spec"":{""type"":""drag-drop"",""answer"":{""c-v5"":""z-ne"",""c-v10"":""z-bt"",""c-v15"":""z-co"",""c-v20"":""z-fo""},""scoring"":""partial""},""locale"":""en-IN"",""content_hash"":null,""verifier_notes"":null}",,2026-06-19T07:51:45.924Z,ai_generator,gen-logical-reasoning-hard-v3-1781855505816,drag-drop,"<!DOCTYPE html>
+ae7dc5d1-301c-4dec-9414-facc1b65532c,interactive,,Math,8,8,0,Logical Reasoning,,"Students can solve problems using Venn diagrams with two overlapping sets — determining Cricket-only, Football-only, Both, and Neither region counts from given totals and intersections.",,hard,,never_repeat,,,ai_regenerator,2026-06-19T07:51:45.924Z,2026-06-29T11:03:55.854Z,,3303f174-9bb6-4ebb-b12f-b3d6aee19eef,,3,,,,,,"{""variation_data"":{""total"":40,""card_a_id"":""c-v10"",""card_b_id"":""c-v5"",""card_c_id"":""c-v15"",""card_d_id"":""c-v20"",""both_given"":10,""card_a_label"":""10"",""card_b_label"":""5"",""card_c_label"":""15"",""card_d_label"":""20"",""zone_both_id"":""z-bt"",""cricket_total"":25,""label_cricket"":""Cricket"",""correct_a_zone"":""z-bt"",""correct_b_zone"":""z-ne"",""correct_c_zone"":""z-co"",""correct_d_zone"":""z-fo"",""football_total"":20,""label_football"":""Football"",""zone_neither_id"":""z-ne"",""zone_cricket_only_id"":""z-co"",""zone_football_only_id"":""z-fo""},""evaluation_spec"":{""type"":""drag-drop"",""answer"":{""c-v5"":""z-ne"",""c-v10"":""z-bt"",""c-v15"":""z-co"",""c-v20"":""z-fo""},""scoring"":""partial""},""locale"":""en-IN"",""content_hash"":null,""verifier_notes"":null}",,2026-06-19T07:51:45.924Z,ai_regenerator,gen-logical-reasoning-hard-v3-1781855505816,drag-drop,"<!DOCTYPE html>
 <html lang=""en"">
 <head>
 <meta charset=""UTF-8"">
@@ -12016,78 +12016,71 @@ ae7dc5d1-301c-4dec-9414-facc1b65532c,interactive,,Math,8,8,0,Logical Reasoning,,
     --ease:cubic-bezier(.22,.61,.36,1);
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,""Segoe UI"",Roboto,Helvetica,Arial,sans-serif;
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,""Segoe UI"",Roboto,Helvetica,Arial,sans-serif;
     background:var(--c-bg);color:var(--c-ink-1);min-height:100vh;display:flex;
-    align-items:center;justify-content:center;padding:0;overflow:hidden}
+    align-items:center;justify-content:center;padding:0;overflow:hidden
+  }
 
   .game{width:760px;height:520px;max-width:100%;display:flex;flex-direction:column;
     align-items:center;justify-content:center;position:relative}
 
   .game__stage{width:100%;height:100%;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;gap:0;position:relative;
+    align-items:center;justify-content:center;position:relative;
     background:var(--c-panel);border-radius:var(--r-xl);overflow:hidden}
-
-  /* Subtle ruled-paper lines */
-  .ruled-bg{position:absolute;inset:0;pointer-events:none;opacity:.35}
 
   /* Problem banner */
   .problem-banner{
-    position:absolute;top:14px;left:50%;transform:translateX(-50%);
+    position:absolute;top:12px;left:50%;transform:translateX(-50%);
     background:var(--c-ink-1);color:#fff;border-radius:var(--r-pill);
-    padding:6px 20px;font-size:var(--text-sm);font-weight:700;letter-spacing:.02em;
+    padding:5px 18px;font-size:12px;font-weight:700;letter-spacing:.02em;
     white-space:nowrap;z-index:10;box-shadow:var(--shadow-pop)
   }
   .problem-banner span{color:var(--c-mango)}
 
-  /* Venn SVG wrapper */
-  .venn-area{
-    position:relative;width:100%;flex:1;display:flex;align-items:center;justify-content:center;
-    margin-top:44px;margin-bottom:0
+  /* Layout: venn on left, tray on right */
+  .content-row{
+    display:flex;flex-direction:row;align-items:center;justify-content:center;
+    gap:16px;width:100%;height:100%;padding:44px 18px 10px 18px;
   }
-  .venn-svg{display:block;overflow:visible}
 
-  /* Drop zone hit areas — absolutely positioned over the SVG */
+  /* Venn SVG wrapper */
+  .venn-wrapper{
+    position:relative;flex-shrink:0;
+  }
+
+  /* Drop zones absolutely positioned over the SVG */
   .venn-zones{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
 
   .drop-zone{
     position:absolute;display:flex;align-items:center;justify-content:center;
-    border-radius:50%;pointer-events:all;cursor:pointer;transition:background .15s var(--ease);
+    pointer-events:all;cursor:pointer;transition:background .15s var(--ease);
   }
-  .drop-zone.is-over{filter:brightness(.92)}
+  .drop-zone.is-over{filter:brightness(.90)}
 
   /* The placed card inside a zone */
   .zone-card{
-    width:52px;height:52px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;
-    font-size:22px;font-weight:800;color:#fff;box-shadow:var(--shadow-pop);
-    pointer-events:none;user-select:none;transition:transform .12s var(--ease)
+    width:48px;height:48px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;
+    font-size:18px;font-weight:800;color:#fff;box-shadow:var(--shadow-pop);
+    cursor:pointer;user-select:none;transition:transform .12s var(--ease);
+    pointer-events:all;
   }
 
-  /* Card tray */
+  /* Card tray — vertical stack on the right */
   .card-tray{
-    width:100%;display:flex;align-items:center;justify-content:center;gap:var(--s-4);
-    padding:10px 0 14px;position:relative;z-index:5
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:10px;flex-shrink:0;
   }
 
   .drag-card{
     width:62px;height:62px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;
-    font-size:24px;font-weight:800;color:#fff;cursor:grab;user-select:none;
+    font-size:22px;font-weight:800;color:#fff;cursor:grab;user-select:none;
     box-shadow:var(--shadow-pop);transition:transform .12s var(--ease),opacity .12s var(--ease);
-    touch-action:none;position:relative;
+    touch-action:none;
   }
   .drag-card:active{cursor:grabbing;transform:scale(1.1)}
   .drag-card.is-placed{opacity:0;pointer-events:none;transform:scale(.8)}
   .drag-card.is-selected{transform:scale(1.12);box-shadow:0 8px 24px rgba(108,92,231,.35);outline:3px solid #fff}
-
-  /* Zone labels */
-  .zone-label{
-    position:absolute;font-size:11px;font-weight:700;color:var(--c-ink-2);
-    text-transform:uppercase;letter-spacing:.05em;pointer-events:none;text-align:center;line-height:1.3
-  }
-
-  /* Circle labels */
-  .circle-label{
-    position:absolute;font-size:13px;font-weight:800;pointer-events:none;text-align:center;line-height:1.3
-  }
 
   @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
   @keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.1)}100%{transform:scale(1)}}
@@ -12099,147 +12092,150 @@ ae7dc5d1-301c-4dec-9414-facc1b65532c,interactive,,Math,8,8,0,Logical Reasoning,,
 <main class=""game"" role=""application"" aria-label=""Venn Verdict logical reasoning game for Grade 8"">
   <section class=""game__stage"" id=""stage"">
 
-    <!-- Ruled background SVG -->
-    <svg class=""ruled-bg"" viewBox=""0 0 760 520"" xmlns=""http://www.w3.org/2000/svg"" aria-hidden=""true"">
-      <g stroke=""#A0A4B8"" stroke-width=""1"">
-        <line x1=""0"" y1=""52"" x2=""760"" y2=""52""/>
-        <line x1=""0"" y1=""84"" x2=""760"" y2=""84""/>
-        <line x1=""0"" y1=""116"" x2=""760"" y2=""116""/>
-        <line x1=""0"" y1=""148"" x2=""760"" y2=""148""/>
-        <line x1=""0"" y1=""180"" x2=""760"" y2=""180""/>
-        <line x1=""0"" y1=""212"" x2=""760"" y2=""212""/>
-        <line x1=""0"" y1=""244"" x2=""760"" y2=""244""/>
-        <line x1=""0"" y1=""276"" x2=""760"" y2=""276""/>
-        <line x1=""0"" y1=""308"" x2=""760"" y2=""308""/>
-        <line x1=""0"" y1=""340"" x2=""760"" y2=""340""/>
-        <line x1=""0"" y1=""372"" x2=""760"" y2=""372""/>
-        <line x1=""0"" y1=""404"" x2=""760"" y2=""404""/>
-        <line x1=""0"" y1=""436"" x2=""760"" y2=""436""/>
-        <line x1=""0"" y1=""468"" x2=""760"" y2=""468""/>
-        <line x1=""0"" y1=""500"" x2=""760"" y2=""500""/>
-      </g>
-    </svg>
-
     <!-- Problem statement -->
     <div class=""problem-banner"" aria-live=""polite"">
-      In a group of <span>{{total}}</span> students: <span>{{cricket_total}}</span> play Cricket · <span>{{football_total}}</span> play Football · <span>{{both_given}}</span> play Both — Place the correct counts in each region
+      Group of <span>{{total}}</span> students · <span>{{cricket_total}}</span> play Cricket · <span>{{football_total}}</span> play Football · <span>{{both_given}}</span> play Both — Place the correct counts in each region
     </div>
 
-    <!-- Venn diagram area -->
-    <div class=""venn-area"" id=""vennArea"">
+    <!-- Main content row: Venn on left, cards tray on right -->
+    <div class=""content-row"">
 
-      <!-- SVG circles -->
-      <svg class=""venn-svg"" id=""vennSvg"" width=""580"" height=""280"" viewBox=""0 0 580 280"" aria-hidden=""true"">
-        <!-- Neither outer rectangle -->
-        <rect x=""4"" y=""4"" width=""572"" height=""272"" rx=""18"" fill=""none"" stroke=""#C8CADE"" stroke-width=""2"" stroke-dasharray=""6 4""/>
+      <!-- Venn diagram -->
+      <div class=""venn-wrapper"" id=""vennWrapper"">
+        <svg id=""vennSvg"" width=""540"" height=""360"" viewBox=""0 0 540 360"" aria-hidden=""true""
+             style=""display:block;overflow:visible"">
 
-        <!-- Cricket circle -->
-        <circle cx=""220"" cy=""140"" r=""108"" fill=""#ECEAFE"" fill-opacity=""0.72"" stroke=""#6C5CE7"" stroke-width=""3""/>
-        <!-- Football circle -->
-        <circle cx=""360"" cy=""140"" r=""108"" fill=""#E4F2FE"" fill-opacity=""0.72"" stroke=""#3BA7F5"" stroke-width=""3""/>
+          <!-- Neither outer rectangle -->
+          <rect x=""4"" y=""4"" width=""532"" height=""352"" rx=""16""
+                fill=""none"" stroke=""#C8CADE"" stroke-width=""2"" stroke-dasharray=""6 4""/>
 
-        <!-- Intersection clip path for visual blend -->
-        <defs>
-          <clipPath id=""cricketClip"">
-            <circle cx=""220"" cy=""140"" r=""108""/>
-          </clipPath>
-          <clipPath id=""footballClip"">
-            <circle cx=""360"" cy=""140"" r=""108""/>
-          </clipPath>
-        </defs>
-        <!-- Intersection highlight -->
-        <circle cx=""360"" cy=""140"" r=""108"" clip-path=""url(#cricketClip)"" fill=""#DDF8F2"" fill-opacity=""0.85"" stroke=""none""/>
+          <!-- Cricket circle -->
+          <circle cx=""200"" cy=""185"" r=""130""
+                  fill=""#ECEAFE"" fill-opacity=""0.75""
+                  stroke=""#6C5CE7"" stroke-width=""3""/>
+          <!-- Football circle -->
+          <circle cx=""340"" cy=""185"" r=""130""
+                  fill=""#E4F2FE"" fill-opacity=""0.75""
+                  stroke=""#3BA7F5"" stroke-width=""3""/>
 
-        <!-- Subtle tick marks on border -->
-        <line x1=""112"" y1=""140"" x2=""120"" y2=""140"" stroke=""#6C5CE7"" stroke-width=""2""/>
-        <line x1=""468"" y1=""140"" x2=""476"" y2=""140"" stroke=""#3BA7F5"" stroke-width=""2""/>
+          <!-- Intersection tint -->
+          <defs>
+            <clipPath id=""cClip""><circle cx=""200"" cy=""185"" r=""130""/></clipPath>
+          </defs>
+          <circle cx=""340"" cy=""185"" r=""130"" clip-path=""url(#cClip)""
+                  fill=""#DDF8F2"" fill-opacity=""0.85"" stroke=""none""/>
 
-        <!-- Circle header labels -->
-        <text x=""176"" y=""42"" text-anchor=""middle"" font-size=""13"" font-weight=""800"" fill=""#6C5CE7"" font-family=""-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"">{{label_cricket}}</text>
-        <text x=""403"" y=""42"" text-anchor=""middle"" font-size=""13"" font-weight=""800"" fill=""#3BA7F5"" font-family=""-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"">{{label_football}}</text>
+          <!-- Circle title labels -->
+          <text x=""160"" y=""46"" text-anchor=""middle"" font-size=""13"" font-weight=""800""
+                fill=""#6C5CE7""
+                font-family=""-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"">{{label_cricket}}</text>
+          <text x=""380"" y=""46"" text-anchor=""middle"" font-size=""13"" font-weight=""800""
+                fill=""#3BA7F5""
+                font-family=""-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"">{{label_football}}</text>
 
-        <!-- Region micro-labels -->
-        <text x=""166"" y=""155"" text-anchor=""middle"" font-size=""10"" font-weight=""700"" fill=""#52586F"" font-family=""-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"">Only</text>
-        <text x=""290"" y=""155"" text-anchor=""middle"" font-size=""10"" font-weight=""700"" fill=""#22C8A8"" font-family=""-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"">Both</text>
-        <text x=""414"" y=""155"" text-anchor=""middle"" font-size=""10"" font-weight=""700"" fill=""#52586F"" font-family=""-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"">Only</text>
-        <text x=""46"" y=""248"" text-anchor=""middle"" font-size=""10"" font-weight=""700"" fill=""#A0A4B8"" font-family=""-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"">Neither</text>
-      </svg>
+          <!-- Region micro-labels -->
+          <text x=""148"" y=""198"" text-anchor=""middle"" font-size=""10"" font-weight=""700""
+                fill=""#52586F""
+                font-family=""-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"">Only</text>
+          <text x=""270"" y=""198"" text-anchor=""middle"" font-size=""10"" font-weight=""700""
+                fill=""#22C8A8""
+                font-family=""-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"">Both</text>
+          <text x=""392"" y=""198"" text-anchor=""middle"" font-size=""10"" font-weight=""700""
+                fill=""#52586F""
+                font-family=""-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"">Only</text>
+          <text x=""40"" y=""340"" text-anchor=""middle"" font-size=""10"" font-weight=""700""
+                fill=""#A0A4B8""
+                font-family=""-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"">Neither</text>
 
-      <!-- Drop zones (positioned over SVG) -->
-      <div class=""venn-zones"" id=""vennZones"" aria-hidden=""true"">
+          <!-- Drop-zone hint circles (dashed, light) -->
+          <circle cx=""148"" cy=""185"" r=""42"" fill=""none"" stroke=""#6C5CE7"" stroke-width=""1.5""
+                  stroke-dasharray=""4 3"" opacity=""0.35""/>
+          <circle cx=""270"" cy=""185"" r=""42"" fill=""none"" stroke=""#22C8A8"" stroke-width=""1.5""
+                  stroke-dasharray=""4 3"" opacity=""0.35""/>
+          <circle cx=""392"" cy=""185"" r=""42"" fill=""none"" stroke=""#3BA7F5"" stroke-width=""1.5""
+                  stroke-dasharray=""4 3"" opacity=""0.35""/>
+          <rect x=""10"" y=""300"" width=""62"" height=""46"" rx=""8"" fill=""none""
+                stroke=""#A0A4B8"" stroke-width=""1.5"" stroke-dasharray=""4 3"" opacity=""0.45""/>
+        </svg>
 
-        <!-- Cricket Only zone -->
-        <div class=""drop-zone"" id=""zone-{{zone_cricket_only_id}}""
-          style=""left:82px;top:62px;width:130px;height:155px;border-radius:50% 0 0 50% / 50% 0 0 50%;background:transparent""
-          data-zone=""{{zone_cricket_only_id}}""
-          ondragover=""onDragOver(event,this)"" ondragleave=""onDragLeave(this)"" ondrop=""onDrop(event,this)""
-          onclick=""onZoneTap(this)""
-          aria-label=""Cricket only region"" tabindex=""0"" role=""button""
-          onkeydown=""if(event.key==='Enter'||event.key===' ')onZoneTap(this)"">
+        <!-- Drop zones -->
+        <div class=""venn-zones"" id=""vennZones"" aria-hidden=""true"">
+
+          <!-- Cricket Only zone -->
+          <div class=""drop-zone"" id=""zone-{{zone_cricket_only_id}}""
+               style=""left:106px;top:143px;width:84px;height:84px;border-radius:50%;""
+               data-zone=""{{zone_cricket_only_id}}""
+               ondragover=""onDragOver(event,this)"" ondragleave=""onDragLeave(this)"" ondrop=""onDrop(event,this)""
+               onclick=""onZoneTap(this)""
+               aria-label=""Cricket only region"" tabindex=""0"" role=""button""
+               onkeydown=""if(event.key==='Enter'||event.key===' ')onZoneTap(this)"">
+          </div>
+
+          <!-- Both zone -->
+          <div class=""drop-zone"" id=""zone-{{zone_both_id}}""
+               style=""left:228px;top:143px;width:84px;height:84px;border-radius:50%;""
+               data-zone=""{{zone_both_id}}""
+               ondragover=""onDragOver(event,this)"" ondragleave=""onDragLeave(this)"" ondrop=""onDrop(event,this)""
+               onclick=""onZoneTap(this)""
+               aria-label=""Both region"" tabindex=""0"" role=""button""
+               onkeydown=""if(event.key==='Enter'||event.key===' ')onZoneTap(this)"">
+          </div>
+
+          <!-- Football Only zone -->
+          <div class=""drop-zone"" id=""zone-{{zone_football_only_id}}""
+               style=""left:350px;top:143px;width:84px;height:84px;border-radius:50%;""
+               data-zone=""{{zone_football_only_id}}""
+               ondragover=""onDragOver(event,this)"" ondragleave=""onDragLeave(this)"" ondrop=""onDrop(event,this)""
+               onclick=""onZoneTap(this)""
+               aria-label=""Football only region"" tabindex=""0"" role=""button""
+               onkeydown=""if(event.key==='Enter'||event.key===' ')onZoneTap(this)"">
+          </div>
+
+          <!-- Neither zone -->
+          <div class=""drop-zone"" id=""zone-{{zone_neither_id}}""
+               style=""left:10px;top:300px;width:62px;height:46px;border-radius:var(--r-md);""
+               data-zone=""{{zone_neither_id}}""
+               ondragover=""onDragOver(event,this)"" ondragleave=""onDragLeave(this)"" ondrop=""onDrop(event,this)""
+               onclick=""onZoneTap(this)""
+               aria-label=""Neither region"" tabindex=""0"" role=""button""
+               onkeydown=""if(event.key==='Enter'||event.key===' ')onZoneTap(this)"">
+          </div>
+
         </div>
+      </div>
 
-        <!-- Both zone -->
-        <div class=""drop-zone"" id=""zone-{{zone_both_id}}""
-          style=""left:228px;top:62px;width:124px;height:155px;border-radius:var(--r-md);background:transparent""
-          data-zone=""{{zone_both_id}}""
-          ondragover=""onDragOver(event,this)"" ondragleave=""onDragLeave(this)"" ondrop=""onDrop(event,this)""
-          onclick=""onZoneTap(this)""
-          aria-label=""Both region"" tabindex=""0"" role=""button""
-          onkeydown=""if(event.key==='Enter'||event.key===' ')onZoneTap(this)"">
-        </div>
+      <!-- Card tray (vertical) -->
+      <div class=""card-tray"" id=""cardTray"" aria-label=""Value cards to place"">
 
-        <!-- Football Only zone -->
-        <div class=""drop-zone"" id=""zone-{{zone_football_only_id}}""
-          style=""left:368px;top:62px;width:130px;height:155px;border-radius:0 50% 50% 0 / 0 50% 50% 0;background:transparent""
-          data-zone=""{{zone_football_only_id}}""
-          ondragover=""onDragOver(event,this)"" ondragleave=""onDragLeave(this)"" ondrop=""onDrop(event,this)""
-          onclick=""onZoneTap(this)""
-          aria-label=""Football only region"" tabindex=""0"" role=""button""
-          onkeydown=""if(event.key==='Enter'||event.key===' ')onZoneTap(this)"">
-        </div>
+        <div class=""drag-card"" id=""card-{{card_a_id}}"" data-card=""{{card_a_id}}""
+             style=""background:var(--c-grape)"" draggable=""true""
+             ondragstart=""onDragStart(event,this)"" ondragend=""onDragEnd(this)""
+             onclick=""onCardTap(this)""
+             tabindex=""0"" role=""button"" aria-label=""Value card {{card_a_label}}""
+             onkeydown=""if(event.key==='Enter'||event.key===' ')onCardTap(this)"">{{card_a_label}}</div>
 
-        <!-- Neither zone -->
-        <div class=""drop-zone"" id=""zone-{{zone_neither_id}}""
-          style=""left:4px;top:217px;width:90px;height:54px;border-radius:var(--r-md);background:transparent""
-          data-zone=""{{zone_neither_id}}""
-          ondragover=""onDragOver(event,this)"" ondragleave=""onDragLeave(this)"" ondrop=""onDrop(event,this)""
-          onclick=""onZoneTap(this)""
-          aria-label=""Neither region"" tabindex=""0"" role=""button""
-          onkeydown=""if(event.key==='Enter'||event.key===' ')onZoneTap(this)"">
-        </div>
+        <div class=""drag-card"" id=""card-{{card_b_id}}"" data-card=""{{card_b_id}}""
+             style=""background:var(--c-mango)"" draggable=""true""
+             ondragstart=""onDragStart(event,this)"" ondragend=""onDragEnd(this)""
+             onclick=""onCardTap(this)""
+             tabindex=""0"" role=""button"" aria-label=""Value card {{card_b_label}}""
+             onkeydown=""if(event.key==='Enter'||event.key===' ')onCardTap(this)"">{{card_b_label}}</div>
+
+        <div class=""drag-card"" id=""card-{{card_c_id}}"" data-card=""{{card_c_id}}""
+             style=""background:var(--c-rose)"" draggable=""true""
+             ondragstart=""onDragStart(event,this)"" ondragend=""onDragEnd(this)""
+             onclick=""onCardTap(this)""
+             tabindex=""0"" role=""button"" aria-label=""Value card {{card_c_label}}""
+             onkeydown=""if(event.key==='Enter'||event.key===' ')onCardTap(this)"">{{card_c_label}}</div>
+
+        <div class=""drag-card"" id=""card-{{card_d_id}}"" data-card=""{{card_d_id}}""
+             style=""background:var(--c-mint)"" draggable=""true""
+             ondragstart=""onDragStart(event,this)"" ondragend=""onDragEnd(this)""
+             onclick=""onCardTap(this)""
+             tabindex=""0"" role=""button"" aria-label=""Value card {{card_d_label}}""
+             onkeydown=""if(event.key==='Enter'||event.key===' ')onCardTap(this)"">{{card_d_label}}</div>
 
       </div>
-    </div>
-
-    <!-- Card tray -->
-    <div class=""card-tray"" id=""cardTray"" aria-label=""Value cards to place"">
-      <div class=""drag-card"" id=""card-{{card_a_id}}"" data-card=""{{card_a_id}}""
-        style=""background:var(--c-grape)"" draggable=""true""
-        ondragstart=""onDragStart(event,this)"" ondragend=""onDragEnd(this)""
-        onclick=""onCardTap(this)""
-        tabindex=""0"" role=""button"" aria-label=""Value card {{card_a_label}}""
-        onkeydown=""if(event.key==='Enter'||event.key===' ')onCardTap(this)"">{{card_a_label}}</div>
-
-      <div class=""drag-card"" id=""card-{{card_b_id}}"" data-card=""{{card_b_id}}""
-        style=""background:var(--c-mango)"" draggable=""true""
-        ondragstart=""onDragStart(event,this)"" ondragend=""onDragEnd(this)""
-        onclick=""onCardTap(this)""
-        tabindex=""0"" role=""button"" aria-label=""Value card {{card_b_label}}""
-        onkeydown=""if(event.key==='Enter'||event.key===' ')onCardTap(this)"">{{card_b_label}}</div>
-
-      <div class=""drag-card"" id=""card-{{card_c_id}}"" data-card=""{{card_c_id}}""
-        style=""background:var(--c-rose)"" draggable=""true""
-        ondragstart=""onDragStart(event,this)"" ondragend=""onDragEnd(this)""
-        onclick=""onCardTap(this)""
-        tabindex=""0"" role=""button"" aria-label=""Value card {{card_c_label}}""
-        onkeydown=""if(event.key==='Enter'||event.key===' ')onCardTap(this)"">{{card_c_label}}</div>
-
-      <div class=""drag-card"" id=""card-{{card_d_id}}"" data-card=""{{card_d_id}}""
-        style=""background:var(--c-mint)"" draggable=""true""
-        ondragstart=""onDragStart(event,this)"" ondragend=""onDragEnd(this)""
-        onclick=""onCardTap(this)""
-        tabindex=""0"" role=""button"" aria-label=""Value card {{card_d_label}}""
-        onkeydown=""if(event.key==='Enter'||event.key===' ')onCardTap(this)"">{{card_d_label}}</div>
     </div>
 
   </section>
@@ -12280,9 +12276,9 @@ const CORRECT = {
 // ============================================================
 // STATE
 // ============================================================
-let placements   = {};   // { cardId: zoneId }
-let dragging     = null; // card id being dragged
-let tapSelected  = null; // card id picked by tap
+let placements  = {};   // { cardId: zoneId }
+let dragging    = null; // card id being dragged
+let tapSelected = null; // card id picked by tap
 
 // ============================================================
 // DRAG — HTML5
@@ -12315,14 +12311,12 @@ function onDrop(e, zone){
 // ============================================================
 function onCardTap(el){
   const cardId = el.dataset.card;
-  if(placements[cardId]) return; // already placed; must be returned first by tapping zone
+  if(placements[cardId]) return; // already placed; tap zone-card to return
   if(tapSelected === cardId){
-    // deselect
     tapSelected = null;
     el.classList.remove('is-selected');
     return;
   }
-  // deselect previous
   document.querySelectorAll('.drag-card.is-selected').forEach(c=>c.classList.remove('is-selected'));
   tapSelected = cardId;
   el.classList.add('is-selected');
@@ -12330,53 +12324,46 @@ function onCardTap(el){
 
 function onZoneTap(zone){
   const zoneId = zone.dataset.zone;
-  // If a card is tap-selected, place it
   if(tapSelected){
     placeCard(tapSelected, zoneId);
     tapSelected = null;
     document.querySelectorAll('.drag-card.is-selected').forEach(c=>c.classList.remove('is-selected'));
     return;
   }
-  // If zone already has a card, return it to tray
+  // If zone has a card, return it
   const existingCardId = Object.keys(placements).find(k=>placements[k]===zoneId);
-  if(existingCardId){
-    returnCard(existingCardId);
-  }
+  if(existingCardId){ returnCard(existingCardId); }
 }
 
 // ============================================================
 // CORE PLACEMENT LOGIC
 // ============================================================
 function placeCard(cardId, zoneId){
-  // If another card is already in this zone, swap it back
+  // Swap out any existing card in target zone
   const existing = Object.keys(placements).find(k=>placements[k]===zoneId);
   if(existing) returnCard(existing);
 
-  // If card was already placed somewhere, remove from that zone
+  // Remove card from previous zone if it was placed
   if(placements[cardId]) clearZoneDisplay(placements[cardId]);
 
   placements[cardId] = zoneId;
 
-  // Hide card from tray
   const cardEl = document.getElementById('card-'+cardId);
   if(cardEl) cardEl.classList.add('is-placed');
 
-  // Render card in zone
   renderZoneCard(cardId, zoneId);
-
   checkAnswer();
 }
 
 function returnCard(cardId){
-  clearZoneDisplay(placements[cardId]);
+  const prevZone = placements[cardId];
+  clearZoneDisplay(prevZone);
   delete placements[cardId];
   const cardEl = document.getElementById('card-'+cardId);
   if(cardEl){
     cardEl.classList.remove('is-placed','is-selected');
     cardEl.style.outline='';
   }
-  const zoneEl = document.getElementById('zone-'+Object.keys(CFG.zones).map(k=>CFG.zones[k]).find(z=>!Object.values(placements).includes(z)));
-  // nothing extra needed
 }
 
 function clearZoneDisplay(zoneId){
@@ -12396,11 +12383,9 @@ function renderZoneCard(cardId, zoneId){
   div.className = 'zone-card is-pop';
   div.style.background = cardCfg.color;
   div.textContent = cardCfg.label;
-  // Make zone-card clickable to return
-  div.style.pointerEvents='all';
-  div.style.cursor='pointer';
   div.setAttribute('title','Click to return card to tray');
-  div.addEventListener('click', ()=>{
+  div.addEventListener('click', (e)=>{
+    e.stopPropagation();
     returnCard(cardId);
   });
   zoneEl.appendChild(div);
@@ -12419,20 +12404,17 @@ function checkAnswer(el){
     Object.keys(state.placements).forEach(cid=>{
       const zEl = document.getElementById('zone-'+state.placements[cid]);
       if(zEl) zEl.style.outline='3px solid var(--c-grape)';
-      const cEl = document.getElementById('card-'+cid);
-      if(cEl) cEl.style.outline='3px solid var(--c-grape)';
     });
     window.parent.postMessage({ type:'EDUQUEST_ANSWER', answer: state }, '*');
     return;
   }
 
-  // Show per-zone feedback only when all 4 cards placed
   const placed = Object.keys(state.placements);
   if(placed.length < 4) return;
 
   placed.forEach(cid=>{
     const zoneId = state.placements[cid];
-    const zEl    = document.getElementById('zone-'+zoneId);
+    const zEl = document.getElementById('zone-'+zoneId);
     if(!zEl) return;
     const isRight = CORRECT[cid] === zoneId;
     zEl.style.outline = isRight
@@ -12453,16 +12435,13 @@ function resetGame(){
   dragging    = null;
   tapSelected = null;
 
-  // Restore all cards to tray
   document.querySelectorAll('.drag-card').forEach(c=>{
     c.classList.remove('is-placed','is-selected');
     c.style.outline='';
     c.style.opacity='';
   });
 
-  // Clear all zones
-  const allZoneIds = Object.values(CFG.zones);
-  allZoneIds.forEach(zid=>{
+  Object.values(CFG.zones).forEach(zid=>{
     const zEl = document.getElementById('zone-'+zid);
     if(!zEl) return;
     zEl.style.outline='';
@@ -12472,8 +12451,7 @@ function resetGame(){
 }
 </script>
 </body>
-</html>
-","{""type"":""object"",""required"":[""total"",""cricket_total"",""football_total"",""both_given"",""label_cricket"",""label_football"",""zone_cricket_only_id"",""zone_both_id"",""zone_football_only_id"",""zone_neither_id"",""card_a_id"",""card_a_label"",""card_b_id"",""card_b_label"",""card_c_id"",""card_c_label"",""card_d_id"",""card_d_label"",""correct_a_zone"",""correct_b_zone"",""correct_c_zone"",""correct_d_zone""],""properties"":{""total"":{""type"":""integer"",""description"":""Total number of students in the group""},""card_a_id"":{""type"":""string"",""description"":""Stable id for card A""},""card_b_id"":{""type"":""string"",""description"":""Stable id for card B""},""card_c_id"":{""type"":""string"",""description"":""Stable id for card C""},""card_d_id"":{""type"":""string"",""description"":""Stable id for card D""},""both_given"":{""type"":""integer"",""description"":""Students who play both sports""},""card_a_label"":{""type"":""string"",""description"":""Display value on card A""},""card_b_label"":{""type"":""string"",""description"":""Display value on card B""},""card_c_label"":{""type"":""string"",""description"":""Display value on card C""},""card_d_label"":{""type"":""string"",""description"":""Display value on card D""},""zone_both_id"":{""type"":""string"",""description"":""Stable id for the Both drop zone""},""cricket_total"":{""type"":""integer"",""description"":""Total students who play cricket (including both)""},""label_cricket"":{""type"":""string"",""description"":""Label for the left circle""},""correct_a_zone"":{""type"":""string"",""description"":""Zone id that card A must be placed in""},""correct_b_zone"":{""type"":""string"",""description"":""Zone id that card B must be placed in""},""correct_c_zone"":{""type"":""string"",""description"":""Zone id that card C must be placed in""},""correct_d_zone"":{""type"":""string"",""description"":""Zone id that card D must be placed in""},""football_total"":{""type"":""integer"",""description"":""Total students who play football (including both)""},""label_football"":{""type"":""string"",""description"":""Label for the right circle""},""zone_neither_id"":{""type"":""string"",""description"":""Stable id for the Neither drop zone""},""zone_cricket_only_id"":{""type"":""string"",""description"":""Stable id for the Cricket-only drop zone""},""zone_football_only_id"":{""type"":""string"",""description"":""Stable id for the Football-only drop zone""}}}","{""type"":""drag-drop"",""fields"":{""placements"":""{ [itemId]: binId }""}}",,,1,draft,2026-06-19T07:51:45.924Z,2026-06-19T07:51:45.924Z,draft,pending,2026-06-19T07:51:45.924Z,hard,Interactive AI
+</html>","{""type"":""object"",""required"":[""total"",""cricket_total"",""football_total"",""both_given"",""label_cricket"",""label_football"",""zone_cricket_only_id"",""zone_both_id"",""zone_football_only_id"",""zone_neither_id"",""card_a_id"",""card_a_label"",""card_b_id"",""card_b_label"",""card_c_id"",""card_c_label"",""card_d_id"",""card_d_label"",""correct_a_zone"",""correct_b_zone"",""correct_c_zone"",""correct_d_zone""],""properties"":{""total"":{""type"":""integer"",""description"":""Total number of students in the group""},""card_a_id"":{""type"":""string"",""description"":""Stable id for card A""},""card_b_id"":{""type"":""string"",""description"":""Stable id for card B""},""card_c_id"":{""type"":""string"",""description"":""Stable id for card C""},""card_d_id"":{""type"":""string"",""description"":""Stable id for card D""},""both_given"":{""type"":""integer"",""description"":""Students who play both sports""},""card_a_label"":{""type"":""string"",""description"":""Display value on card A""},""card_b_label"":{""type"":""string"",""description"":""Display value on card B""},""card_c_label"":{""type"":""string"",""description"":""Display value on card C""},""card_d_label"":{""type"":""string"",""description"":""Display value on card D""},""zone_both_id"":{""type"":""string"",""description"":""Stable id for the Both drop zone""},""cricket_total"":{""type"":""integer"",""description"":""Total students who play cricket (including both)""},""label_cricket"":{""type"":""string"",""description"":""Label for the left circle""},""correct_a_zone"":{""type"":""string"",""description"":""Zone id that card A must be placed in""},""correct_b_zone"":{""type"":""string"",""description"":""Zone id that card B must be placed in""},""correct_c_zone"":{""type"":""string"",""description"":""Zone id that card C must be placed in""},""correct_d_zone"":{""type"":""string"",""description"":""Zone id that card D must be placed in""},""football_total"":{""type"":""integer"",""description"":""Total students who play football (including both)""},""label_football"":{""type"":""string"",""description"":""Label for the right circle""},""zone_neither_id"":{""type"":""string"",""description"":""Stable id for the Neither drop zone""},""zone_cricket_only_id"":{""type"":""string"",""description"":""Stable id for the Cricket-only drop zone""},""zone_football_only_id"":{""type"":""string"",""description"":""Stable id for the Football-only drop zone""}}}","{""type"":""drag-drop"",""fields"":{""placements"":""{ [itemId]: binId }""}}",,,1,draft,2026-06-19T07:51:45.924Z,2026-06-19T07:51:45.924Z,draft,pending,2026-06-29T11:03:55.854Z,hard,Interactive AI
 b17b7102-bb30-4f3b-8503-84161cb6d4d8,interactive,,Math,8,8,0,One-Variable Linear Equations,,Students can solve linear equations with variables on both sides by identifying the correct solution value through substitution and verification.,,easy,,never_repeat,,,ai_generator,2026-06-14T15:26:17.893Z,2026-06-14T15:26:17.893Z,,3f7848d9-9662-4cf2-9619-93d0129bc122,,3,,,,,,"{""variation_data"":{""option_1_id"":""opt_x7"",""option_2_id"":""opt_x4"",""option_3_id"":""opt_x11"",""bin_wrong_id"":""bin_no"",""equation_text"":""5x + 4 = 3x + 18"",""bin_correct_id"":""bin_yes"",""option_1_label"":""x = 7"",""option_2_label"":""x = 4"",""option_3_label"":""x = 11"",""bin_wrong_label"":""Not a Solution"",""bin_correct_label"":""Correct Solution"",""answer_option_1_bin"":""bin_yes"",""answer_option_2_bin"":""bin_no"",""answer_option_3_bin"":""bin_no""},""evaluation_spec"":{""type"":""drag-drop"",""answer"":{""opt_x4"":""bin_no"",""opt_x7"":""bin_yes"",""opt_x11"":""bin_no""},""scoring"":""partial""},""locale"":""en-IN"",""content_hash"":null,""verifier_notes"":null}",,2026-06-14T15:26:17.893Z,ai_generator,gen-one-variable-linear-equations-easy-v3-1781450777800,drag-drop,"<!DOCTYPE html>
 <html lang=""en"">
 <head>
