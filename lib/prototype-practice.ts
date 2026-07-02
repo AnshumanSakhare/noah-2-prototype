@@ -316,7 +316,7 @@ Give a LEVEL ${level} (${levelWord}) hint following the rules.`;
   const openai = new OpenAI({ timeout: 30_000, maxRetries: 1 });
   const response = await openai.responses.parse({
     model: OPENAI_MODEL,
-    reasoning: { effort: "minimal" }, // fastest — effectively no reasoning
+    reasoning: { effort: "none" }, // no reasoning — fastest (gpt-5.4 supports none|low|medium|high|xhigh)
     max_output_tokens: 300, // a hint is 1–2 sentences; bound generation time
     input: [
       { role: "system", content: HINT_SYSTEM },
@@ -328,7 +328,16 @@ Give a LEVEL ${level} (${levelWord}) hint following the rules.`;
     },
   });
   const data = response.output_parsed;
-  if (!data) throw new Error("OpenAI returned no parsed hint");
+  if (!data) {
+    console.error("[practice/hint] no parsed output from OpenAI:", {
+      model: OPENAI_MODEL,
+      status: response.status,
+      incompleteDetails: response.incomplete_details,
+      outputText: response.output_text,
+      raw: JSON.stringify(response.output)?.slice(0, 800),
+    });
+    throw new Error("OpenAI returned no parsed hint");
+  }
 
   const isReveal = level >= REVEAL_LEVEL;
   return {

@@ -82,6 +82,25 @@ export async function POST(request: NextRequest) {
     });
     return apiSuccess(hint);
   } catch (error) {
+    // Verbose logging — surface the real cause (OpenAI APIError fields, stack).
+    const e = error as {
+      name?: string;
+      status?: number;
+      code?: string;
+      type?: string;
+      message?: string;
+      error?: unknown;
+      stack?: string;
+    };
+    console.error("[api/prototype/practice/hint] 500:", {
+      name: e?.name,
+      status: e?.status,
+      code: e?.code,
+      type: e?.type,
+      message: e?.message,
+      openaiError: e?.error,
+    });
+    console.error(e?.stack ?? error);
     return apiError(
       "INTERNAL_ERROR",
       error instanceof Error ? error.message : "Unable to generate hint.",
